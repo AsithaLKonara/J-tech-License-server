@@ -1,0 +1,66 @@
+name: Validate Installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+            python-version: '3.12'
+
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Build onefile EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --icon LEDMatrixStudio_icon.ico `
+            --add-data "config/chip_database.yaml;config" `
+            --add-data "config/app_config.yaml;config" `
+            --add-data "firmware/templates;firmware/templates" `
+            --add-data "config;config" `
+            main.py
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+
+      - name: Build Installer (ISCC)
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\UploadBridge_Installer.iss
+
+      - name: Validate Installer
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process Bypass -Force
+          tools\validate_installer.ps1 -Installer .\dist\UploadBridge_Setup_3.0.0.exe
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UploadBridge_Setup
+          path: dist/UploadBridge_Setup_3.0.0.exe
+
+      - name: Create GitHub Release
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.0.0-${{ github.run_number }}
+          name: Upload Bridge v3.0.0 (build ${{ github.run_number }})
+          files: |
+            dist/UploadBridge_Setup_3.0.0.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+

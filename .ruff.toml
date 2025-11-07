@@ -1,0 +1,16 @@
+target-version = "py311"
+line-length = 120
+
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "W",  # pycodestyle warnings
+    "I",  # isort
+    "T20",  # flake8-print (T201 etc.)
+]
+
+[per-file-ignores]
+"tests/**.py" = ["T201"]
+"test_*.py" = ["T201"]
+
+

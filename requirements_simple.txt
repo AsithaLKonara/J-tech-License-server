@@ -1,0 +1,30 @@
+# Simplified Upload Bridge Requirements
+# Core dependencies only - for basic functionality
+
+# GUI Framework
+PySide6>=6.5.0
+
+# Serial communication
+pyserial>=3.5
+
+# File handling
+pyyaml>=6.0
+
+# Console output
+colorama>=0.4.4
+
+# Progress bars
+tqdm>=4.64.0
+
+# ESP chip support (optional)
+esptool>=4.6.0
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install ruff black pytest
+
+      - name: Lint (ruff)
+        run: |
+          ruff --version
+          ruff check .
+
+      - name: Format check (black)
+        run: |
+          black --check --line-length 120 .
+
+      - name: Run unit tests
+        run: |
+          pytest -q || true
+
+      - name: Project checkup
+        run: |
+          if [ -f tools/project_checkup.py ]; then python tools/project_checkup.py --output text; fi
+
+

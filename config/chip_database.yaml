@@ -1,0 +1,191 @@
+# Upload Bridge - Chip Database
+# Configuration for all supported microcontrollers
+
+chips:
+  # ESP Family
+  esp8266:
+    name: "ESP8266"
+    family: "ESP"
+    flash_size: "4MB"
+    ram_size: "80KB"
+    uploader: "esp_uploader"
+    requirements: ["python -m esptool", "arduino-cli"]
+    bootloader_instructions: "Hold GPIO0 LOW, press RESET, release GPIO0"
+    default_gpio: 2
+    max_leds: 1000
+    
+  esp32:
+    name: "ESP32"
+    family: "ESP"
+    flash_size: "4MB"
+    ram_size: "520KB"
+    uploader: "esp_uploader"
+    requirements: ["python -m esptool", "arduino-cli"]
+    bootloader_instructions: "Hold BOOT button, press RESET, release BOOT"
+    default_gpio: 2
+    max_leds: 2000
+    
+  esp32s2:
+    name: "ESP32-S2"
+    family: "ESP"
+    flash_size: "4MB"
+    ram_size: "320KB"
+    uploader: "esp_uploader"
+    requirements: ["python -m esptool", "arduino-cli"]
+    bootloader_instructions: "Hold BOOT button, press RESET, release BOOT"
+    default_gpio: 2
+    max_leds: 1500
+    
+  esp32s3:
+    name: "ESP32-S3"
+    family: "ESP"
+    flash_size: "4MB"
+    ram_size: "512KB"
+    uploader: "esp_uploader"
+    requirements: ["python -m esptool", "arduino-cli"]
+    bootloader_instructions: "Hold BOOT button, press RESET, release BOOT"
+    default_gpio: 2
+    max_leds: 2000
+    
+  esp32c3:
+    name: "ESP32-C3"
+    family: "ESP"
+    flash_size: "4MB"
+    ram_size: "400KB"
+    uploader: "esp_uploader"
+    requirements: ["python -m esptool", "arduino-cli"]
+    bootloader_instructions: "Hold BOOT button, press RESET, release BOOT"
+    default_gpio: 2
+    max_leds: 1500
+
+  # AVR Family
+  atmega328p:
+    name: "ATmega328P"
+    family: "AVR"
+    flash_size: "32KB"
+    ram_size: "2KB"
+    uploader: "avr_uploader"
+    requirements: ["avrdude", "avr-gcc"]
+    bootloader_instructions: "Connect programmer to ICSP header"
+    default_gpio: 2
+    max_leds: 100
+    
+  atmega2560:
+    name: "ATmega2560"
+    family: "AVR"
+    flash_size: "256KB"
+    ram_size: "8KB"
+    uploader: "avr_uploader"
+    requirements: ["avrdude", "avr-gcc"]
+    bootloader_instructions: "Connect programmer to ICSP header"
+    default_gpio: 2
+    max_leds: 200
+    
+  attiny85:
+    name: "ATtiny85"
+    family: "AVR"
+    flash_size: "8KB"
+    ram_size: "512B"
+    uploader: "avr_uploader"
+    requirements: ["avrdude", "avr-gcc"]
+    bootloader_instructions: "Connect programmer to ICSP header"
+    default_gpio: 0
+    max_leds: 50
+
+  # STM32 Family
+  stm32f103c8:
+    name: "STM32F103C8"
+    family: "STM32"
+    flash_size: "64KB"
+    ram_size: "20KB"
+    uploader: "stm32_uploader"
+    requirements: ["stm32flash", "arm-none-eabi-gcc"]
+    bootloader_instructions: "Connect ST-Link debugger"
+    default_gpio: "PA0"
+    max_leds: 300
+    
+  stm32f401re:
+    name: "STM32F401RE"
+    family: "STM32"
+    flash_size: "512KB"
+    ram_size: "96KB"
+    uploader: "stm32_uploader"
+    requirements: ["stm32flash", "arm-none-eabi-gcc"]
+    bootloader_instructions: "Connect ST-Link debugger"
+    default_gpio: "PA0"
+    max_leds: 500
+
+  # PIC Family
+  pic16f876a:
+    name: "PIC16F876A"
+    family: "PIC"
+    flash_size: "8KB"
+    ram_size: "368B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer"
+    default_gpio: 0
+    max_leds: 50
+    
+  pic18f4550:
+    name: "PIC18F4550"
+    family: "PIC"
+    flash_size: "32KB"
+    ram_size: "2KB"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer"
+    default_gpio: 0
+    max_leds: 100
+
+  # Nuvoton Family
+  nuc123:
+    name: "NUC123"
+    family: "Nuvoton"
+    flash_size: "64KB"
+    ram_size: "20KB"
+    uploader: "numicro_uploader"
+    requirements: ["nu-link"]
+    bootloader_instructions: "Connect Nu-Link debugger"
+    default_gpio: 0
+    max_leds: 200
+    
+  nuc505:
+    name: "NUC505"
+    family: "Nuvoton"
+    flash_size: "128KB"
+    ram_size: "32KB"
+    uploader: "numicro_uploader"
+    requirements: ["nu-link"]
+    bootloader_instructions: "Connect Nu-Link debugger"
+    default_gpio: 0
+    max_leds: 300
+
+# Uploader configurations
+uploaders:
+  esp_uploader:
+    class: "EspUploader"
+    module: "uploaders.esp_uploader"
+    
+  avr_uploader:
+    class: "AvrUploader"
+    module: "uploaders.avr_uploader"
+    
+  stm32_uploader:
+    class: "Stm32Uploader"
+    module: "uploaders.stm32_uploader"
+    
+  pic_uploader:
+    class: "PicUploader"
+    module: "uploaders.pic_uploader"
+    
+  numicro_uploader:
+    class: "NuMicroUploader"
+    module: "uploaders.numicro_uploader"
+
+# Default settings
+defaults:
+  brightness: 1.0
+  frame_duration: 100
+  color_order: "RGB"
+  led_type: "ws2812"

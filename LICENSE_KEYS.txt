@@ -1,0 +1,25 @@
+Upload Bridge - Offline License Keys and Instructions
+
+How to Activate (Offline):
+1) Open the app.
+2) Menu → License → Activate License…
+3) Paste one of the keys below exactly as shown.
+4) Click Activate. Then check Menu → License → License Status.
+
+Keys (10):
+- ULBP-9Q2Z-7K3M-4X1A
+- ULBP-3N8V-5W6R-2T9C
+- ULBP-6F7H-2D3S-9L5Q
+- ULBP-1P4E-8C2J-7R6B
+- ULBP-5X9K-3M7V-1Q4Z
+- ULBP-7R2T-4W6Y-8H3N
+- ULBP-2D5S-9L1Q-6F8H
+- ULBP-8C3J-7R6B-1P4E
+- ULBP-4W6Y-8H3N-7R2T
+- ULBP-3M7V-1Q4Z-5X9K
+
+Notes:
+- Keys are offline; no internet required.
+- Each activation stores an encrypted, device-bound license.
+- To customize keys/features, edit: config/license_keys.yaml
+

@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg-info/
+
+# Installer and packaged binaries
+*.exe
+*.pkg
+*.msi
+*.zip
+*.tar
+*.gz
+*.whl
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# OS metadata
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,43 @@
+keys:
+  ULBP-9Q2Z-7K3M-4X1A:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+  ULBP-3N8V-5W6R-2T9C:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+  ULBP-6F7H-2D3S-9L5Q:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+  ULBP-1P4E-8C2J-7R6B:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload, advanced_controls]
+    expires_at: null
+  ULBP-5X9K-3M7V-1Q4Z:
+    product_id: upload_bridge_pro
+    features: [pattern_upload]
+    expires_at: null
+  ULBP-7R2T-4W6Y-8H3N:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+  ULBP-2D5S-9L1Q-6F8H:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+  ULBP-8C3J-7R6B-1P4E:
+    product_id: upload_bridge_pro
+    features: [pattern_upload]
+    expires_at: null
+  ULBP-4W6Y-8H3N-7R2T:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload, advanced_controls]
+    expires_at: null
+  ULBP-3M7V-1Q4Z-5X9K:
+    product_id: upload_bridge_pro
+    features: [pattern_upload, wifi_upload]
+    expires_at: null
+
+
