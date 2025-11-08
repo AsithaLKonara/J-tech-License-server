@@ -20,6 +20,7 @@ from ui.tabs.flash_tab import FlashTab
 from ui.tabs.wifi_upload_tab import WiFiUploadTab
 from ui.tabs.media_upload_tab import MediaUploadTab
 from ui.tabs.arduino_ide_tab import ArduinoIDETab
+from ui.tabs.design_tools_tab import DesignToolsTab
 try:
     from ui.dialogs.activation_dialog import ensure_activation_or_exit, ACTIVATION_FILE
 except Exception:
@@ -86,6 +87,7 @@ class UploadBridgeMainWindow(QMainWindow):
         # Lazy tab initialization - tabs created on first access
         self._tabs_initialized = {
             'media_upload': False,
+            'design_tools': False,
             'preview': False,
             'flash': False,
             'wifi_upload': False,
@@ -94,6 +96,7 @@ class UploadBridgeMainWindow(QMainWindow):
         
         # Store tab references
         self.media_upload_tab = None
+        self.design_tab = None
         self.preview_tab = None
         self.flash_tab = None
         self.wifi_upload_tab = None
@@ -101,6 +104,7 @@ class UploadBridgeMainWindow(QMainWindow):
         
         # Add placeholder tabs with lazy initialization
         self.tabs.addTab(self.create_placeholder_tab("🎬 Media Upload"), "🎬 Media Upload")
+        self.tabs.addTab(self.create_placeholder_tab("🎨 Design Tools"), "🎨 Design Tools")
         self.tabs.addTab(self.create_placeholder_tab("👁️ Preview"), "👁️ Preview")
         self.tabs.addTab(self.create_placeholder_tab("⚡ Flash"), "⚡ Flash")
         self.tabs.addTab(self.create_placeholder_tab("📡 WiFi Upload"), "📡 WiFi Upload")
@@ -148,7 +152,7 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def on_tab_changed(self, index: int):
         """Handle tab change - initialize tab if not already initialized"""
-        tab_names = ['media_upload', 'preview', 'flash', 'wifi_upload', 'arduino_ide']
+        tab_names = ['media_upload', 'design_tools', 'preview', 'flash', 'wifi_upload', 'arduino_ide']
         
         if 0 <= index < len(tab_names):
             tab_name = tab_names[index]
@@ -169,30 +173,38 @@ class UploadBridgeMainWindow(QMainWindow):
                 self.media_upload_tab.pattern_loaded.connect(self.load_pattern_from_media)
                 self._tabs_initialized['media_upload'] = True
                 
+            elif tab_name == 'design_tools' and self.design_tab is None:
+                self.design_tab = DesignToolsTab()
+                self.tabs.removeTab(1)
+                self.tabs.insertTab(1, self.design_tab, "🎨 Design Tools")
+                self.design_tab.pattern_modified.connect(self.on_pattern_modified)
+                self.design_tab.pattern_created.connect(self._on_design_pattern_created)
+                self._tabs_initialized['design_tools'] = True
+                
             elif tab_name == 'preview' and self.preview_tab is None:
                 self.preview_tab = PreviewTab()
-                self.tabs.removeTab(1)
-                self.tabs.insertTab(1, self.preview_tab, "👁️ Preview")
+                self.tabs.removeTab(2)
+                self.tabs.insertTab(2, self.preview_tab, "👁️ Preview")
                 self.preview_tab.pattern_modified.connect(self.on_pattern_modified)
                 self._tabs_initialized['preview'] = True
                 
             elif tab_name == 'flash' and self.flash_tab is None:
                 self.flash_tab = FlashTab()
-                self.tabs.removeTab(2)
-                self.tabs.insertTab(2, self.flash_tab, "⚡ Flash")
+                self.tabs.removeTab(3)
+                self.tabs.insertTab(3, self.flash_tab, "⚡ Flash")
                 self.flash_tab.flash_complete.connect(self.on_flash_complete)
                 self._tabs_initialized['flash'] = True
                 
             elif tab_name == 'wifi_upload' and self.wifi_upload_tab is None:
                 self.wifi_upload_tab = WiFiUploadTab()
-                self.tabs.removeTab(3)
-                self.tabs.insertTab(3, self.wifi_upload_tab, "📡 WiFi Upload")
+                self.tabs.removeTab(4)
+                self.tabs.insertTab(4, self.wifi_upload_tab, "📡 WiFi Upload")
                 self._tabs_initialized['wifi_upload'] = True
                 
             elif tab_name == 'arduino_ide' and self.arduino_ide_tab is None:
                 self.arduino_ide_tab = ArduinoIDETab()
-                self.tabs.removeTab(4)
-                self.tabs.insertTab(4, self.arduino_ide_tab, "🔧 Arduino IDE")
+                self.tabs.removeTab(5)
+                self.tabs.insertTab(5, self.arduino_ide_tab, "🔧 Arduino IDE")
                 self._tabs_initialized['arduino_ide'] = True
             
             # Load pattern if one is already loaded
@@ -213,6 +225,7 @@ class UploadBridgeMainWindow(QMainWindow):
         """Get a tab, initializing it if necessary"""
         tab_map = {
             'media_upload': (self.media_upload_tab, 'media_upload'),
+            'design_tools': (self.design_tab, 'design_tools'),
             'preview': (self.preview_tab, 'preview'),
             'flash': (self.flash_tab, 'flash'),
             'wifi_upload': (self.wifi_upload_tab, 'wifi_upload'),
@@ -866,6 +879,16 @@ class UploadBridgeMainWindow(QMainWindow):
                 f"Failed to load pattern in preview:\n{str(e)}\n\nCheck console for details."
             )
         
+        # Design Tools Tab (initialize and load)
+        try:
+            design_tab = self.get_tab('design_tools')
+            if design_tab and hasattr(design_tab, 'load_pattern'):
+                design_tab.load_pattern(pattern)
+                tabs_loaded.append("Design Tools")
+        except Exception as e:
+            tabs_failed.append(f"Design Tools: {str(e)}")
+            logging.getLogger(__name__).warning("Design Tools tab load failed: %s", e, exc_info=True)
+        
         # Flash Tab (initialize and load)
         try:
             flash = self.get_tab('flash')
@@ -897,6 +920,10 @@ class UploadBridgeMainWindow(QMainWindow):
         preview_tab = self.get_tab('preview')
         if preview_tab:
             self.tabs.setCurrentWidget(preview_tab)
+        else:
+            design_tab = self.get_tab('design_tools')
+            if design_tab:
+                self.tabs.setCurrentWidget(design_tab)
         
         # Update window title
         if file_path:
@@ -918,6 +945,11 @@ class UploadBridgeMainWindow(QMainWindow):
             "Pattern Loaded",
             f"Successfully loaded pattern:\n\n{pattern_info}"
         )
+
+    def _on_design_pattern_created(self, pattern: Pattern):
+        """Handle pattern exports from design tab."""
+        # When design tools emits a pattern, load it everywhere.
+        self.load_pattern_to_all_tabs(pattern, None)
     
     def load_pattern_from_media(self, pattern: Pattern):
         """Load pattern created from media conversion"""
