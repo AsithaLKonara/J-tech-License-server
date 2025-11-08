@@ -77,6 +77,8 @@ class PatternMetadata:
     already_unwrapped: bool = False  # Flag to prevent double-mapping during flash
     original_wiring_mode: Optional[str] = None  # File's original wiring format (for conversion)
     original_data_in_corner: Optional[str] = None  # File's original data-in corner (for conversion)
+    dimension_source: str = "unknown"  # 'header', 'detector', 'fallback', etc.
+    dimension_confidence: float = 0.0  # 0.0 - 1.0 confidence in width/height
     
     def __post_init__(self):
         """Validate metadata"""
@@ -88,6 +90,8 @@ class PatternMetadata:
             raise ValueError(f"Invalid color order: {self.color_order}")
         if not (0.0 <= self.brightness <= 1.0):
             raise ValueError(f"Brightness must be 0.0-1.0: {self.brightness}")
+        if not (0.0 <= self.dimension_confidence <= 1.0):
+            raise ValueError(f"Dimension confidence must be 0.0-1.0: {self.dimension_confidence}")
     
     @property
     def led_count(self) -> int:
@@ -471,6 +475,9 @@ class Pattern:
                 # Interpolation settings
                 "interpolation_enabled": getattr(self.metadata, 'interpolation_enabled', False),
                 "interpolation_factor": getattr(self.metadata, 'interpolation_factor', 1.0),
+                # Dimension detection metadata
+                "dimension_source": getattr(self.metadata, 'dimension_source', 'unknown'),
+                "dimension_confidence": getattr(self.metadata, 'dimension_confidence', 0.0),
             },
             "frames": [
                 {
@@ -516,6 +523,9 @@ class Pattern:
             # Interpolation settings
             interpolation_enabled=meta_dict.get('interpolation_enabled', False),
             interpolation_factor=meta_dict.get('interpolation_factor', 1.0),
+            # Dimension detection metadata
+            dimension_source=meta_dict.get('dimension_source', 'unknown'),
+            dimension_confidence=meta_dict.get('dimension_confidence', 0.0),
         )
         
         # Parse frames

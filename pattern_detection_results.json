@@ -1,0 +1,16 @@
+[
+  {
+    "file": "patterns/12x6 patterns/correct/12.6 columns down up.bin",
+    "width": 12,
+    "height": 12,
+    "frames": 67,
+    "leds": 144
+  },
+  {
+    "file": "patterns/12x6 patterns/correct/12.6 rows up down.bin",
+    "width": 9,
+    "height": 9,
+    "frames": 16,
+    "leds": 81
+  }
+]

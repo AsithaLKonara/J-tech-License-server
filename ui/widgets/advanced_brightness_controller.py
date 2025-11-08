@@ -192,8 +192,8 @@ class AdvancedBrightnessController(QWidget):
         
         self.led_type_combo = QComboBox()
         self.led_type_combo.addItems([
-            "ws2812", "ws2812b", "sk6812", "apa102", "apa102c", 
-            "dotstar", "neopixel", "generic"
+            "ws2811", "ws2812", "ws2812b", "sk6812", "apa102",
+            "apa102c", "dotstar", "neopixel", "generic"
         ])
         self.led_type_combo.currentTextChanged.connect(self.on_led_type_changed)
         led_layout.addWidget(self.led_type_combo)

@@ -418,6 +418,18 @@ class FlashTab(QWidget):
         
         self.pattern = pattern
         self.log(f"Pattern loaded: {pattern.frame_count} frames, {pattern.led_count} LEDs")
+        dim_source = getattr(pattern.metadata, 'dimension_source', 'unknown')
+        dim_conf = getattr(pattern.metadata, 'dimension_confidence', None)
+        if dim_conf is not None:
+            self.log(
+                f"Layout: {pattern.metadata.width}×{pattern.metadata.height} "
+                f"(source={dim_source}, confidence={dim_conf*100:.0f}%)"
+            )
+        else:
+            self.log(
+                f"Layout: {pattern.metadata.width}×{pattern.metadata.height} "
+                f"(source={dim_source})"
+            )
     
     def on_flash(self):
         """Flash button clicked - start build and upload"""

@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(__file__ + "/../../.."))
 
 from core.pattern import Pattern, Frame, PatternMetadata
+from core.dimension_scorer import pick_best_layout
 from .base_parser import ParserBase
 
 
@@ -147,11 +148,28 @@ class StandardFormatParser(ParserBase):
         if not frames:
             raise ValueError("No valid frames found in file")
         
+        guess = pick_best_layout(
+            num_leds,
+            frames[0].pixels,
+            include_strips=True
+        )
+        dimension_source = "detector"
+        dimension_confidence = 0.0
+        if guess:
+            width_guess, height_guess, score = guess
+            dimension_confidence = score
+        else:
+            width_guess, height_guess = num_leds, 1
+            dimension_source = "fallback"
+            dimension_confidence = 0.2
+
         # Create Pattern
         metadata = PatternMetadata(
-            width=num_leds,
-            height=1,
-            color_order="RGB"
+            width=width_guess,
+            height=height_guess,
+            color_order="RGB",
+            dimension_source=dimension_source,
+            dimension_confidence=dimension_confidence
         )
         
         pattern = Pattern(

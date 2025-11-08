@@ -8,6 +8,11 @@ import sys
 sys.path.insert(0, str(__file__ + "/../../.."))
 
 from core.pattern import Pattern, Frame, PatternMetadata
+from core.dimension_scorer import (
+    pick_best_layout,
+    infer_leds_and_frames,
+    COMMON_LED_COUNTS,
+)
 from .base_parser import ParserBase
 
 
@@ -155,6 +160,11 @@ class RawRGBParser(ParserBase):
         
         for frame_idx in range(num_frames):
             offset = frame_idx * bytes_per_frame
+            if offset + bytes_per_frame > len(data):
+                raise ValueError(
+                    f"Raw RGB data truncated before frame {frame_idx}; "
+                    "provide correct LED/frame counts or verify file integrity."
+                )
             pixels = []
             
             for led_idx in range(num_leds):
@@ -168,13 +178,29 @@ class RawRGBParser(ParserBase):
             frames.append(Frame(pixels=pixels, duration_ms=20))
         
         # Infer a plausible matrix layout for display (e.g., 12×6 instead of 72×1)
-        width_guess, height_guess = self._choose_matrix_dimensions(num_leds)
+        first_pixels = frames[0].pixels if frames else None
+        guess = pick_best_layout(
+            num_leds,
+            first_pixels,
+            include_strips=True
+        )
+        dimension_source = "detector"
+        dimension_confidence = 0.0
+        if guess:
+            width_guess, height_guess, score = guess
+            dimension_confidence = score
+        else:
+            width_guess, height_guess = num_leds, 1
+            dimension_source = "fallback"
+            dimension_confidence = 0.2
 
         # Create Pattern
         metadata = PatternMetadata(
             width=width_guess,
             height=height_guess,
-            color_order="RGB"
+            color_order="RGB",
+            dimension_source=dimension_source,
+            dimension_confidence=dimension_confidence
         )
         
         pattern = Pattern(
@@ -193,84 +219,12 @@ class RawRGBParser(ParserBase):
             Tuple of (num_leds, num_frames) or (None, None) if can't detect
         """
         
-        # Common LED counts to try (include frequently used matrices/strips)
-        common_led_counts = [
-            64,   # 8×8 matrix
-            72,   # 12×6 matrix (common)
-            76,   # custom/common use case
-            96,   # 12×8 matrix
-            100,  # Common strip
-            120,  # 12×10 matrix
-            144,  # 12×12 matrix
-            150,  # Common strip
-            160,  # 16×10 matrix
-            192,  # 16×12 matrix
-            256,  # 16×16 matrix
-            300,  # Large strip
-            320,  # Common
-            400,  # Very large
-            512   # Max common
-        ]
-
-        # Collect all plausible candidates and prefer those with reasonable frame counts
-        candidates = []  # (led_count, frames, score)
-        for led_count in common_led_counts:
-            if total_pixels % led_count == 0:
-                frames = total_pixels // led_count
-                if frames >= 2:
-                    score = 0
-                    # Prefer animations with more frames in a typical range
-                    if 10 <= frames <= 240:
-                        score += 3
-                    elif 5 <= frames <= 480:
-                        score += 2
-                    else:
-                        score += 1
-                    candidates.append((led_count, frames, score))
-
-        if candidates:
-            # Prefer highest score, then more frames (to avoid misreading as fewer frames with larger LED count)
-            candidates.sort(key=lambda x: (x[2], x[1]), reverse=True)
-            best_leds, best_frames, _ = candidates[0]
-            return (best_leds, best_frames)
-        
-        # Try factorization for square matrices
-        import math
-        sqrt = int(math.sqrt(total_pixels))
-        if sqrt * sqrt == total_pixels:
-            # Perfect square - could be a square matrix animation
-            # Assume 1 frame
-            return (total_pixels, 1)
-        
-        # No good match found
+        resolution = infer_leds_and_frames(
+            total_pixels,
+            include_strips=True,
+            preferred_led_counts=COMMON_LED_COUNTS,
+        )
+        if resolution:
+            return (resolution.led_count, resolution.frames)
         return (None, None)
-
-    def _choose_matrix_dimensions(self, led_count: int) -> tuple[int, int]:
-        """Pick a friendly matrix width×height for a given LED count.
-        Heuristics:
-        - Prefer width 12, 16, 8, 10 when divisible
-        - Otherwise choose the factor pair closest to square with width >= height
-        - Fallback to strip (width=led_count, height=1)
-        """
-        preferred_widths = [12, 16, 8, 10, 20, 24, 32]
-        for w in preferred_widths:
-            if led_count % w == 0:
-                h = led_count // w
-                if h >= 1:
-                    return (w, h)
-
-        # Choose factor pair closest to square
-        best = (led_count, 1)
-        best_diff = led_count  # large
-        for h in range(1, int(led_count ** 0.5) + 1):
-            if led_count % h == 0:
-                w = led_count // h
-                # prefer w >= h
-                if w < h:
-                    w, h = h, w
-                diff = abs(w - h)
-                if diff < best_diff:
-                    best = (w, h)
-                    best_diff = diff
-        return best
 

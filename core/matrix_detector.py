@@ -3,9 +3,14 @@ Matrix Detector - Automatically detects LED matrix size and shape
 Provides intelligent matrix layout detection for pattern preview
 """
 
-import math
-from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass
+from typing import Dict, Iterable, List, Optional, Tuple
+
+from .dimension_scorer import (
+    COMMON_LAYOUTS,
+    generate_layout_candidates,
+    pick_best_layout,
+)
 
 
 @dataclass
@@ -31,16 +36,8 @@ class MatrixDetector:
     - Custom layout support
     """
     
-    # Common matrix sizes
-    COMMON_MATRICES = [
-        (8, 8),    # 64 LEDs
-        (10, 10), # 100 LEDs
-        (12, 12), # 144 LEDs
-        (16, 16), # 256 LEDs
-        (20, 20), # 400 LEDs
-        (24, 24), # 576 LEDs
-        (32, 32), # 1024 LEDs
-    ]
+    # Common matrix sizes (legacy export)
+    COMMON_MATRICES = list(COMMON_LAYOUTS)
     
     # Common strip lengths
     COMMON_STRIPS = [
@@ -48,7 +45,7 @@ class MatrixDetector:
     ]
     
     def __init__(self):
-        self.layout_cache = {}
+        self.layout_cache: Dict[int, MatrixLayout] = {}
     
     def detect_layout(self, led_count: int, pattern_data: Optional[List] = None) -> MatrixLayout:
         """
@@ -61,152 +58,83 @@ class MatrixDetector:
         Returns:
             MatrixLayout object with detected information
         """
-        # Check cache first
         if led_count in self.layout_cache:
             return self.layout_cache[led_count]
         
-        # Try different detection methods
-        layouts = []
-        
-        # Method 1: Perfect square matrix
-        square_layout = self._detect_square_matrix(led_count)
-        if square_layout:
-            layouts.append(square_layout)
-        
-        # Method 2: Common matrix sizes
-        common_layout = self._detect_common_matrix(led_count)
-        if common_layout:
-            layouts.append(common_layout)
-        
-        # Method 3: Strip layout
-        strip_layout = self._detect_strip_layout(led_count)
-        if strip_layout:
-            layouts.append(strip_layout)
-        
-        # Method 4: Custom matrix (non-square)
-        custom_layout = self._detect_custom_matrix(led_count)
-        if custom_layout:
-            layouts.append(custom_layout)
-        
-        # Method 5: Pattern data analysis
+        first_frame = None
         if pattern_data:
-            data_layout = self._analyze_pattern_data(led_count, pattern_data)
-            if data_layout:
-                layouts.append(data_layout)
-        
-        # Select best layout
-        if not layouts:
-            # Fallback to strip layout
-            best_layout = MatrixLayout(
+            first_frame = pattern_data[0] if isinstance(pattern_data[0], list) else pattern_data
+            if first_frame and len(first_frame) != led_count:
+                first_frame = None
+
+        candidates = generate_layout_candidates(
+            led_count,
+            first_frame=first_frame,
+            include_strips=True,
+            limit=6,
+        )
+
+        if not candidates:
+            fallback = MatrixLayout(
                 width=led_count,
                 height=1,
                 total_leds=led_count,
                 layout_type="strip",
-                confidence=0.1
+                confidence=0.1,
             )
-        else:
-            # Choose layout with highest confidence
-            best_layout = max(layouts, key=lambda x: x.confidence)
-        
-        # Cache result
-        self.layout_cache[led_count] = best_layout
-        
-        return best_layout
-    
-    def _detect_square_matrix(self, led_count: int) -> Optional[MatrixLayout]:
-        """Detect if LED count forms a perfect square matrix"""
-        sqrt = int(math.sqrt(led_count))
-        if sqrt * sqrt == led_count:
-            return MatrixLayout(
-                width=sqrt,
-                height=sqrt,
-                total_leds=led_count,
-                layout_type="matrix",
-                confidence=0.9
-            )
-        return None
-    
-    def _detect_common_matrix(self, led_count: int) -> Optional[MatrixLayout]:
-        """Detect common matrix sizes"""
-        for width, height in self.COMMON_MATRICES:
-            if width * height == led_count:
-                return MatrixLayout(
-                    width=width,
-                    height=height,
-                    total_leds=led_count,
-                    layout_type="matrix",
-                    confidence=0.8
-                )
-        return None
-    
-    def _detect_strip_layout(self, led_count: int) -> Optional[MatrixLayout]:
-        """Detect strip layout"""
-        if led_count in self.COMMON_STRIPS:
-            confidence = 0.7
-        else:
-            confidence = 0.5
-        
-        return MatrixLayout(
-            width=led_count,
-            height=1,
+            self.layout_cache[led_count] = fallback
+            return fallback
+
+        width, height, confidence = candidates[0]
+        layout_type = "matrix" if height > 1 else "strip"
+
+        # Boost strip confidence for known lengths
+        if layout_type == "strip" and led_count in self.COMMON_STRIPS:
+            confidence = max(confidence, 0.7)
+
+        layout = MatrixLayout(
+            width=width,
+            height=height,
             total_leds=led_count,
-            layout_type="strip",
-            confidence=confidence
+            layout_type=layout_type,
+            confidence=confidence,
         )
+
+        self.layout_cache[led_count] = layout
+        return layout
     
-    def _detect_custom_matrix(self, led_count: int) -> Optional[MatrixLayout]:
-        """Detect custom (non-square) matrix layouts"""
-        # Try different aspect ratios
-        aspect_ratios = [
-            (2, 1),   # 2:1
-            (3, 1),   # 3:1
-            (4, 1),   # 4:1
-            (1, 2),   # 1:2
-            (1, 3),   # 1:3
-            (1, 4),   # 1:4
-            (3, 2),   # 3:2
-            (2, 3),   # 2:3
-            (4, 3),   # 4:3
-            (3, 4),   # 3:4
-        ]
-        
-        for width_ratio, height_ratio in aspect_ratios:
-            # Calculate dimensions
-            total_ratio = width_ratio * height_ratio
-            if led_count % total_ratio == 0:
-                multiplier = led_count // total_ratio
-                width = width_ratio * multiplier
-                height = height_ratio * multiplier
-                
-                if width > 1 and height > 1:
-                    return MatrixLayout(
-                        width=width,
-                        height=height,
-                        total_leds=led_count,
-                        layout_type="matrix",
-                        confidence=0.6
-                    )
-        
-        return None
-    
-    def _analyze_pattern_data(self, led_count: int, pattern_data: List) -> Optional[MatrixLayout]:
-        """Analyze pattern data to detect layout"""
-        if not pattern_data or len(pattern_data) == 0:
-            return None
-        
-        # Analyze first frame
-        first_frame = pattern_data[0] if isinstance(pattern_data[0], list) else pattern_data
-        
-        if len(first_frame) != led_count:
-            return None
-        
-        # Look for spatial patterns in the data
-        # This is a simplified analysis - could be enhanced with more sophisticated algorithms
-        
-        # Check if data suggests a matrix layout
-        # (This is a placeholder for more sophisticated analysis)
-        
-        return None
+    @classmethod
+    def generate_candidate_layouts(
+        cls,
+        led_count: int,
+        first_frame: Optional[Iterable[Tuple[int, int, int]]] = None,
+        include_strips: bool = False,
+        limit: int = 8
+    ) -> List[Tuple[int, int, float]]:
+        """
+        Enumerate plausible (width, height) pairs with confidence scores.
+        Shared by parsers so everyone ranks layouts consistently.
+        """
+        return generate_layout_candidates(
+            led_count,
+            first_frame=first_frame,
+            include_strips=include_strips,
+            limit=limit,
+        )
+
+    @classmethod
+    def pick_best_dimensions(
+        cls,
+        led_count: int,
+        first_frame: Optional[Iterable[Tuple[int, int, int]]] = None,
+        include_strips: bool = False
+    ) -> Optional[Tuple[int, int, float]]:
+        """Convenience method returning the top-scoring candidate dimensions."""
+        return pick_best_layout(
+            led_count,
+            first_frame=first_frame,
+            include_strips=include_strips,
+        )
     
     def get_suggested_arrangement(self, layout: MatrixLayout) -> List[Tuple[int, int]]:
         """

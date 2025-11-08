@@ -65,7 +65,7 @@ def test_hardware_brightness_mapping():
     print("\n=== Testing Hardware Brightness Mapping ===")
     
     # Test different LED types
-    led_types = ["ws2812", "ws2812b", "sk6812", "apa102", "dotstar"]
+    led_types = ["ws2811", "ws2812", "ws2812b", "sk6812", "apa102", "dotstar"]
     
     for led_type in led_types:
         print(f"\nTesting {led_type}:")

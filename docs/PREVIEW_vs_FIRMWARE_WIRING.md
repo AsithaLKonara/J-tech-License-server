@@ -5,6 +5,8 @@ This document shows how pixel order flows from the Preview layer (design order) 
 - Matrix size used in diagrams: 4×4 (indices 0..15)
 - Preview (Design order): left‑to‑right, top‑to‑bottom numbering
 - Firmware (Hardware order): traversal index of the physical strip for the selected wiring + corner
+- Pattern metadata now records where the dimensions came from (`dimension_source`) and how confident the detector was (`dimension_confidence`). Header-supplied sizes show as `source=header` (100 % confidence). Guessed layouts display a warning in the Preview tab so you can double-check before flashing.
+- When no width/height header exists, the new Dimension Scorer evaluates every `(width, height)` factor pair of the LED count, boosts common rectangle layouts (e.g. 32×8, 20×10), and fuses in frame-count heuristics. The highest-confidence candidate is stored in the metadata so the Preview and Flash tabs stay non-square aware.
 
 Legend:
 - “Preview” grid shows design cell indices (what the simulator displays)

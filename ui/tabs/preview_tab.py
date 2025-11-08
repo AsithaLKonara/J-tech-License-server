@@ -193,6 +193,13 @@ class PreviewTab(QWidget):
         logger.info("="*70)
         logger.info(f"Pattern name: {pattern.name}")
         logger.info(f"Dimensions: {pattern.metadata.width}×{pattern.metadata.height}")
+        logger.info(
+            "Dimension source: %s (confidence %.0f%%)",
+            getattr(pattern.metadata, 'dimension_source', 'unknown'),
+            getattr(pattern.metadata, 'dimension_confidence', 0.0) * 100
+        )
+        if getattr(pattern.metadata, 'dimension_confidence', 0.0) < 0.5:
+            logger.warning("Low confidence in detected dimensions; user verification recommended.")
         logger.info(f"LED count: {pattern.led_count}")
         logger.info(f"Frame count: {pattern.frame_count}")
         logger.info(f"Color order: {pattern.metadata.color_order}")
@@ -567,6 +574,15 @@ class PreviewTab(QWidget):
             info += f"×{pat.metadata.height} matrix"
         else:
             info += " strip"
+        
+        dim_source = getattr(pat.metadata, 'dimension_source', 'unknown')
+        dim_conf = getattr(pat.metadata, 'dimension_confidence', None)
+        if dim_conf is not None:
+            info += f"<br>Dimension Source: {dim_source} ({dim_conf*100:.0f}% confidence)"
+        else:
+            info += f"<br>Dimension Source: {dim_source}"
+        if isinstance(dim_conf, (int, float)) and dim_conf < 0.5:
+            info += "<br><span style='color:#ffb347'>⚠ Low confidence layout detection — verify dimensions.</span>"
         
         info += f"<br>Color Order: {pat.metadata.color_order}<br>"
         info += f"<br><b>Brightness Settings:</b><br>"

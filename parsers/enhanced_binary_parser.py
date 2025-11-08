@@ -9,6 +9,11 @@ import sys
 sys.path.insert(0, str(__file__ + "/../../.."))
 
 from core.pattern import Pattern, Frame, PatternMetadata
+from core.dimension_scorer import (
+    pick_best_layout,
+    infer_leds_and_frames,
+    COMMON_LED_COUNTS,
+)
 from .base_parser import ParserBase
 
 
@@ -53,6 +58,10 @@ class EnhancedBinaryParser(ParserBase):
         # Check for LED Matrix Studio format
         if self._detect_led_matrix_studio_format(data):
             return True
+
+        # Check for dimension-first header (width/height before frame data)
+        if self._detect_dimension_header_format(data):
+            return True
         
         # Check for custom binary format
         if self._detect_custom_binary_format(data):
@@ -76,6 +85,10 @@ class EnhancedBinaryParser(ParserBase):
         # Check for LED Matrix Studio format
         if self._detect_led_matrix_studio_format(data):
             confidence += 0.3
+
+        # Stronger confidence when explicit dimensions are present
+        if self._detect_dimension_header_format(data):
+            confidence += 0.4
         
         # Check for RGB data variation
         if len(data) >= 1000:
@@ -101,6 +114,11 @@ class EnhancedBinaryParser(ParserBase):
         # Try LED Matrix Studio format first
         if self._detect_led_matrix_studio_format(data):
             return self._parse_led_matrix_studio_format(data, suggested_leds, suggested_frames)
+
+        # Then dimension-first width/height header
+        dimension_info = self._detect_dimension_header_format(data)
+        if dimension_info:
+            return self._parse_dimension_header_format(data, dimension_info)
         
         # Try custom binary format
         if self._detect_custom_binary_format(data):
@@ -144,14 +162,116 @@ class EnhancedBinaryParser(ParserBase):
             # Check if data starts with a reasonable frame count
             frame_count = struct.unpack('<H', data[:2])[0]
             if 1 <= frame_count <= 10000:
-                # Check if the rest of the data makes sense
                 remaining_data = len(data) - 2
-                if remaining_data > 0 and remaining_data % 3 == 0:
+                if remaining_data <= 0:
+                    return False
+                if remaining_data % 3 == 0:
                     return True
+                if remaining_data % frame_count == 0:
+                    per_frame = remaining_data // frame_count
+                    if per_frame >= 3:
+                        return True
         except:
             pass
         
         return False
+
+    def _detect_dimension_header_format(self, data: bytes) -> Optional[Tuple[int, int, int]]:
+        """
+        Detect files that start with explicit width/height/frame count header.
+
+        Layout:
+            uint16 width
+            uint16 height
+            uint16 frame_count
+            repeated frame_count times:
+                uint16 duration_ms
+                RGB payload (width*height*3 bytes)
+        """
+        minimum_header = 6
+        if len(data) < minimum_header:
+            return None
+
+        try:
+            width, height, frame_count = struct.unpack_from('<HHH', data, 0)
+        except struct.error:
+            return None
+
+        if not (1 <= width <= 4096 and 1 <= height <= 4096):
+            return None
+        if width * height > 4096 * 4096:
+            return None
+        if not (1 <= frame_count <= 20000):
+            return None
+
+        rgb_per_frame = width * height * 3
+        frame_record = 2 + rgb_per_frame  # duration + payload
+        remaining = len(data) - minimum_header
+        if remaining <= 0:
+            return None
+        if frame_record == 0:
+            return None
+
+        if remaining % frame_record != 0:
+            return None
+
+        computed_frames = remaining // frame_record
+        if computed_frames != frame_count:
+            return None
+
+        return (width, height, frame_count)
+
+    def _parse_dimension_header_format(
+        self,
+        data: bytes,
+        header: Tuple[int, int, int]
+    ) -> Pattern:
+        """Parse width/height/header format with per-frame durations."""
+        width, height, frame_count = header
+        rgb_per_frame = width * height * 3
+        frame_stride = 2 + rgb_per_frame
+
+        offset = 6
+        frames: List[Frame] = []
+
+        for frame_idx in range(frame_count):
+            if offset + 2 > len(data):
+                raise ValueError(
+                    f"Incomplete duration header for frame {frame_idx}"
+                )
+            duration_ms = struct.unpack_from('<H', data, offset)[0]
+            offset += 2
+
+            payload = data[offset:offset + rgb_per_frame]
+            if len(payload) != rgb_per_frame:
+                raise ValueError(
+                    f"Frame {frame_idx} payload truncated; "
+                    f"expected {rgb_per_frame} bytes, got {len(payload)}"
+                )
+            offset += rgb_per_frame
+
+            pixels = [
+                (payload[i], payload[i + 1], payload[i + 2])
+                for i in range(0, len(payload), 3)
+            ]
+            frames.append(Frame(
+                pixels=pixels,
+                duration_ms=max(1, duration_ms or 20)
+            ))
+
+        metadata = PatternMetadata(
+            width=width,
+            height=height,
+            color_order="RGB",
+            dimension_source="header",
+            dimension_confidence=1.0
+        )
+
+        return Pattern(
+            name="Dimension-Header Binary Import",
+            metadata=metadata,
+            frames=frames
+        )
     
     def _parse_led_matrix_studio_format(self, data: bytes, 
                                       suggested_leds: Optional[int] = None,
@@ -165,6 +285,8 @@ class EnhancedBinaryParser(ParserBase):
             
             width = led_count
             height = 1
+            dimension_source = "led_count"
+            dimension_confidence = 0.6
             offset = 10
             # Try extended header (width, height)
             if len(data) >= 14:
@@ -172,6 +294,8 @@ class EnhancedBinaryParser(ParserBase):
                     ext_w, ext_h = struct.unpack('<HH', data[10:14])
                     if ext_w > 0 and ext_h > 0 and ext_w * ext_h == led_count:
                         width, height = ext_w, ext_h
+                        dimension_source = "header"
+                        dimension_confidence = 1.0
                         offset = 14
                 except Exception:
                     pass
@@ -182,15 +306,21 @@ class EnhancedBinaryParser(ParserBase):
             for frame_idx in range(frame_count):
                 # Each frame: [duration_ms][rgb_data...]
                 if offset + 2 > len(data):
-                    break
-                
+                    raise ValueError(
+                        f"Incomplete frame header at index {frame_idx}; "
+                        "file truncated or header malformed."
+                    )
+
                 duration_ms = struct.unpack('<H', data[offset:offset+2])[0]
                 offset += 2
                 
                 # Read RGB data for this frame
                 rgb_data_size = led_count * 3
                 if offset + rgb_data_size > len(data):
-                    break
+                    raise ValueError(
+                        f"Incomplete RGB data for frame {frame_idx}; "
+                        "file truncated or payload corrupted."
+                    )
                 
                 pixels = []
                 for led_idx in range(led_count):
@@ -203,11 +333,30 @@ class EnhancedBinaryParser(ParserBase):
                 frames.append(Frame(pixels=pixels, duration_ms=duration_ms))
                 offset += rgb_data_size
             
+            if len(frames) != frame_count:
+                raise ValueError(
+                    f"Frame count mismatch: header reports {frame_count}, "
+                    f"but only {len(frames)} frames were decoded."
+                )
+
+            if frames and (width == led_count and height == 1):
+                guess = pick_best_layout(
+                    led_count,
+                    frames[0].pixels,
+                    include_strips=True
+                )
+                if guess:
+                    width, height, score = guess
+                    dimension_source = "detector"
+                    dimension_confidence = max(dimension_confidence, score)
+
             # Create metadata
             metadata = PatternMetadata(
                 width=width,
                 height=height,
-                color_order="RGB"
+                color_order="RGB",
+                dimension_source=dimension_source,
+                dimension_confidence=dimension_confidence
             )
             
             return Pattern(
@@ -228,38 +377,87 @@ class EnhancedBinaryParser(ParserBase):
             frame_count = struct.unpack('<H', data[:2])[0]
             offset = 2
             
-            # Calculate LED count from remaining data
+            # Calculate per-frame payload (header + RGB data)
             remaining_data = len(data) - 2
-            led_count = remaining_data // (frame_count * 3)
+            if frame_count <= 0:
+                raise ValueError("Invalid frame count")
+
+            if remaining_data % frame_count != 0:
+                raise ValueError(
+                    "Binary payload size does not align with frame count. "
+                    "Detected padding or truncated data."
+                )
+
+            per_frame_bytes = remaining_data // frame_count
+            header_len, led_count = self._resolve_custom_frame_layout(per_frame_bytes)
             
             if led_count <= 0:
                 raise ValueError("Invalid LED count")
             
             # Parse frames
             frames = []
-            bytes_per_frame = led_count * 3
+            frame_stride = per_frame_bytes
+            payload_bytes = led_count * 3
             
             for frame_idx in range(frame_count):
-                if offset + bytes_per_frame > len(data):
-                    break
+                if offset + frame_stride > len(data):
+                    raise ValueError(
+                        f"Incomplete frame payload for frame {frame_idx}; "
+                        "file truncated or payload corrupted."
+                    )
+
+                frame_chunk = data[offset:offset + frame_stride]
+                payload = frame_chunk[header_len:]
+                if len(payload) != payload_bytes:
+                    raise ValueError(
+                        f"Frame {frame_idx} payload length mismatch; "
+                        f"expected {payload_bytes} bytes after header, got {len(payload)}."
+                    )
                 
                 pixels = []
                 for led_idx in range(led_count):
-                    pixel_offset = offset + led_idx * 3
-                    r = data[pixel_offset]
-                    g = data[pixel_offset + 1]
-                    b = data[pixel_offset + 2]
+                    pixel_offset = led_idx * 3
+                    r = payload[pixel_offset]
+                    g = payload[pixel_offset + 1]
+                    b = payload[pixel_offset + 2]
                     pixels.append((r, g, b))
                 
                 # Default 20ms per frame (50 FPS)
                 frames.append(Frame(pixels=pixels, duration_ms=20))
-                offset += bytes_per_frame
+                offset += frame_stride
             
+            if len(frames) != frame_count:
+                raise ValueError(
+                    f"Frame count mismatch: header reports {frame_count}, "
+                    f"but only {len(frames)} frames were decoded."
+                )
+
+            width_guess, height_guess = led_count, 1
+            dimension_source = "fallback"
+            dimension_confidence = 0.2
+            if frames:
+                guess = pick_best_layout(
+                    led_count,
+                    frames[0].pixels,
+                    include_strips=True
+                )
+            else:
+                guess = pick_best_layout(
+                    led_count,
+                    include_strips=True
+                )
+            if guess:
+                width_guess, height_guess, score = guess
+                dimension_source = "detector"
+                dimension_confidence = score
+
             # Create metadata
             metadata = PatternMetadata(
-                width=led_count,
-                height=1,
-                color_order="RGB"
+                width=width_guess,
+                height=height_guess,
+                color_order="RGB",
+                dimension_source=dimension_source,
+                dimension_confidence=dimension_confidence
             )
             
             return Pattern(
@@ -314,7 +512,7 @@ class EnhancedBinaryParser(ParserBase):
                 )
         else:
             # Auto-detect dimensions
-            num_leds, num_frames = self._auto_detect_dimensions(total_pixels)
+            num_leds, num_frames = self._auto_detect_dimensions(total_pixels, data)
             if not num_leds or not num_frames:
                 raise ValueError(
                     f"Cannot auto-detect dimensions for {total_pixels} pixels. "
@@ -340,11 +538,27 @@ class EnhancedBinaryParser(ParserBase):
             frames.append(Frame(pixels=pixels, duration_ms=20))
         
         # Create metadata with a friendly matrix guess (e.g., 12×6 for 72 LEDs)
-        width_guess, height_guess = self._choose_matrix_dimensions(num_leds)
+        first_pixels = frames[0].pixels if frames else None
+        guess = pick_best_layout(
+            num_leds,
+            first_pixels,
+            include_strips=True
+        )
+        dimension_source = "detector"
+        dimension_confidence = 0.0
+        if guess:
+            width_guess, height_guess, score = guess
+            dimension_confidence = score
+        else:
+            width_guess, height_guess = num_leds, 1
+            dimension_source = "fallback"
+            dimension_confidence = 0.2
         metadata = PatternMetadata(
             width=width_guess,
             height=height_guess,
-            color_order="RGB"
+            color_order="RGB",
+            dimension_source=dimension_source,
+            dimension_confidence=dimension_confidence
         )
         
         return Pattern(
@@ -353,73 +567,20 @@ class EnhancedBinaryParser(ParserBase):
             frames=frames
         )
     
-    def _auto_detect_dimensions(self, total_pixels: int) -> Tuple[Optional[int], Optional[int]]:
+    def _auto_detect_dimensions(self, total_pixels: int, pixel_data: Optional[bytes] = None) -> Tuple[Optional[int], Optional[int]]:
         """Auto-detect LED count and frame count with improved scoring.
         Prefers candidates that yield a realistic animation (more frames),
         and includes 72 LEDs as a common case (12×6 matrices).
         """
 
-        import math
-
-        common_led_counts = [
-            64,   # 8×8 matrix
-            72,   # 12×6 matrix (common)
-            76,   # user-specific/common
-            96,   # 12×8 matrix
-            100,  # common strip
-            120,  # 12×10 matrix
-            144,  # 12×12 matrix
-            150,  # strip
-            160,  # 16×10
-            192,  # 16×12
-            256,  # 16×16
-            300, 320, 400, 512, 600, 800, 1024, 2048
-        ]
-
-        candidates: List[Tuple[int, int, int]] = []  # (leds, frames, score)
-        for leds in common_led_counts:
-            if total_pixels % leds == 0:
-                frames = total_pixels // leds
-                if frames >= 2:
-                    score = 0
-                    if 10 <= frames <= 240:
-                        score += 3
-                    elif 5 <= frames <= 480:
-                        score += 2
-                    else:
-                        score += 1
-                    candidates.append((leds, frames, score))
-
-        if candidates:
-            candidates.sort(key=lambda x: (x[2], x[1]), reverse=True)
-            best_leds, best_frames, _ = candidates[0]
-            return (best_leds, best_frames)
-
-        # Factorization fallback
-        divisors: List[int] = []
-        sqrt = int(math.sqrt(total_pixels))
-        for i in range(1, min(sqrt + 1, 5000)):
-            if total_pixels % i == 0:
-                divisors.append(i)
-                j = total_pixels // i
-                if j != i:
-                    divisors.append(j)
-        divisors.sort()
-        best: Tuple[Optional[int], Optional[int], int] = (None, None, -1)
-        for leds in divisors:
-            if 50 <= leds <= 5000:
-                frames = total_pixels // leds
-                if 2 <= frames <= 100000:
-                    score = 1 + (2 if 10 <= frames <= 240 else 0)
-                    if score > best[2]:
-                        best = (leds, frames, score)
-        if best[0] is not None:
-            return (best[0], best[1])
-
-        # Perfect square → single frame
-        sqrt = int(math.sqrt(total_pixels))
-        if sqrt * sqrt == total_pixels and 50 <= sqrt <= 5000:
-            return (total_pixels, 1)
+        resolution = infer_leds_and_frames(
+            total_pixels,
+            include_strips=True,
+            preferred_led_counts=COMMON_LED_COUNTS,
+            pixel_bytes=pixel_data,
+        )
+        if resolution:
+            return resolution.led_count, resolution.frames
         return (None, None)
 
     # --- Header detection/stripping helpers ---
@@ -456,6 +617,54 @@ class EnhancedBinaryParser(ParserBase):
 
         # Only accept if new data matches RGB multiple
         return bytes(out) if (len(out) % 3 == 0) else data
+
+    def _resolve_custom_frame_layout(self, per_frame_bytes: int) -> Tuple[int, int]:
+        """
+        Determine header length and LED count for custom binary frames.
+        Returns (header_len, led_count).
+        """
+        if per_frame_bytes <= 0:
+            raise ValueError("Per-frame payload must be positive")
+
+        best_header = None
+        best_leds = None
+        best_score = -1.0
+
+        max_header = min(128, per_frame_bytes - 3)  # leave room for at least one LED
+        for header_len in range(0, max_header + 1):
+            payload = per_frame_bytes - header_len
+            if payload <= 0 or payload % 3 != 0:
+                continue
+            leds = payload // 3
+            if leds <= 0:
+                continue
+
+            guess = pick_best_layout(
+                leds,
+                include_strips=True
+            )
+            score = guess[2] if guess else 0.0
+
+            # Small headers and familiar LED counts get slight preference
+            if header_len == 0:
+                score += 0.05
+            elif header_len <= 16:
+                score += 0.02
+
+            if best_header is None or score > best_score or (
+                abs(score - best_score) < 1e-6 and header_len < best_header
+            ):
+                best_header = header_len
+                best_leds = leds
+                best_score = score
+
+        if best_header is None or best_leds is None:
+            raise ValueError(
+                "Unable to infer LED count from custom frame payload. "
+                "Specify LED/frames manually or inspect file headers."
+            )
+
+        return best_header, best_leds
 
     def _detect_repeating_period(self, data: bytes) -> Optional[int]:
         """Find a likely repeating period by simple autocorrelation scoring."""
@@ -501,27 +710,4 @@ class EnhancedBinaryParser(ParserBase):
         if header_len < 4 or header_len > 128:
             return 0
         return header_len
-
-    def _choose_matrix_dimensions(self, led_count: int) -> Tuple[int, int]:
-        """Pick a friendly matrix width×height for a given LED count."""
-        preferred = [12, 16, 8, 10, 20, 24, 32]
-        for w in preferred:
-            if led_count % w == 0:
-                h = led_count // w
-                if h >= 1:
-                    return (w, h)
-        # closest to square with width>=height
-        best = (led_count, 1)
-        best_diff = led_count
-        import math
-        for h in range(1, int(math.sqrt(led_count)) + 1):
-            if led_count % h == 0:
-                w = led_count // h
-                if w < h:
-                    w, h = h, w
-                diff = abs(w - h)
-                if diff < best_diff:
-                    best = (w, h)
-                    best_diff = diff
-        return best
 
