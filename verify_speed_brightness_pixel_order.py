@@ -64,7 +64,6 @@ def verify_speed_brightness_independence():
     
     # Test 2: Apply brightness (should only affect RGB values, not order)
     print("Test 2: Applying brightness (50%)...")
-    import copy
     pattern2 = Pattern.from_dict(pattern.to_dict())  # Fresh copy
     before_brightness = list(pattern2.frames[0].pixels)
     pattern2.apply_brightness(128)  # 50% brightness
@@ -76,12 +75,26 @@ def verify_speed_brightness_independence():
     
     # Check if order is same (each pixel should map to same position)
     order_same = True
-    for i in range(len(before_brightness)):
-        # Colors should be scaled, but order shouldn't change
-        # We can't check exact values due to brightness scaling, but indices should match
-        pass
+    scale = 128 / 255.0
+    mismatches = []
+    for idx, (before_px, after_px) in enumerate(zip(before_brightness, after_brightness)):
+        expected = (
+            int(before_px[0] * scale),
+            int(before_px[1] * scale),
+            int(before_px[2] * scale),
+        )
+        if expected != after_px:
+            order_same = False
+            mismatches.append((idx, before_px, after_px, expected))
+            if len(mismatches) >= 5:
+                break
     
-    print(f"  ✓ PASS: Brightness changes values but not order")
+    if order_same:
+        print(f"  ✓ PASS: Brightness changes values but not order")
+    else:
+        print(f"  ❌ FAIL: Pixel order or scaling altered at {len(mismatches)} position(s)")
+        for idx, before_px, after_px, expected in mismatches:
+            print(f"    idx {idx}: before={before_px} after={after_px} expected={expected}")
     print()
     
     # Test 3: Speed curve (should only affect frame durations)

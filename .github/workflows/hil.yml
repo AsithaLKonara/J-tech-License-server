@@ -1,0 +1,80 @@
+name: Hardware-in-the-Loop (HIL) Tests
+
+on:
+  schedule:
+    # Run HIL tests nightly
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  hil-tests:
+    name: HIL Tests (${{ matrix.chip }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chip:
+          - esp32
+          - esp32s
+          - esp32c3
+          - esp32s3
+          - atmega2560
+          - attiny85
+          - stm32f407
+          - pic18f4550
+          - nuvoton_m051
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-qt pyserial
+      
+      - name: Install chip toolchain
+        run: |
+          # Install chip-specific toolchain
+          # This would install esptool, avrdude, stm32flash, etc.
+          echo "Installing toolchain for ${{ matrix.chip }}"
+      
+      - name: Connect hardware
+        uses: actions/checkout@v4
+        # Note: In production, this would connect to actual hardware
+        # For CI, use mock hardware or skip if hardware not available
+      
+      - name: Build firmware
+        run: |
+          python scripts/build_firmware.py --chip ${{ matrix.chip }} --output build/firmware.bin
+      
+      - name: Flash firmware
+        run: |
+          python scripts/flash_firmware.py --chip ${{ matrix.chip }} --port /dev/ttyUSB0 --firmware build/firmware.bin
+      
+      - name: Verify firmware
+        run: |
+          python scripts/verify_firmware.py --chip ${{ matrix.chip }} --port /dev/ttyUSB0 --expected-hash ${{ github.sha }}
+      
+      - name: Run pattern test
+        run: |
+          python scripts/test_pattern_on_hardware.py --chip ${{ matrix.chip }} --port /dev/ttyUSB0 --pattern tests/fixtures/test_pattern.ledproj
+      
+      - name: Capture output
+        if: always()
+        run: |
+          python scripts/capture_hardware_output.py --chip ${{ matrix.chip }} --port /dev/ttyUSB0 --output hardware_output.log
+      
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: hil-results-${{ matrix.chip }}
+          path: |
+            hardware_output.log
+            build/firmware.bin
+

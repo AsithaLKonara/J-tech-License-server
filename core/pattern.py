@@ -79,6 +79,15 @@ class PatternMetadata:
     original_data_in_corner: Optional[str] = None  # File's original data-in corner (for conversion)
     dimension_source: str = "unknown"  # 'header', 'detector', 'fallback', etc.
     dimension_confidence: float = 0.0  # 0.0 - 1.0 confidence in width/height
+    source_format: Optional[str] = None  # Original file format (bin, dat, hex, leds, etc.)
+    source_path: Optional[str] = None  # Original file path (if known)
+    # User override for dimensions
+    dimension_override: bool = False  # True if dimensions were manually overridden
+    dimension_override_source: Optional[str] = None  # 'user' when manually set
+    # Detection hints from parser/filename (weak hints adjust scores, strong hints override)
+    wiring_mode_hint: Optional[str] = None  # Detected wiring mode hint from filename/metadata
+    data_in_corner_hint: Optional[str] = None  # Detected data-in corner hint from filename/metadata
+    hint_confidence: float = 0.0  # Confidence in hints (0.0-1.0), 0.9+ = strong hint
     
     def __post_init__(self):
         """Validate metadata"""
@@ -111,6 +120,8 @@ class Pattern:
     name: str = "Untitled Pattern"
     metadata: PatternMetadata = field(default_factory=lambda: PatternMetadata(width=1))
     frames: List[Frame] = field(default_factory=list)
+    lms_pattern_instructions: List[Dict[str, object]] = field(default_factory=list)
+    scratchpads: Dict[str, List[Tuple[int, int, int]]] = field(default_factory=dict)
     
     def __post_init__(self):
         """Validate pattern consistency"""
@@ -441,8 +452,35 @@ class Pattern:
         """Total pattern duration in milliseconds"""
         return self.duration_ms
     
+    def to_json(self, use_rle: bool = True) -> Dict:
+        """
+        Convert to canonical JSON schema format (v1.0).
+        
+        Args:
+            use_rle: Whether to use RLE compression for pixel data
+            
+        Returns:
+            Pattern JSON dictionary conforming to schema v1.0
+        """
+        from core.schemas.pattern_converter import PatternConverter
+        return PatternConverter.pattern_to_json(self, use_rle=use_rle)
+    
+    @staticmethod
+    def from_json(data: Dict) -> 'Pattern':
+        """
+        Create Pattern from canonical JSON schema format (v1.0).
+        
+        Args:
+            data: Pattern JSON dictionary conforming to schema v1.0
+            
+        Returns:
+            Pattern object
+        """
+        from core.schemas.pattern_converter import PatternConverter
+        return PatternConverter.pattern_from_json(data)
+    
     def to_dict(self) -> Dict:
-        """Serialize to JSON-compatible dictionary"""
+        """Serialize to JSON-compatible dictionary (legacy format)"""
         return {
             "version": "1.0",
             "id": self.id,
@@ -478,6 +516,12 @@ class Pattern:
                 # Dimension detection metadata
                 "dimension_source": getattr(self.metadata, 'dimension_source', 'unknown'),
                 "dimension_confidence": getattr(self.metadata, 'dimension_confidence', 0.0),
+                "source_format": getattr(self.metadata, 'source_format', None),
+                "source_path": getattr(self.metadata, 'source_path', None),
+                # Detection hints
+                "wiring_mode_hint": getattr(self.metadata, 'wiring_mode_hint', None),
+                "data_in_corner_hint": getattr(self.metadata, 'data_in_corner_hint', None),
+                "hint_confidence": getattr(self.metadata, 'hint_confidence', 0.0),
             },
             "frames": [
                 {
@@ -485,7 +529,12 @@ class Pattern:
                     "duration_ms": f.duration_ms
                 }
                 for f in self.frames
-            ]
+            ],
+            "lms_pattern_instructions": getattr(self, 'lms_pattern_instructions', []),
+            "scratchpads": {
+                str(slot): [list(pixel) for pixel in pixels]
+                for slot, pixels in getattr(self, 'scratchpads', {}).items()
+            },
         }
     
     @staticmethod
@@ -526,6 +575,12 @@ class Pattern:
             # Dimension detection metadata
             dimension_source=meta_dict.get('dimension_source', 'unknown'),
             dimension_confidence=meta_dict.get('dimension_confidence', 0.0),
+            source_format=meta_dict.get('source_format'),
+            source_path=meta_dict.get('source_path'),
+            # Detection hints
+            wiring_mode_hint=meta_dict.get('wiring_mode_hint'),
+            data_in_corner_hint=meta_dict.get('data_in_corner_hint'),
+            hint_confidence=meta_dict.get('hint_confidence', 0.0),
         )
         
         # Parse frames
@@ -538,12 +593,26 @@ class Pattern:
             for f in frames_data
         ]
         
-        return Pattern(
+        scratchpads_raw = data.get('scratchpads', {})
+        scratchpads: Dict[str, List[Tuple[int, int, int]]] = {}
+        for slot, pixels in scratchpads_raw.items():
+            normalized = []
+            for pixel in pixels:
+                if isinstance(pixel, tuple):
+                    normalized.append(pixel)
+                elif isinstance(pixel, list):
+                    normalized.append(tuple(pixel))
+            scratchpads[str(slot)] = normalized
+
+        pattern = Pattern(
             id=data.get('id', str(uuid.uuid4())),
             name=data.get('name', 'Untitled'),
             metadata=meta,
-            frames=frames
+            frames=frames,
+            scratchpads=scratchpads,
         )
+        pattern.lms_pattern_instructions = data.get('lms_pattern_instructions', [])
+        return pattern
     
     def save_to_file(self, filepath: str):
         """Save pattern to JSON project file"""

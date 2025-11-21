@@ -1,0 +1,20 @@
+Package: upload-bridge
+Version: 3.0.0
+Section: graphics
+Priority: optional
+Architecture: amd64
+Depends: python3 (>= 3.10), python3-pyside6, python3-pip, python3-serial, python3-pillow, python3-opencv-python, python3-numpy
+Maintainer: Upload Bridge Team <support@uploadbridge.com>
+Description: Upload Bridge - LED Pattern Designer
+ Upload Bridge is a comprehensive tool for designing and uploading
+ LED matrix patterns to various microcontrollers.
+ .
+ Features:
+  - Visual pattern editor
+  - Multi-layer support
+  - Multiple export formats
+  - Support for ESP32, STM32, AVR, PIC, and Nuvoton chips
+  - Hardware verification
+ .
+ Homepage: https://uploadbridge.com
+

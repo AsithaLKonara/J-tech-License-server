@@ -2,43 +2,113 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, develop ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  unit-tests:
+    name: Unit Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-qt pytest-cov
+      
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=core --cov=domain --cov=uploaders --cov-report=xml
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+  
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+      - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install ruff black pytest
-
-      - name: Lint (ruff)
+          pip install -r requirements.txt
+          pip install pytest pytest-qt
+      
+      - name: Run integration tests
         run: |
-          ruff --version
-          ruff check .
-
-      - name: Format check (black)
+          pytest tests/comprehensive/ -v
+      
+      - name: Run workflow tests
         run: |
-          black --check --line-length 120 .
-
-      - name: Run unit tests
+          pytest tests/l3_workflow/ -v
+  
+  schema-tests:
+    name: Schema Validation Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
         run: |
-          pytest -q || true
-
-      - name: Project checkup
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install jsonschema pytest
+      
+      - name: Run schema tests
         run: |
-          if [ -f tools/project_checkup.py ]; then python tools/project_checkup.py --output text; fi
-
-
+          pytest tests/unit/test_pattern_schema.py -v
+  
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install linting tools
+        run: |
+          pip install flake8 black mypy
+      
+      - name: Run flake8
+        run: |
+          flake8 core/ domain/ uploaders/ --max-line-length=120 --extend-ignore=E203,W503
+      
+      - name: Check formatting
+        run: |
+          black --check core/ domain/ uploaders/

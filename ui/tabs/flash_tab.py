@@ -129,6 +129,8 @@ class FlashTab(QWidget):
     
     # Signals
     flash_complete = Signal(bool, str)  # success, message
+    firmware_building = Signal()  # Emitted when firmware build starts
+    firmware_built = Signal(str)  # Emitted when firmware build completes (firmware_path)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -430,6 +432,49 @@ class FlashTab(QWidget):
                 f"Layout: {pattern.metadata.width}×{pattern.metadata.height} "
                 f"(source={dim_source})"
             )
+    
+    def refresh_preview(self, pattern: Pattern = None):
+        """Refresh preview with updated pattern (called from pattern_changed signal)"""
+        if pattern is None:
+            pattern = self.pattern
+        if pattern:
+            self.load_pattern(pattern)
+    
+    def get_state(self):
+        """Get current tab state for persistence"""
+        state = {}
+        try:
+            if hasattr(self, 'chip_combo') and self.chip_combo:
+                state['chip_id'] = self.chip_combo.currentText()
+            if hasattr(self, 'port_combo') and self.port_combo:
+                state['port'] = self.port_combo.currentText()
+            if hasattr(self, 'gpio_spin') and self.gpio_spin:
+                state['gpio'] = self.gpio_spin.value()
+            if hasattr(self, 'verify_checkbox') and self.verify_checkbox:
+                state['verify'] = self.verify_checkbox.isChecked()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to get FlashTab state: {e}")
+        return state
+    
+    def restore_state(self, state: dict):
+        """Restore tab state from saved state"""
+        try:
+            if 'chip_id' in state and hasattr(self, 'chip_combo') and self.chip_combo:
+                index = self.chip_combo.findText(state['chip_id'])
+                if index >= 0:
+                    self.chip_combo.setCurrentIndex(index)
+            if 'port' in state and hasattr(self, 'port_combo') and self.port_combo:
+                index = self.port_combo.findText(state['port'])
+                if index >= 0:
+                    self.port_combo.setCurrentIndex(index)
+            if 'gpio' in state and hasattr(self, 'gpio_spin') and self.gpio_spin:
+                self.gpio_spin.setValue(state['gpio'])
+            if 'verify' in state and hasattr(self, 'verify_checkbox') and self.verify_checkbox:
+                self.verify_checkbox.setChecked(state['verify'])
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to restore FlashTab state: {e}")
     
     def on_flash(self):
         """Flash button clicked - start build and upload"""
@@ -754,6 +799,9 @@ class FlashTab(QWidget):
         except Exception as e:
             self.log(f"Warning: wiring mapping failed ({e}); proceeding without remap")
         
+        # Emit firmware building signal
+        self.firmware_building.emit()
+        
         # Start flash thread with pattern copy
         self.flash_thread = FlashThread(pattern_copy, chip_id, port, gpio, verify)
         self.flash_thread.progress.connect(self.on_progress)
@@ -871,6 +919,9 @@ class FlashTab(QWidget):
         self.last_build_result = build_result
         self.save_firmware_btn.setEnabled(True)
         self.view_firmware_btn.setEnabled(True)
+        # Emit firmware_built signal with firmware path
+        if build_result and build_result.firmware_path:
+            self.firmware_built.emit(build_result.firmware_path)
     
     def save_firmware(self):
         """Save firmware files to a custom location"""

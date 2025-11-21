@@ -115,6 +115,17 @@ chips:
     default_gpio: "PA0"
     max_leds: 500
 
+  stm32f030f4p6:
+    name: "STM32F030F4P6"
+    family: "STM32"
+    flash_size: "16KB"
+    ram_size: "4KB"
+    uploader: "stm32_uploader"
+    requirements: ["stm32flash", "arm-none-eabi-gcc"]
+    bootloader_instructions: "Connect ST-Link debugger"
+    default_gpio: "PA7"
+    max_leds: 180
+
   # PIC Family
   pic16f876a:
     name: "PIC16F876A"
@@ -138,6 +149,149 @@ chips:
     default_gpio: 0
     max_leds: 100
 
+  pic12f508:
+    name: "PIC12F508"
+    family: "PIC"
+    flash_size: "1KB"
+    ram_size: "25B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 20
+
+  pic12f629:
+    name: "PIC12F629"
+    family: "PIC"
+    flash_size: "2KB"
+    ram_size: "128B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 30
+
+  pic12f675:
+    name: "PIC12F675"
+    family: "PIC"
+    flash_size: "1KB"
+    ram_size: "64B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 24
+
+  pic12f683:
+    name: "PIC12F683"
+    family: "PIC"
+    flash_size: "2KB"
+    ram_size: "128B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 36
+
+  pic16f877a:
+    name: "PIC16F877A"
+    family: "PIC"
+    flash_size: "14KB"
+    ram_size: "368B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 120
+
+  pic16f628a:
+    name: "PIC16F628A"
+    family: "PIC"
+    flash_size: "3.5KB"
+    ram_size: "224B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 80
+
+  pic16f84a:
+    name: "PIC16F84A"
+    family: "PIC"
+    flash_size: "1.75KB"
+    ram_size: "68B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 60
+
+  pic16f676:
+    name: "PIC16F676"
+    family: "PIC"
+    flash_size: "1.75KB"
+    ram_size: "128B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 48
+
+  pic16f690:
+    name: "PIC16F690"
+    family: "PIC"
+    flash_size: "7KB"
+    ram_size: "256B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 120
+
+  pic16f54a:
+    name: "PIC16F54A"
+    family: "PIC"
+    flash_size: "1KB"
+    ram_size: "32B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 24
+
+  pic18f2520:
+    name: "PIC18F2520"
+    family: "PIC"
+    flash_size: "32KB"
+    ram_size: "1536B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 160
+
+  pic18f2550:
+    name: "PIC18F2550"
+    family: "PIC"
+    flash_size: "32KB"
+    ram_size: "2048B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 160
+
+  pic18f4520:
+    name: "PIC18F4520"
+    family: "PIC"
+    flash_size: "32KB"
+    ram_size: "1536B"
+    uploader: "pic_uploader"
+    requirements: ["mplab", "xc8"]
+    bootloader_instructions: "Connect PIC programmer (ICSP)"
+    default_gpio: 0
+    max_leds: 200
+
   # Nuvoton Family
   nuc123:
     name: "NUC123"
@@ -160,6 +314,17 @@ chips:
     bootloader_instructions: "Connect Nu-Link debugger"
     default_gpio: 0
     max_leds: 300
+
+  n76e003at20:
+    name: "N76E003AT20"
+    family: "Nuvoton"
+    flash_size: "18KB"
+    ram_size: "1KB"
+    uploader: "numicro_uploader"
+    requirements: ["nu-link"]
+    bootloader_instructions: "Connect Nu-Link debugger"
+    default_gpio: 0
+    max_leds: 120
 
 # Uploader configurations
 uploaders:

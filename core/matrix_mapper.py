@@ -20,7 +20,7 @@ class MatrixMappingOptions:
 
 
 def _normalize_origin(x: int, y: int, width: int, height: int, origin: str) -> Tuple[int, int]:
-    """Transform (x, y) from top-left origin to desired origin."""
+    """Transform (x, y) from design top-left origin to the physical origin."""
     if origin == "top_left":
         return x, y
     elif origin == "top_right":
@@ -41,15 +41,39 @@ def _linear_index_for_mapping(x: int, y: int, options: MatrixMappingOptions) -> 
     if options.order == "row":
         # Row-major wiring
         if options.serpentine and (ny % 2 == 1):
-            # Odd row reversed
-            return ny * options.width + (options.width - 1 - nx)
+            nx = (options.width - 1) - nx
         return ny * options.width + nx
-    else:
-        # Column-major wiring
-        if options.serpentine and (nx % 2 == 1):
-            # Odd column reversed
-            return (options.height - 1 - ny) * options.width + nx
-        return ny * options.width + nx
+
+    # Column-major wiring
+    if options.serpentine and (nx % 2 == 1):
+        ny = (options.height - 1) - ny
+    return nx * options.height + ny
+
+
+def get_linear_index(x: int, y: int, options: MatrixMappingOptions) -> int:
+    """Public helper to compute linear index for given design coordinate."""
+    return _linear_index_for_mapping(x, y, options)
+
+
+def unwrap_pixels_to_design_order(
+    pixels: List[Tuple[int, int, int]],
+    options: MatrixMappingOptions,
+) -> List[Tuple[int, int, int]]:
+    """
+    Convert physical wiring order pixels into design (row-major top-left) order.
+    """
+    led_count = options.width * options.height
+    if len(pixels) != led_count:
+        return list(pixels)
+
+    decoded: List[Tuple[int, int, int]] = [(0, 0, 0)] * led_count
+
+    for y in range(options.height):
+        for x in range(options.width):
+            physical_index = _linear_index_for_mapping(x, y, options)
+            decoded[y * options.width + x] = pixels[physical_index]
+
+    return decoded
 
 
 def remap_pattern(pattern: Pattern, options: MatrixMappingOptions) -> Pattern:

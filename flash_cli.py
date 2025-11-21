@@ -5,9 +5,86 @@ Works 100% - Proven functional!
 Use this if GUI has issues
 """
 
+import argparse
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
+
+def batch_validate_command(args):
+    """Handle batch validation command"""
+    from core.batch_validator import BatchValidator
+    
+    print("="*70)
+    print(" 🔍 Batch Pattern Validation")
+    print("="*70)
+    print()
+    
+    validator = BatchValidator()
+    
+    # Get file paths
+    if args.files:
+        file_paths = args.files
+    else:
+        # Read from stdin or prompt
+        print("Enter pattern file paths (one per line, empty line to finish):")
+        file_paths = []
+        while True:
+            line = input().strip()
+            if not line:
+                break
+            if os.path.exists(line):
+                file_paths.append(line)
+            else:
+                print(f"Warning: File not found: {line}")
+    
+    if not file_paths:
+        print("No files to validate.")
+        return
+    
+    print(f"Validating {len(file_paths)} pattern file(s)...")
+    print()
+    
+    # Validate
+    def progress_callback(current, total):
+        print(f"Progress: {current}/{total} ({current*100//total}%)", end='\r')
+    
+    results = validator.validate_patterns(file_paths, progress_callback)
+    print()  # New line after progress
+    
+    # Show results
+    print("\nResults:")
+    print("-" * 70)
+    for result in results:
+        status = "✓" if result.valid else "✗"
+        print(f"{status} {os.path.basename(result.file_path)}")
+        if result.errors:
+            for error in result.errors:
+                print(f"    Error: {error}")
+        if result.warnings:
+            for warning in result.warnings:
+                print(f"    Warning: {warning}")
+        if result.metadata:
+            print(f"    Dimensions: {result.metadata.get('width', '?')}×{result.metadata.get('height', '?')}")
+    
+    # Summary
+    summary = validator.get_summary()
+    print("\n" + "="*70)
+    print("Summary:")
+    print(f"  Total: {summary['total']}")
+    print(f"  Valid: {summary['valid']}")
+    print(f"  Invalid: {summary['invalid']}")
+    print(f"  Errors: {summary['total_errors']}")
+    print(f"  Warnings: {summary['total_warnings']}")
+    print(f"  Success Rate: {summary['success_rate']:.1f}%")
+    
+    # Export reports if requested
+    if args.csv:
+        validator.generate_report_csv(args.csv)
+        print(f"\nCSV report saved to: {args.csv}")
+    
+    if args.json:
+        validator.generate_report_json(args.json)
+        print(f"JSON report saved to: {args.json}")
 
 def main():
     print("="*70)
@@ -202,8 +279,29 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Upload Bridge CLI - Flash patterns or validate batch")
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+    
+    # Flash command (default)
+    flash_parser = subparsers.add_parser('flash', help='Flash a pattern to device')
+    flash_parser.add_argument('pattern_file', nargs='?', help='Pattern file to flash')
+    
+    # Batch validate command
+    validate_parser = subparsers.add_parser('validate', help='Batch validate pattern files')
+    validate_parser.add_argument('files', nargs='*', help='Pattern files to validate')
+    validate_parser.add_argument('--csv', help='Export CSV report to file')
+    validate_parser.add_argument('--json', help='Export JSON report to file')
+    
+    args = parser.parse_args()
+    
     try:
-        main()
+        if args.command == 'validate':
+            batch_validate_command(args)
+        else:
+            # Default to flash command
+            if args.command == 'flash' and args.pattern_file:
+                sys.argv = ['flash_cli.py', args.pattern_file]
+            main()
     except KeyboardInterrupt:
         print("\n\nCancelled by user.")
     except Exception as e:

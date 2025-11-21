@@ -326,6 +326,71 @@ class PicUploader(UploaderBase):
         
         return 0
     
+    def probe_device(self, port: str) -> Optional[DeviceInfo]:
+        """
+        Probe PIC device information using pk3cmd or MPLAB IPE.
+        
+        Args:
+            port: Programmer identifier (e.g., "pickit3", "pickit4") or None for auto-detect
+            
+        Returns:
+            DeviceInfo if device detected, None otherwise
+        """
+        import shutil
+        
+        # Try pk3cmd first
+        if shutil.which('pk3cmd'):
+            try:
+                programmer = port or 'pickit3'
+                cmd = ["pk3cmd", "-?", "-P", self.chip_id.upper()]
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0 or "PIC" in result.stdout:
+                    output = result.stdout + result.stderr
+                    
+                    # Check if device is detected
+                    if "Device ID" in output or "PIC" in output:
+                        # Extract device ID if available
+                        device_id_match = re.search(r'Device ID:\s*([0-9A-Fa-f]+)', output, re.IGNORECASE)
+                        device_id = device_id_match.group(1) if device_id_match else None
+                        
+                        return DeviceInfo(
+                            port=programmer,
+                            chip_detected=self.chip_id,
+                            bootloader_version="PICkit"
+                        )
+            except Exception:
+                pass
+        
+        # Try MPLAB IPE
+        if shutil.which('mplab_ipe'):
+            try:
+                cmd = ["mplab_ipe", "-T", port or "pickit3", "-D", self.chip_id.upper(), "-?"]
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    output = result.stdout + result.stderr
+                    if "PIC" in output or "Device" in output:
+                        return DeviceInfo(
+                            port=port or "pickit3",
+                            chip_detected=self.chip_id,
+                            bootloader_version="MPLAB IPE"
+                        )
+            except Exception:
+                pass
+        
+        return None
+    
     def get_bootloader_instructions(self) -> str:
         """Get PIC-specific programming instructions"""
         return (

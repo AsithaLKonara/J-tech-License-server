@@ -20,6 +20,7 @@ RGBPixel = Tuple[int, int, int]
 COMMON_LAYOUTS = {
     (8, 8),
     (12, 6),
+    (15, 6),
     (12, 8),
     (12, 12),
     (16, 8),
@@ -61,6 +62,7 @@ COMMON_LED_COUNTS = {
     80,
     84,
     85,
+    90,
     96,
     100,
     108,
@@ -263,7 +265,22 @@ def pick_best_layout(
     return candidates[0] if candidates else None
 
 
-def _frame_score(frames: int) -> float:
+def _frame_score(frames: int, dimension_source: Optional[str] = None) -> float:
+    """
+    Score frame count for dimension detection confidence.
+    
+    Args:
+        frames: Number of frames in the pattern
+        dimension_source: Source of dimensions ('header', 'detector', 'fallback', etc.)
+                         If 'header', returns full confidence regardless of frame count
+    
+    Returns:
+        Confidence score (0.0 to 1.0) for frame count
+    """
+    # If dimensions come from header, trust them completely
+    if dimension_source == "header":
+        return 1.0
+    
     if frames <= 1:
         return 0.0
     if frames <= 4:
@@ -278,9 +295,12 @@ def _frame_score(frames: int) -> float:
         return 0.55
     if frames <= 1200:
         return 0.35
+    # Reduced penalty for 2000-5000 frame range (common for long animations)
+    if frames <= 2000:
+        return 0.3
     if frames <= 5000:
-        return 0.2
-    return 0.1
+        return 0.25  # Increased from 0.2
+    return 0.15  # Increased from 0.1
 
 
 def infer_leds_and_frames(
@@ -288,6 +308,7 @@ def infer_leds_and_frames(
     include_strips: bool = True,
     preferred_led_counts: Optional[Iterable[int]] = None,
     pixel_bytes: Optional[bytes] = None,
+    dimension_source: Optional[str] = None,
 ) -> Optional[DimensionResolution]:
     """Infer LED count, width, height, and frame count from total pixel count."""
     if total_pixels <= 0:
@@ -334,7 +355,7 @@ def infer_leds_and_frames(
         if not layout:
             continue
         width, height, layout_score = layout
-        frame_conf = _frame_score(frames)
+        frame_conf = _frame_score(frames, dimension_source=dimension_source)
         if preferred_led_counts and led_count in preferred_led_counts:
             layout_score = min(0.99, layout_score + 0.05)
         if not include_strips and min(width, height) < 3:
@@ -360,6 +381,7 @@ def score_dimensions(
     bytes_per_pixel: int = 3,
     include_strips: bool = True,
     preferred_led_counts: Optional[Iterable[int]] = None,
+    dimension_source: Optional[str] = None,
 ) -> Tuple[int, int, int, float]:
     """
     Convenience helper that infers width, height, frame count, and confidence
@@ -377,6 +399,7 @@ def score_dimensions(
         include_strips=include_strips,
         preferred_led_counts=preferred_led_counts,
         pixel_bytes=data,
+        dimension_source=dimension_source,
     )
     if resolution:
         return (

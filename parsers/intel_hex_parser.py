@@ -169,8 +169,8 @@ class IntelHexParser(ParserBase):
                 pass
         
         # Fall back to raw RGB
-        from .raw_rgb_parser import RawRgbParser
+        from .raw_rgb_parser import RawRGBParser
         
-        parser = RawRgbParser()
+        parser = RawRGBParser()
         return parser.parse(bytes(binary_data), suggested_leds, suggested_frames)
 

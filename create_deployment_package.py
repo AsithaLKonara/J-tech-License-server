@@ -8,8 +8,14 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-def create_deployment_package():
-    """Create final deployment ZIP"""
+def create_deployment_package(include_license_keys: bool = True):
+    """Create final deployment ZIP.
+
+    Args:
+        include_license_keys: When False, omit LICENSE_KEYS.txt from the deployment
+            folder and adjust README text accordingly. Default True preserves the
+            current behaviour for backwards compatibility.
+    """
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
@@ -37,9 +43,13 @@ def create_deployment_package():
             shutil.copy2(src, deploy_pkg / exe)
             print(f"  ✓ {exe} ({src.stat().st_size / 1024 / 1024:.2f} MB)")
     
-    # Copy license keys
-    if (source_pkg / "LICENSE_KEYS.txt").exists():
+    # Copy license keys (optional)
+    # NOTE: For hardened production deployments you may want to omit offline keys from
+    # the package to avoid distributing them broadly.
+    has_license_keys = False
+    if include_license_keys and (source_pkg / "LICENSE_KEYS.txt").exists():
         shutil.copy2(source_pkg / "LICENSE_KEYS.txt", deploy_pkg / "LICENSE_KEYS.txt")
+        has_license_keys = True
         print(f"  ✓ LICENSE_KEYS.txt")
     
     # Copy documentation
@@ -103,10 +113,17 @@ PACKAGE DATE: """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + """
 ✅ UploadBridgeInstaller.exe (183 MB)
    - Professional installer with GUI
    - Handles installation, desktop shortcuts, dependencies
+""" + ("""
 
 ✅ LICENSE_KEYS.txt
    - License activation keys
    - Use with the installer or application
+""" if has_license_keys else """
+
+✅ Licensing support
+   - Application includes built-in licensing system
+   - Obtain activation keys separately from your distributor
+""") + """
 
 ✅ Complete Documentation (7 guides)
    - PACKAGE_README.md - Complete usage instructions
@@ -131,12 +148,12 @@ PACKAGE DATE: """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + """
 OPTION 1: Use the Installer (Recommended)
    1. Run UploadBridgeInstaller.exe
    2. Follow installation wizard
-   3. Activate with license key from LICENSE_KEYS.txt
+   3. Activate with your license key""" + (" from LICENSE_KEYS.txt" if has_license_keys else "") + """
    4. Launch Upload Bridge from desktop shortcut
 
 OPTION 2: Direct Run (Portable)
    1. Double-click UploadBridge.exe
-   2. Activate with license key from LICENSE_KEYS.txt
+   2. Activate with your license key""" + (" from LICENSE_KEYS.txt" if has_license_keys else "") + """
    3. Start using immediately!
 
 ═══════════════════════════════════════════════════════════════════════════
@@ -345,6 +362,18 @@ if __name__ == "__main__":
     package = create_deployment_package()
     if package:
         print(f"\n🎉 Deployment package ready: {package}")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

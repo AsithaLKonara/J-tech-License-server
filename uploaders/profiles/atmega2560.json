@@ -1,0 +1,43 @@
+{
+  "chip_id": "ATmega2560",
+  "chip_variant": null,
+  "chip_name": "ATmega2560",
+  "manufacturer": "Microchip",
+  "architecture": "AVR",
+  "flash_size_bytes": 262144,
+  "ram_size_bytes": 8192,
+  "cpu_frequency_mhz": 16,
+  "supported_formats": ["hex", "bin"],
+  "toolchain": {
+    "compiler": "avr-gcc",
+    "linker": "avr-ld",
+    "objcopy": "avr-objcopy",
+    "flasher": "avrdude",
+    "version_required": "6.3"
+  },
+  "flash_options": {
+    "default_baud_rate": 57600,
+    "supported_baud_rates": [9600, 19200, 38400, 57600, 115200],
+    "programmer": "arduino",
+    "flash_size": "256KB"
+  },
+  "build_options": {
+    "defines": ["__AVR_ATmega2560__"],
+    "include_paths": [],
+    "linker_script_required": false,
+    "fuses_required": true,
+    "bootloader_required": false
+  },
+  "verification": {
+    "supports_hash_verification": true,
+    "verification_method": "avrdude_verify",
+    "hash_algorithm": "sha256"
+  },
+  "device_detection": {
+    "method": "avrdude_read_signature",
+    "timeout_ms": 5000,
+    "baud_rate": 57600
+  },
+  "capabilities": ["flash", "verify", "erase"]
+}
+

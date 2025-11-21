@@ -1,30 +1,57 @@
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-
-# Build and distribution artifacts
-build/
-dist/
+*$py.class
+*.so
+.Python
 *.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+ENV/
+env/
 
-# Installer and packaged binaries
-*.exe
-*.pkg
-*.msi
-*.zip
-*.tar
-*.gz
-*.whl
-
-# Logs and temp files
-*.log
-*.tmp
-*.bak
+# IDE
+.vscode/
+.idea/
 *.swp
 *.swo
+*~
+.cursor/
 
-# OS metadata
+# OS
 .DS_Store
 Thumbs.db
+*.log
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Project specific
+*.ledproj.backup
+*.tmp
+test_results*.json
+pattern_results.txt
+
+# Docker
+*.dockerignore
+
+# Build artifacts
+*.bin
+*.hex
+*.elf
+*.o
+*.a
+
+# Firmware build outputs
+firmware_builds/
+build_outputs/

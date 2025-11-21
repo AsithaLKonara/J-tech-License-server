@@ -3,6 +3,9 @@ Enhanced LED Simulator Widget - Accurate pattern visualization
 Shows exact pattern with correct matrix size and shape
 """
 
+from typing import Dict
+from math import cos, sin, pi
+
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QSlider, QSpinBox, QComboBox,
                                QGroupBox, QScrollArea, QFrame, QCheckBox)
@@ -57,6 +60,7 @@ class EnhancedLEDSimulatorWidget(QWidget):
         
         self.setup_ui()
         self.setup_timer()
+        self.apply_theme({}, {})
     
     def setup_ui(self):
         """Create UI elements"""
@@ -95,85 +99,94 @@ class EnhancedLEDSimulatorWidget(QWidget):
         layout.addLayout(controls_layout)
         
         # Display settings
-        settings_layout = QHBoxLayout()
-        
-        settings_layout.addWidget(QLabel("LED Size:"))
+        settings_layout = QVBoxLayout()
+        settings_layout.setSpacing(8)
+
+        top_settings_row = QHBoxLayout()
+        top_settings_row.setSpacing(12)
+        top_settings_row.addWidget(QLabel("LED Size:"))
         self.led_size_spin = QSpinBox()
         self.led_size_spin.setRange(4, 32)
         self.led_size_spin.setValue(self.led_size)
         self.led_size_spin.valueChanged.connect(self.set_led_size)
-        settings_layout.addWidget(self.led_size_spin)
-        
-        settings_layout.addWidget(QLabel("Zoom:"))
+        top_settings_row.addWidget(self.led_size_spin)
+
+        top_settings_row.addWidget(QLabel("Zoom:"))
         self.zoom_spin = QSpinBox()
         self.zoom_spin.setRange(25, 400)
         self.zoom_spin.setValue(100)
         self.zoom_spin.setSuffix("%")
         self.zoom_spin.valueChanged.connect(self.set_zoom)
-        settings_layout.addWidget(self.zoom_spin)
-        
+        top_settings_row.addWidget(self.zoom_spin)
+
         self.grid_checkbox = QComboBox()
         self.grid_checkbox.addItems(["No Grid", "Light Grid", "Dark Grid"])
         self.grid_checkbox.currentTextChanged.connect(self.set_grid_style)
-        settings_layout.addWidget(QLabel("Grid:"))
-        settings_layout.addWidget(self.grid_checkbox)
-        
+        top_settings_row.addWidget(QLabel("Grid:"))
+        top_settings_row.addWidget(self.grid_checkbox)
+
         self.numbers_checkbox = QComboBox()
         self.numbers_checkbox.addItems(["No Numbers", "Show Numbers"])
         self.numbers_checkbox.currentTextChanged.connect(self.set_show_numbers)
-        settings_layout.addWidget(QLabel("Numbers:"))
-        settings_layout.addWidget(self.numbers_checkbox)
-        
+        top_settings_row.addWidget(QLabel("Numbers:"))
+        top_settings_row.addWidget(self.numbers_checkbox)
+
+        top_settings_row.addWidget(QLabel("Layout:"))
+        self.layout_combo = QComboBox()
+        self.layout_combo.addItems(["Matrix", "Circle", "Ring", "Radial", "Matrix + Circle"])
+        self.layout_combo.currentTextChanged.connect(self.set_display_layout)
+        top_settings_row.addWidget(self.layout_combo)
+
+        top_settings_row.addStretch()
+        settings_layout.addLayout(top_settings_row)
+
+        bottom_settings_row = QHBoxLayout()
+        bottom_settings_row.setSpacing(12)
+
         # Wiring mode (mapping from linear pixel order to matrix)
-        settings_layout.addWidget(QLabel("Wiring:"))
+        bottom_settings_row.addWidget(QLabel("Wiring:"))
         self.wiring_combo = QComboBox()
         self.wiring_combo.addItems(["Serpentine", "Row-major", "Column-major", "Column-serpentine"])  # default serpentine (common)
         self.wiring_combo.currentTextChanged.connect(self.set_wiring_mode)
-        settings_layout.addWidget(self.wiring_combo)
+        bottom_settings_row.addWidget(self.wiring_combo)
 
         # Rotation and mirror controls removed - using layered architecture
 
         # Data-in corner (where index 0 enters)
-        settings_layout.addWidget(QLabel("Data In:"))
+        bottom_settings_row.addWidget(QLabel("Data In:"))
         self.datain_combo = QComboBox()
         self.datain_combo.addItems(["Left Top", "Left Bottom", "Right Top", "Right Bottom"])
-        settings_layout.addWidget(self.datain_combo)
-        
+        bottom_settings_row.addWidget(self.datain_combo)
+
         # File Format (what format the file is actually stored in)
-        settings_layout.addWidget(QLabel("File Format:"))
+        bottom_settings_row.addWidget(QLabel("File Format:"))
         self.file_format_combo = QComboBox()
         self.file_format_combo.addItems(["Auto-detect", "Serpentine", "Row-major", "Column-major", "Column-serpentine"])
         self.file_format_combo.setCurrentText("Auto-detect")  # Default: Auto-detect
         self.file_format_combo.setToolTip("Format of the loaded file (for preview unwrapping)")
         self.file_format_combo.currentTextChanged.connect(self.on_file_format_changed)
-        settings_layout.addWidget(self.file_format_combo)
-        
+        bottom_settings_row.addWidget(self.file_format_combo)
+
         # File Data-In (where data enters in the file)
-        settings_layout.addWidget(QLabel("File Data-In:"))
+        bottom_settings_row.addWidget(QLabel("File Data-In:"))
         self.file_datain_combo = QComboBox()
         self.file_datain_combo.addItems(["Auto-detect", "Left Top", "Left Bottom", "Right Top", "Right Bottom"])
         self.file_datain_combo.setCurrentText("Auto-detect")  # Default: Auto-detect
         self.file_datain_combo.setToolTip("Data-in corner of the loaded file (for preview unwrapping)")
         self.file_datain_combo.currentTextChanged.connect(self.on_file_datain_changed)
-        settings_layout.addWidget(self.file_datain_combo)
-
-        # Layout/Display mode
-        settings_layout.addWidget(QLabel("Layout:"))
-        self.layout_combo = QComboBox()
-        self.layout_combo.addItems(["Matrix", "Circle", "Matrix + Circle"])
-        self.layout_combo.currentTextChanged.connect(self.set_display_layout)
-        settings_layout.addWidget(self.layout_combo)
+        bottom_settings_row.addWidget(self.file_datain_combo)
 
         # Wiring visualization toggles
         self.path_checkbox = QCheckBox("Show Path")
         self.path_checkbox.setChecked(True)
-        settings_layout.addWidget(self.path_checkbox)
+        bottom_settings_row.addWidget(self.path_checkbox)
         self.din_checkbox = QCheckBox("Show Data In")
         self.din_checkbox.setChecked(True)
-        settings_layout.addWidget(self.din_checkbox)
-        
-        settings_layout.addStretch()
-        
+        bottom_settings_row.addWidget(self.din_checkbox)
+
+        bottom_settings_row.addStretch()
+        settings_layout.addLayout(bottom_settings_row)
+
         layout.addLayout(settings_layout)
         
         # LED Display
@@ -187,12 +200,6 @@ class EnhancedLEDSimulatorWidget(QWidget):
             self.led_display.set_data_in_corner("LT")
         except Exception:
             pass
-        self.led_display.setStyleSheet("""
-            LEDDisplayWidget {
-                background-color: #1a1a1a;
-                border: 1px solid #555555;
-            }
-        """)
         # Now that display exists, connect toggles
         self.path_checkbox.toggled.connect(self.led_display.set_show_path)
         self.din_checkbox.toggled.connect(self.led_display.set_show_din)
@@ -203,6 +210,7 @@ class EnhancedLEDSimulatorWidget(QWidget):
         info_layout = QHBoxLayout()
         
         self.info_label = QLabel("No pattern loaded")
+        self.info_label.setObjectName("infoLabel")
         self.info_label.setWordWrap(True)
         info_layout.addWidget(self.info_label)
         
@@ -224,29 +232,83 @@ class EnhancedLEDSimulatorWidget(QWidget):
             return
         
         # Prefer explicit metadata width/height when valid; fallback to detector
+        # Add confidence checks for metadata validation
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
-            if getattr(pattern, 'metadata', None) and getattr(pattern.metadata, 'is_matrix', False):
-                if pattern.metadata.width * pattern.metadata.height == pattern.led_count:
+            metadata = getattr(pattern, 'metadata', None)
+            if metadata:
+                dimension_source = getattr(metadata, 'dimension_source', 'unknown')
+                dimension_confidence = getattr(metadata, 'dimension_confidence', 0.0)
+                
+                # Check if metadata dimensions are consistent and trustworthy
+                width_height_match = metadata.width * metadata.height == pattern.led_count
+                is_matrix = getattr(metadata, 'is_matrix', False)
+                
+                # Check for user override
+                dimension_override = getattr(metadata, 'dimension_override', False)
+                
+                # Trust metadata if:
+                # 1. User override (always trust) OR
+                # 2. Dimensions match LED count AND (From header OR confidence >= 0.5)
+                should_trust_metadata = (
+                    dimension_override or
+                    (width_height_match and
+                     (dimension_source == 'header' or dimension_confidence >= 0.5))
+                )
+                
+                if should_trust_metadata and is_matrix:
                     from core.matrix_detector import MatrixLayout
+                    # Use metadata dimensions
+                    confidence_value = 1.0 if dimension_source == 'header' else dimension_confidence
                     self.detected_layout = MatrixLayout(
-                        width=pattern.metadata.width,
-                        height=pattern.metadata.height,
+                        width=metadata.width,
+                        height=metadata.height,
                         total_leds=pattern.led_count,
                         layout_type="matrix",
-                        confidence=1.0,
+                        confidence=confidence_value,
                     )
+                    if dimension_source != 'header' and dimension_confidence < 0.7:
+                        logger.warning(
+                            f"Using metadata with medium confidence ({dimension_confidence:.0%}) "
+                            f"from {dimension_source}. Dimensions: {metadata.width}×{metadata.height}"
+                        )
                 else:
-                    # fallback to detection if inconsistent
+                    # Metadata not trustworthy - re-detect
+                    if not width_height_match:
+                        logger.warning(
+                            f"Metadata dimensions inconsistent: {metadata.width}×{metadata.height} "
+                            f"≠ {pattern.led_count} LEDs. Re-detecting..."
+                        )
+                    elif dimension_source != 'header' and dimension_confidence < 0.5:
+                        logger.warning(
+                            f"Low confidence metadata ({dimension_confidence:.0%}) from {dimension_source}. "
+                            "Re-detecting dimensions..."
+                        )
+                    
+                    # Fallback to detection
                     self.detected_layout = self.matrix_detector.detect_layout(
                         pattern.led_count,
                         pattern.frames[0].pixels if pattern.frames else None
                     )
+                    
+                    # Log detected vs metadata if different
+                    if metadata and self.detected_layout:
+                        if (self.detected_layout.width != metadata.width or 
+                            self.detected_layout.height != metadata.height):
+                            logger.info(
+                                f"Re-detected dimensions: {self.detected_layout.width}×{self.detected_layout.height} "
+                                f"(was {metadata.width}×{metadata.height} in metadata)"
+                            )
             else:
+                # No metadata - use detector
                 self.detected_layout = self.matrix_detector.detect_layout(
                     pattern.led_count,
                     pattern.frames[0].pixels if pattern.frames else None
                 )
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error in metadata validation, falling back to detector: {e}")
             self.detected_layout = self.matrix_detector.detect_layout(
                 pattern.led_count,
                 pattern.frames[0].pixels if pattern.frames else None
@@ -350,7 +412,7 @@ class EnhancedLEDSimulatorWidget(QWidget):
         
         self.playback_state_changed.emit(False)
     
-    def stop(self):
+    def stop(self, lazy_loader=None):
         """Stop playback and reset to first frame"""
         self.is_playing = False
         self.playback_timer.stop()
@@ -358,7 +420,7 @@ class EnhancedLEDSimulatorWidget(QWidget):
         self.pause_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         
-        self.set_frame(0)
+        self.set_frame(0, lazy_loader=lazy_loader)
         self.playback_state_changed.emit(False)
     
     def next_frame(self):
@@ -494,6 +556,92 @@ class EnhancedLEDSimulatorWidget(QWidget):
         
         self.info_label.setText(info)
 
+    def apply_theme(self, ui_palette: Dict[str, str], simulator_palette: Dict[str, str]) -> None:
+        """
+        Apply theme colours to the simulator chrome and LED canvas.
+        """
+
+        def pick(mapping: Dict[str, str], key: str, fallback: str) -> str:
+            return mapping.get(key, fallback)
+
+        background = pick(ui_palette, "surface", "#1E1E1E")
+        surface_alt = pick(ui_palette, "surface_alt", background)
+        text_primary = pick(ui_palette, "text_primary", "#F5F5F5")
+        text_secondary = pick(ui_palette, "text_secondary", "#B5B5B5")
+        control_bg = pick(ui_palette, "control_bg", "#2A2A2A")
+        border = pick(ui_palette, "border", "#2E2E2E")
+        accent = pick(ui_palette, "accent", "#4C8BF5")
+        accent_hover = pick(ui_palette, "accent_hover", "#5B99FF")
+        disabled_bg = pick(ui_palette, "control_disabled_bg", "#1A1A1A")
+        disabled_text = pick(ui_palette, "control_disabled_text", "#666666")
+        text_on_accent = pick(ui_palette, "text_on_accent", "#FFFFFF")
+
+        self.setStyleSheet(
+            f"""
+            EnhancedLEDSimulatorWidget {{
+                background-color: {background};
+                color: {text_primary};
+            }}
+            EnhancedLEDSimulatorWidget QLabel {{
+                color: {text_secondary};
+            }}
+            EnhancedLEDSimulatorWidget QLabel#infoLabel {{
+                color: {text_primary};
+            }}
+            EnhancedLEDSimulatorWidget QPushButton {{
+                background-color: {control_bg};
+                border: 1px solid {border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                color: {text_primary};
+            }}
+            EnhancedLEDSimulatorWidget QPushButton:hover {{
+                background-color: {accent_hover};
+                border-color: {accent_hover};
+                color: {text_on_accent};
+            }}
+            EnhancedLEDSimulatorWidget QPushButton:pressed {{
+                background-color: {accent};
+                border-color: {accent};
+                color: {text_on_accent};
+            }}
+            EnhancedLEDSimulatorWidget QPushButton:disabled {{
+                background-color: {disabled_bg};
+                color: {disabled_text};
+                border-color: {border};
+            }}
+            EnhancedLEDSimulatorWidget QComboBox,
+            EnhancedLEDSimulatorWidget QSpinBox,
+            EnhancedLEDSimulatorWidget QSlider {{
+                background-color: {control_bg};
+                color: {text_primary};
+                border: 1px solid {border};
+                border-radius: 4px;
+            }}
+            EnhancedLEDSimulatorWidget QComboBox QAbstractItemView {{
+                background-color: {surface_alt};
+                color: {text_primary};
+                border: 1px solid {border};
+            }}
+            EnhancedLEDSimulatorWidget QGroupBox {{
+                border: 1px solid {border};
+            }}
+            """
+        )
+
+        # Update the LED canvas palette
+        self.led_display.apply_palette(simulator_palette)
+        canvas_bg = pick(simulator_palette, "background", "#1A1A1A")
+        canvas_border = pick(simulator_palette, "border", "#555555")
+        self.led_display.setStyleSheet(
+            f"""
+            LEDDisplayWidget {{
+                background-color: {canvas_bg};
+                border: 1px solid {canvas_border};
+            }}
+            """
+        )
+
 
 class LEDDisplayWidget(QWidget):
     """
@@ -520,6 +668,11 @@ class LEDDisplayWidget(QWidget):
         self.show_path = True
         self.show_din = True
         self.data_in_corner = "LT"
+        self._background_color = QColor("#1a1a1a")
+        self._cell_border_color = QColor("#000000")
+        self._grid_light_color = QColor("#c8c8c8")
+        self._grid_dark_color = QColor("#646464")
+        self._number_color = QColor("#111111")
         
         # Set minimum size
         self.setMinimumSize(400, 300)
@@ -534,12 +687,22 @@ class LEDDisplayWidget(QWidget):
         self.current_frame = 0
         self.update()
     
-    def set_frame(self, frame_idx: int):
-        """Set current frame"""
+    def set_frame(self, frame_idx: int, lazy_loader=None):
+        """Set current frame with optional lazy loading support"""
         if not self.pattern:
             return
         
         self.current_frame = max(0, min(frame_idx, self.pattern.frame_count - 1))
+        
+        # If lazy loader is provided, use it to load frame on-demand
+        if lazy_loader and hasattr(self, 'pattern'):
+            frame = lazy_loader.load_frame(self.current_frame)
+            if frame:
+                # Temporarily replace frame in pattern for rendering
+                if self.current_frame < len(self.pattern.frames):
+                    original_frame = self.pattern.frames[self.current_frame]
+                    self.pattern.frames[self.current_frame] = frame
+        
         self.update()
     
     def set_led_size(self, size: int):
@@ -595,6 +758,14 @@ class LEDDisplayWidget(QWidget):
             if self.pattern and getattr(self.pattern, 'metadata', None):
                 self.pattern.metadata.data_in_corner = self.data_in_corner
             self.update()
+
+    def _current_dimensions(self) -> tuple[int, int]:
+        """Return (width, height) for the active pattern."""
+        if self.detected_layout:
+            return max(0, self.detected_layout.width), max(0, self.detected_layout.height)
+        if self.pattern and getattr(self.pattern, "metadata", None):
+            return max(0, self.pattern.metadata.width), max(0, self.pattern.metadata.height)
+        return 0, 0
     
     def clear(self):
         """Clear display"""
@@ -610,8 +781,8 @@ class LEDDisplayWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # Fill background with dark color
-        painter.fillRect(self.rect(), QColor(26, 26, 26))  # Dark background
+        # Fill background with theme-aware color
+        painter.fillRect(self.rect(), self._background_color)
         
         # Get current frame
         if self.current_frame >= len(self.pattern.frames):
@@ -619,13 +790,9 @@ class LEDDisplayWidget(QWidget):
         
         frame = self.pattern.frames[self.current_frame]
         
-        # Calculate display dimensions using detected layout
-        if self.detected_layout:
-            width = self.detected_layout.width
-            height = self.detected_layout.height
-        else:
-            width = self.pattern.metadata.width
-            height = self.pattern.metadata.height
+        width, height = self._current_dimensions()
+        if width == 0 or height == 0:
+            return
         
         # Calculate LED positions
         led_width = int(self.led_size * self.zoom_factor)
@@ -640,14 +807,20 @@ class LEDDisplayWidget(QWidget):
         
         # Draw LEDs according to the selected display mode
         if self.display_mode == "Circle":
-            self._paint_circle(painter, frame)
+            self._paint_circle(painter, frame, width, height, self.rect())
+            return
+        elif self.display_mode == "Ring":
+            self._paint_ring(painter, frame, width, height, self.rect())
+            return
+        elif self.display_mode == "Radial":
+            self._paint_radial(painter, frame, width, height, self.rect())
             return
         elif self.display_mode == "Matrix + Circle":
             # Draw matrix on left half and circle on right half
             matrix_rect = self.rect().adjusted(0, 0, -self.width()//2, 0)
             circle_rect = self.rect().adjusted(self.width()//2, 0, 0, 0)
             self._paint_matrix(painter, frame, width, height, led_width, led_height, matrix_rect)
-            self._paint_circle(painter, frame, circle_rect)
+            self._paint_circle(painter, frame, width, height, circle_rect)
             return
 
         # Default: Matrix
@@ -664,19 +837,19 @@ class LEDDisplayWidget(QWidget):
                     # Draw LED
                     color = QColor(r, g, b)
                     painter.setBrush(QBrush(color))
-                    painter.setPen(QPen(Qt.black, 1))
+                    painter.setPen(QPen(self._cell_border_color, 1))
                     painter.drawRect(led_x, led_y, led_width, led_height)
                     
                     # Draw grid if enabled
                     if self.show_grid:
-                        grid_color = QColor(200, 200, 200) if self.grid_style == "Light Grid" else QColor(100, 100, 100)
+                        grid_color = self._grid_light_color if self.grid_style == "Light Grid" else self._grid_dark_color
                         painter.setPen(QPen(grid_color, 1))
                         painter.setBrush(Qt.NoBrush)
                         painter.drawRect(led_x, led_y, led_width, led_height)
                     
                     # Draw numbers if enabled
                     if self.show_numbers and led_width > 12:
-                        painter.setPen(QPen(Qt.black, 1))
+                        painter.setPen(QPen(self._number_color, 1))
                         font = QFont()
                         font.setPointSize(max(6, led_width // 4))
                         painter.setFont(font)
@@ -728,12 +901,12 @@ class LEDDisplayWidget(QWidget):
                     led_y = start_y + y * led_h
                     color = QColor(r, g, b)
                     painter.setBrush(QBrush(color))
-                    painter.setPen(QPen(Qt.black, 1))
+                    painter.setPen(QPen(self._cell_border_color, 1))
                     painter.drawRect(led_x, led_y, led_w, led_h)
                     
                     # Draw grid if enabled
                     if self.show_grid:
-                        grid_color = QColor(200, 200, 200) if self.grid_style == "Light Grid" else QColor(100, 100, 100)
+                        grid_color = self._grid_light_color if self.grid_style == "Light Grid" else self._grid_dark_color
                         painter.setPen(QPen(grid_color, 1))
                         painter.setBrush(Qt.NoBrush)
                         painter.drawRect(led_x, led_y, led_w, led_h)
@@ -769,30 +942,69 @@ class LEDDisplayWidget(QWidget):
                     scx = start_x + sx * led_w + led_w // 2
                     scy = start_y + sy * led_h + led_h // 2
                     painter.setBrush(QBrush(QColor(0, 200, 0)))
-                    painter.setPen(QPen(Qt.black, 1))
+                    painter.setPen(QPen(self._cell_border_color, 1))
                     size = max(6, min(led_w, led_h) // 2)
                     painter.drawEllipse(scx - size//2, scy - size//2, size, size)
                     painter.setPen(QPen(QColor(0,200,0)))
                     painter.drawText(scx + size//2 + 3, scy, "DIN")
 
-    def _paint_circle(self, painter: QPainter, frame: Frame, rect=None):
+    def _paint_circle(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None, *, inner_ratio: float = 0.0):
+        """Render the pattern as concentric rings to approximate circular matrices."""
         rect = rect or self.rect()
-        n = len(frame.pixels)
-        if n == 0:
+        outer_radius = min(rect.width(), rect.height()) / 2 - 16
+        if outer_radius <= 0:
             return
-        # Circle geometry
-        cx = rect.x() + rect.width() // 2
-        cy = rect.y() + rect.height() // 2
-        r = int(min(rect.width(), rect.height()) * 0.4)
-        size = max(4, int(self.led_size * self.zoom_factor * 0.8))
-        for i in range(n):
-            angle = 2 * 3.1415926535 * (i / n)
-            x = cx + int(r * float(__import__('math').cos(angle)))
-            y = cy + int(r * float(__import__('math').sin(angle)))
-            r_, g_, b_ = frame.pixels[i]
-            painter.setBrush(QBrush(QColor(r_, g_, b_)))
-            painter.setPen(QPen(Qt.black, 1))
-            painter.drawEllipse(x - size//2, y - size//2, size, size)
+        inner_radius = max(0.0, outer_radius * inner_ratio)
+        radius_steps = max(1, height - 1)
+        radius_delta = (outer_radius - inner_radius) / radius_steps if radius_steps else 0
+        pixel_size = max(4, int(self.led_size * self.zoom_factor * 0.8))
+        center_x = rect.x() + rect.width() / 2
+        center_y = rect.y() + rect.height() / 2
+
+        for row in range(height):
+            radius = inner_radius + radius_delta * row
+            for col in range(width):
+                idx = row * width + col
+                if idx >= len(frame.pixels):
+                    continue
+                angle = -pi / 2 + (2 * pi) * (col / max(1, width))
+                x = center_x + radius * cos(angle)
+                y = center_y + radius * sin(angle)
+                r_val, g_val, b_val = frame.pixels[idx]
+                painter.setBrush(QBrush(QColor(r_val, g_val, b_val)))
+                painter.setPen(QPen(self._cell_border_color, 1))
+                painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
+
+    def _paint_ring(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None):
+        """Draw hollow ring preview (useful for circular LED strips)."""
+        self._paint_circle(painter, frame, width, height, rect, inner_ratio=0.55)
+
+    def _paint_radial(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None):
+        """Render semi-circular previews for arc / fan layouts."""
+        rect = rect or self.rect()
+        outer_radius = min(rect.width() / 2, rect.height()) - 24
+        if outer_radius <= 0:
+            return
+        inner_radius = outer_radius * 0.15
+        radius_steps = max(1, height - 1)
+        radius_delta = (outer_radius - inner_radius) / radius_steps if radius_steps else 0
+        pixel_size = max(4, int(self.led_size * self.zoom_factor * 0.8))
+        center_x = rect.x() + rect.width() / 2
+        center_y = rect.bottom() - 12  # anchor at bottom to mimic physical mounts
+
+        for row in range(height):
+            radius = inner_radius + radius_delta * row
+            for col in range(width):
+                idx = row * width + col
+                if idx >= len(frame.pixels):
+                    continue
+                angle = pi + (pi * (col / max(1, width)))  # sweep 180°
+                x = center_x + radius * cos(angle)
+                y = center_y + radius * sin(angle)
+                r_val, g_val, b_val = frame.pixels[idx]
+                painter.setBrush(QBrush(QColor(r_val, g_val, b_val)))
+                painter.setPen(QPen(self._cell_border_color, 1))
+                painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
 
     def _compute_display_path(self, w: int, h: int):
         """
@@ -916,3 +1128,22 @@ class LEDDisplayWidget(QWidget):
                     path.append((x, y))
         
         return path
+
+    def apply_palette(self, palette: Dict[str, str]) -> None:
+        """
+        Apply theme colours for the LED display canvas.
+        """
+
+        def to_color(value, fallback: QColor) -> QColor:
+            if value is None:
+                return fallback
+            if isinstance(value, QColor):
+                return value
+            return QColor(value)
+
+        self._background_color = to_color(palette.get("background"), self._background_color)
+        self._cell_border_color = to_color(palette.get("border"), self._cell_border_color)
+        self._grid_light_color = to_color(palette.get("grid_light"), self._grid_light_color)
+        self._grid_dark_color = to_color(palette.get("grid_dark"), self._grid_dark_color)
+        self._number_color = to_color(palette.get("number"), self._number_color)
+        self.update()

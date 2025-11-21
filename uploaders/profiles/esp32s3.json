@@ -1,0 +1,45 @@
+{
+  "chip_id": "ESP32",
+  "chip_variant": "ESP32-S3",
+  "chip_name": "ESP32-S3",
+  "manufacturer": "Espressif",
+  "architecture": "Xtensa",
+  "flash_size_bytes": 8388608,
+  "ram_size_bytes": 524288,
+  "cpu_frequency_mhz": 240,
+  "supported_formats": ["bin", "elf"],
+  "toolchain": {
+    "compiler": "xtensa-esp32s3-elf-gcc",
+    "linker": "xtensa-esp32s3-elf-ld",
+    "objcopy": "xtensa-esp32s3-elf-objcopy",
+    "flasher": "esptool",
+    "version_required": "4.0.0"
+  },
+  "flash_options": {
+    "default_baud_rate": 921600,
+    "supported_baud_rates": [115200, 460800, 921600],
+    "flash_mode": "dio",
+    "flash_freq": "80m",
+    "flash_size": "8MB",
+    "partition_table_required": true
+  },
+  "build_options": {
+    "defines": ["ESP32S3"],
+    "include_paths": [],
+    "linker_script_required": true,
+    "partition_table_required": true,
+    "bootloader_required": true
+  },
+  "verification": {
+    "supports_hash_verification": true,
+    "verification_method": "serial_hash",
+    "hash_algorithm": "sha256"
+  },
+  "device_detection": {
+    "method": "serial_chip_id",
+    "timeout_ms": 5000,
+    "baud_rate": 115200
+  },
+  "capabilities": ["flash", "verify", "erase", "reset"]
+}
+

@@ -3,7 +3,7 @@ WiFi Upload Tab - Upload Bridge Application
 WiFi-enabled pattern upload functionality
 """
 
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
                                 QLabel, QLineEdit, QPushButton, QComboBox,
                                 QTextEdit, QGroupBox, QProgressBar, QCheckBox,
                                 QSpinBox, QFileDialog, QMessageBox, QSplitter, QScrollArea)
@@ -115,6 +115,13 @@ class WiFiUploadTab(QWidget):
     - Status monitoring
     - Web interface integration
     """
+    
+    # Signals
+    upload_started = Signal()
+    upload_progress = Signal(int)  # percent
+    upload_complete = Signal(bool, str)  # success, message
+    brightness_changed = Signal(int)  # brightness value
+    schedule_updated = Signal(dict)  # schedule dict
     
     def __init__(self):
         super().__init__()
@@ -302,7 +309,26 @@ class WiFiUploadTab(QWidget):
             }
         """)
         wifi_layout.addWidget(self.test_button)
-        
+
+        # Security notice (UI-level reminder that this is intended for trusted networks)
+        security_label = QLabel(
+            "Security note: WiFi upload is designed for a trusted local network.\n"
+            "Avoid exposing the ESP8266 access point and HTTP API to the public internet."
+        )
+        security_label.setWordWrap(True)
+        security_label.setStyleSheet(
+            "color: #ffcc66; font-size: 10px; padding-top: 6px;"
+        )
+        wifi_layout.addWidget(security_label)
+
+        # Quick link to WiFi integration docs
+        open_wifi_docs = QPushButton("Open WiFi Upload Guide")
+        open_wifi_docs.setToolTip("Open the WiFi upload integration guide and implementation notes.")
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        open_wifi_docs.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path('wifi_upload/WIFI_INTEGRATION_COMPLETE.md').resolve()))))
+        wifi_layout.addWidget(open_wifi_docs)
+
         layout.addWidget(wifi_group)
         
         # Pattern File Selection Group
@@ -423,6 +449,148 @@ class WiFiUploadTab(QWidget):
         
         actions_group.setLayout(actions_layout)
         layout.addWidget(actions_group)
+        
+        # Phase 4: WiFi Upload Enhancements
+        # Brightness Control Group
+        brightness_group = QGroupBox("💡 Brightness Control")
+        brightness_layout = QVBoxLayout(brightness_group)
+        
+        brightness_slider_layout = QHBoxLayout()
+        brightness_slider_layout.addWidget(QLabel("Brightness:"))
+        self.brightness_slider = QSpinBox()
+        self.brightness_slider.setRange(0, 255)
+        self.brightness_slider.setValue(255)
+        self.brightness_slider.setSuffix(" / 255")
+        brightness_slider_layout.addWidget(self.brightness_slider)
+        
+        self.set_brightness_button = QPushButton("Set Brightness")
+        self.set_brightness_button.clicked.connect(self.set_brightness)
+        brightness_slider_layout.addWidget(self.set_brightness_button)
+        brightness_layout.addLayout(brightness_slider_layout)
+        
+        self.brightness_status_label = QLabel("Current: Not checked")
+        self.brightness_status_label.setStyleSheet("color: #888888; font-size: 10px;")
+        brightness_layout.addWidget(self.brightness_status_label)
+        
+        layout.addWidget(brightness_group)
+        
+        # Pattern Library Group
+        library_group = QGroupBox("📚 Pattern Library")
+        library_layout = QVBoxLayout(library_group)
+        
+        library_buttons_layout = QHBoxLayout()
+        self.list_library_button = QPushButton("📋 List Patterns")
+        self.list_library_button.clicked.connect(self.list_pattern_library)
+        library_buttons_layout.addWidget(self.list_library_button)
+        
+        self.upload_to_library_button = QPushButton("⬆️ Upload to Library")
+        self.upload_to_library_button.clicked.connect(self.upload_to_library)
+        library_buttons_layout.addWidget(self.upload_to_library_button)
+        
+        library_layout.addLayout(library_buttons_layout)
+        
+        self.library_list_widget = QTextEdit()
+        self.library_list_widget.setMaximumHeight(100)
+        self.library_list_widget.setReadOnly(True)
+        self.library_list_widget.setPlaceholderText("No patterns in library. Click 'List Patterns' to check.")
+        library_layout.addWidget(self.library_list_widget)
+        
+        layout.addWidget(library_group)
+        
+        # Pattern Scheduling Group
+        schedule_group = QGroupBox("⏰ Pattern Scheduling")
+        schedule_layout = QVBoxLayout(schedule_group)
+        
+        schedule_form_layout = QFormLayout()
+        self.schedule_pattern_combo = QComboBox()
+        self.schedule_pattern_combo.setEditable(True)
+        self.schedule_pattern_combo.setPlaceholderText("Enter pattern name")
+        schedule_form_layout.addRow("Pattern:", self.schedule_pattern_combo)
+        
+        self.schedule_time_edit = QLineEdit()
+        self.schedule_time_edit.setPlaceholderText("HH:MM (24-hour format)")
+        self.schedule_time_edit.setText("12:00")
+        schedule_form_layout.addRow("Time:", self.schedule_time_edit)
+        
+        self.schedule_repeat_checkbox = QCheckBox("Repeat daily")
+        schedule_form_layout.addRow("", self.schedule_repeat_checkbox)
+        
+        schedule_layout.addLayout(schedule_form_layout)
+        
+        schedule_buttons_layout = QHBoxLayout()
+        self.schedule_button = QPushButton("📅 Schedule Pattern")
+        self.schedule_button.clicked.connect(self.schedule_pattern)
+        schedule_buttons_layout.addWidget(self.schedule_button)
+        
+        self.get_schedule_button = QPushButton("📋 View Schedule")
+        self.get_schedule_button.clicked.connect(self.get_schedule)
+        schedule_buttons_layout.addWidget(self.get_schedule_button)
+        
+        schedule_layout.addLayout(schedule_buttons_layout)
+        
+        self.schedule_status_label = QLabel("")
+        self.schedule_status_label.setStyleSheet("color: #888888; font-size: 10px;")
+        schedule_layout.addWidget(self.schedule_status_label)
+        
+        layout.addWidget(schedule_group)
+        
+        # OTA Firmware Update Group
+        ota_group = QGroupBox("🔄 OTA Firmware Update")
+        ota_layout = QVBoxLayout(ota_group)
+        
+        ota_file_layout = QHBoxLayout()
+        self.ota_firmware_path_edit = QLineEdit()
+        self.ota_firmware_path_edit.setPlaceholderText("Select firmware .bin file")
+        ota_file_layout.addWidget(self.ota_firmware_path_edit)
+        
+        self.ota_browse_button = QPushButton("📂 Browse")
+        self.ota_browse_button.clicked.connect(self.browse_ota_firmware)
+        ota_file_layout.addWidget(self.ota_browse_button)
+        
+        ota_layout.addLayout(ota_file_layout)
+        
+        self.ota_update_button = QPushButton("🚀 Update Firmware (OTA)")
+        self.ota_update_button.clicked.connect(self.update_firmware_ota)
+        self.ota_update_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF5722;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E64A19;
+            }
+        """)
+        ota_layout.addWidget(self.ota_update_button)
+        
+        ota_warning = QLabel("⚠️ Warning: OTA updates will restart the device. Ensure stable WiFi connection.")
+        ota_warning.setWordWrap(True)
+        ota_warning.setStyleSheet("color: #ffcc66; font-size: 10px;")
+        ota_layout.addWidget(ota_warning)
+        
+        layout.addWidget(ota_group)
+        
+        # Multi-Device Sync Group
+        multi_device_group = QGroupBox("🔗 Multi-Device Sync")
+        multi_device_layout = QVBoxLayout(multi_device_group)
+        
+        self.multi_device_ips_edit = QLineEdit()
+        self.multi_device_ips_edit.setPlaceholderText("Enter IP addresses separated by commas (e.g., 192.168.4.1, 192.168.4.2)")
+        multi_device_layout.addWidget(self.multi_device_ips_edit)
+        
+        self.sync_all_button = QPushButton("🔄 Sync Pattern to All Devices")
+        self.sync_all_button.clicked.connect(self.sync_to_multiple_devices)
+        multi_device_layout.addWidget(self.sync_all_button)
+        
+        self.multi_device_status_label = QLabel("")
+        self.multi_device_status_label.setStyleSheet("color: #888888; font-size: 10px;")
+        self.multi_device_status_label.setWordWrap(True)
+        multi_device_layout.addWidget(self.multi_device_status_label)
+        
+        layout.addWidget(multi_device_group)
         
         panel.setLayout(layout)
         return panel
@@ -735,6 +903,9 @@ WiFi Network Details:
             
             self.log_message("Starting WiFi upload...")
             
+            # Emit started signal
+            self.upload_started.emit()
+            
             # Connect to upload worker signals
             if self.wifi_uploader.upload_worker:
                 self.wifi_uploader.upload_worker.upload_complete.connect(self.upload_complete)
@@ -757,6 +928,9 @@ WiFi Network Details:
         self.cancel_button.setEnabled(False)
         self.progress_bar.setVisible(False)
         
+        # Emit completion signal
+        self.upload_complete.emit(success, message)
+        
         if success:
             self.log_message(f"✅ {message}")
             QMessageBox.information(self, "Upload Successful", message)
@@ -767,6 +941,8 @@ WiFi Network Details:
     def update_progress(self, value):
         """Update progress bar"""
         self.progress_bar.setValue(value)
+        # Emit progress signal
+        self.upload_progress.emit(value)
     
     def open_web_interface(self):
         """Open ESP8266 web interface in browser"""
@@ -849,4 +1025,285 @@ Size: {status.get('pattern_size', 0):,} bytes"""
             self.log_message(f"Pattern loaded: {pattern.name}")
         else:
             self.log_message("No pattern loaded")
+    
+    def refresh_preview(self, pattern: Pattern = None):
+        """Refresh preview with updated pattern (called from pattern_changed signal)"""
+        if pattern is None:
+            pattern = self.pattern
+        if pattern:
+            self.set_pattern(pattern)
+    
+    # ========== Phase 4: WiFi Upload Enhancements - Handler Methods ==========
+    
+    def set_brightness(self):
+        """Set brightness on ESP8266"""
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        brightness = self.brightness_slider.value()
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message(f"Setting brightness to {brightness}/255...")
+        success, message = self.wifi_uploader.set_brightness(brightness)
+        
+        if success:
+            self.brightness_status_label.setText(f"Current: {brightness}/255")
+            self.log_message(f"✅ {message}")
+            # Emit brightness changed signal
+            self.brightness_changed.emit(brightness)
+        else:
+            self.log_message(f"❌ {message}")
+            QMessageBox.warning(self, "Brightness Update Failed", message)
+    
+    def list_pattern_library(self):
+        """List patterns in ESP8266 library"""
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message("Fetching pattern library...")
+        patterns = self.wifi_uploader.list_pattern_library()
+        
+        if patterns is not None:
+            if patterns:
+                pattern_list = "\n".join([f"• {p}" for p in patterns])
+                self.library_list_widget.setText(pattern_list)
+                self.log_message(f"✅ Found {len(patterns)} pattern(s) in library")
+            else:
+                self.library_list_widget.setText("No patterns in library.")
+                self.log_message("ℹ️ Pattern library is empty")
+        else:
+            self.log_message("❌ Failed to fetch pattern library. Check connection.")
+            QMessageBox.warning(self, "Error", "Failed to fetch pattern library. Check connection.")
+    
+    def upload_to_library(self):
+        """Upload current pattern to ESP8266 library"""
+        if not self.pattern:
+            QMessageBox.warning(self, "No Pattern", "Please load a pattern first.")
+            return
+        
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        # Get pattern name from user
+        from PySide6.QtWidgets import QInputDialog
+        pattern_name, ok = QInputDialog.getText(
+            self,
+            "Pattern Name",
+            "Enter a name for this pattern:",
+            text=self.pattern.name or "pattern1"
+        )
+        
+        if not ok or not pattern_name:
+            return
+        
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message(f"Uploading pattern '{pattern_name}' to library...")
+        success, message = self.wifi_uploader.upload_to_library(self.pattern, pattern_name)
+        
+        if success:
+            self.log_message(f"✅ {message}")
+            QMessageBox.information(self, "Success", message)
+            # Refresh library list
+            self.list_pattern_library()
+        else:
+            self.log_message(f"❌ {message}")
+            QMessageBox.warning(self, "Upload Failed", message)
+    
+    def schedule_pattern(self):
+        """Schedule a pattern to play at a specific time"""
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        pattern_name = self.schedule_pattern_combo.currentText().strip()
+        if not pattern_name:
+            QMessageBox.warning(self, "No Pattern Name", "Please enter a pattern name.")
+            return
+        
+        schedule_time = self.schedule_time_edit.text().strip()
+        if not schedule_time:
+            QMessageBox.warning(self, "No Time", "Please enter a schedule time (HH:MM).")
+            return
+        
+        # Validate time format
+        try:
+            hour, minute = schedule_time.split(':')
+            hour = int(hour)
+            minute = int(minute)
+            if not (0 <= hour < 24 and 0 <= minute < 60):
+                raise ValueError()
+        except:
+            QMessageBox.warning(self, "Invalid Time", "Time must be in HH:MM format (24-hour).")
+            return
+        
+        repeat = self.schedule_repeat_checkbox.isChecked()
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message(f"Scheduling pattern '{pattern_name}' for {schedule_time}...")
+        success, message = self.wifi_uploader.schedule_pattern(pattern_name, schedule_time, repeat)
+        
+        if success:
+            self.schedule_status_label.setText(f"Scheduled: {pattern_name} at {schedule_time}" + (" (daily)" if repeat else ""))
+            self.log_message(f"✅ {message}")
+            # Emit schedule updated signal
+            schedule_dict = {
+                'pattern': pattern_name,
+                'time': schedule_time,
+                'repeat': repeat
+            }
+            self.schedule_updated.emit(schedule_dict)
+            QMessageBox.information(self, "Scheduled", message)
+        else:
+            self.log_message(f"❌ {message}")
+            QMessageBox.warning(self, "Schedule Failed", message)
+    
+    def get_schedule(self):
+        """Get current schedule from ESP8266"""
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message("Fetching schedule...")
+        schedule = self.wifi_uploader.get_schedule()
+        
+        if schedule:
+            schedule_text = f"Pattern: {schedule.get('pattern', 'N/A')}\n"
+            schedule_text += f"Time: {schedule.get('time', 'N/A')}\n"
+            schedule_text += f"Repeat: {'Yes' if schedule.get('repeat', False) else 'No'}"
+            self.schedule_status_label.setText(schedule_text)
+            self.log_message("✅ Schedule retrieved")
+        else:
+            self.schedule_status_label.setText("No schedule set")
+            self.log_message("ℹ️ No schedule found")
+    
+    def browse_ota_firmware(self):
+        """Browse for OTA firmware file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Firmware File for OTA Update",
+            "",
+            "Firmware files (*.bin);;All files (*.*)"
+        )
+        
+        if filename:
+            self.ota_firmware_path_edit.setText(filename)
+            self.log_message(f"Selected firmware: {os.path.basename(filename)}")
+    
+    def update_firmware_ota(self):
+        """Update ESP8266 firmware via OTA"""
+        firmware_path = self.ota_firmware_path_edit.text().strip()
+        if not firmware_path:
+            QMessageBox.warning(self, "No Firmware File", "Please select a firmware file.")
+            return
+        
+        if not os.path.exists(firmware_path):
+            QMessageBox.warning(self, "File Not Found", f"Firmware file not found: {firmware_path}")
+            return
+        
+        esp_ip = self.esp_ip_edit.text().strip()
+        if not esp_ip:
+            QMessageBox.warning(self, "No IP Address", "Please enter ESP8266 IP address.")
+            return
+        
+        # Confirm OTA update
+        reply = QMessageBox.question(
+            self,
+            "Confirm OTA Update",
+            f"Update firmware on ESP8266 at {esp_ip}?\n\n"
+            f"File: {os.path.basename(firmware_path)}\n\n"
+            "⚠️ Warning: This will restart the device. Ensure stable WiFi connection.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        self.wifi_uploader.set_esp_config(esp_ip)
+        
+        self.log_message(f"Starting OTA firmware update...")
+        self.ota_update_button.setEnabled(False)
+        
+        # Run OTA update in a thread to avoid blocking UI
+        import threading
+        def ota_thread():
+            success, message = self.wifi_uploader.update_firmware_ota(firmware_path)
+            self.ota_update_button.setEnabled(True)
+            
+            if success:
+                self.log_message(f"✅ {message}")
+                QMessageBox.information(self, "OTA Update Successful", message)
+            else:
+                self.log_message(f"❌ {message}")
+                QMessageBox.warning(self, "OTA Update Failed", message)
+        
+        threading.Thread(target=ota_thread, daemon=True).start()
+    
+    def sync_to_multiple_devices(self):
+        """Sync pattern to multiple ESP8266 devices"""
+        if not self.pattern:
+            QMessageBox.warning(self, "No Pattern", "Please load a pattern first.")
+            return
+        
+        device_ips_text = self.multi_device_ips_edit.text().strip()
+        if not device_ips_text:
+            QMessageBox.warning(self, "No Devices", "Please enter device IP addresses.")
+            return
+        
+        # Parse IP addresses
+        device_ips = [ip.strip() for ip in device_ips_text.split(',') if ip.strip()]
+        if not device_ips:
+            QMessageBox.warning(self, "Invalid IPs", "Please enter valid IP addresses separated by commas.")
+            return
+        
+        # Confirm sync
+        reply = QMessageBox.question(
+            self,
+            "Confirm Multi-Device Sync",
+            f"Sync pattern to {len(device_ips)} device(s)?\n\n"
+            f"Devices: {', '.join(device_ips)}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        self.log_message(f"Syncing pattern to {len(device_ips)} device(s)...")
+        self.sync_all_button.setEnabled(False)
+        
+        # Run sync in a thread
+        import threading
+        def sync_thread():
+            results = self.wifi_uploader.sync_to_multiple_devices(self.pattern, device_ips)
+            
+            # Display results
+            success_count = sum(1 for success, _ in results.values() if success)
+            result_text = f"Sync complete: {success_count}/{len(device_ips)} successful\n\n"
+            
+            for device_ip, (success, message) in results.items():
+                status = "✅" if success else "❌"
+                result_text += f"{status} {device_ip}: {message}\n"
+                self.log_message(f"{status} {device_ip}: {message}")
+            
+            self.multi_device_status_label.setText(result_text)
+            self.sync_all_button.setEnabled(True)
+            
+            if success_count == len(device_ips):
+                QMessageBox.information(self, "Sync Complete", f"Successfully synced to all {len(device_ips)} device(s).")
+            else:
+                QMessageBox.warning(self, "Sync Partial", f"Synced to {success_count}/{len(device_ips)} device(s). Check log for details.")
+        
+        threading.Thread(target=sync_thread, daemon=True).start()
 

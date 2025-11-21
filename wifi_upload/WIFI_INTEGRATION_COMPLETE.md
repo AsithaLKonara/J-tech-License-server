@@ -76,6 +76,13 @@ ESP8266 IP: 192.168.4.1
 Web Interface: http://192.168.4.1
 ```
 
+> **Security note:** The WiFi upload workflow is designed for trusted local networks. The
+> ESP8266 access point and HTTP API (`/api/status`, `/api/upload`, etc.) do not use TLS or
+> application-level authentication by default. For production deployments:
+> - Use WPA2/WPA3 security and change the default password.
+> - Avoid exposing the ESP8266 `192.168.4.x` network directly to the public internet.
+> - Treat pattern uploads as privileged operations controlled by trusted operators.
+
 ### **Upload Process**
 1. **ESP8266 boots** → Creates WiFi network
 2. **Computer connects** → Joins ESP8266 network

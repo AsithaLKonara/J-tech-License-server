@@ -205,6 +205,9 @@ class ArduinoIDETab(QWidget):
     - File management
     """
     
+    # Signals
+    code_generated = Signal(str, str)  # code, file_path
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -706,9 +709,12 @@ void loop() {
         """Save the current sketch"""
         if self.current_sketch_path:
             try:
+                code = self.code_editor.toPlainText()
                 with open(self.current_sketch_path, 'w', encoding='utf-8') as f:
-                    f.write(self.code_editor.toPlainText())
+                    f.write(code)
                 self.status_label.setText("Sketch saved successfully!")
+                # Emit code generated signal
+                self.code_generated.emit(code, self.current_sketch_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file: {str(e)}")
         else:
@@ -722,11 +728,14 @@ void loop() {
         
         if file_path:
             try:
+                code = self.code_editor.toPlainText()
                 with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(self.code_editor.toPlainText())
+                    f.write(code)
                 self.file_path_label.setText(f"Saved: {os.path.basename(file_path)}")
                 self.current_sketch_path = file_path
                 self.status_label.setText("Sketch saved successfully!")
+                # Emit code generated signal
+                self.code_generated.emit(code, file_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file: {str(e)}")
     

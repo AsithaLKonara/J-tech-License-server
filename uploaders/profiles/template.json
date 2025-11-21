@@ -1,0 +1,45 @@
+{
+  "chip_id": "CHIP_ID",
+  "chip_variant": "VARIANT",
+  "chip_name": "Chip Name",
+  "manufacturer": "Manufacturer",
+  "architecture": "arch",
+  "flash_size_bytes": 4194304,
+  "ram_size_bytes": 32768,
+  "cpu_frequency_mhz": 80,
+  "supported_formats": ["bin", "elf", "hex"],
+  "toolchain": {
+    "compiler": "gcc",
+    "linker": "ld",
+    "objcopy": "objcopy",
+    "flasher": "esptool",
+    "version_required": "4.0.0"
+  },
+  "flash_options": {
+    "default_baud_rate": 115200,
+    "supported_baud_rates": [115200, 460800, 921600],
+    "flash_mode": "dio",
+    "flash_freq": "40m",
+    "flash_size": "4MB",
+    "partition_table_required": true
+  },
+  "build_options": {
+    "defines": ["CHIP_ID", "VARIANT"],
+    "include_paths": [],
+    "linker_script_required": true,
+    "partition_table_required": true,
+    "bootloader_required": false
+  },
+  "verification": {
+    "supports_hash_verification": true,
+    "verification_method": "serial_hash",
+    "hash_algorithm": "sha256"
+  },
+  "device_detection": {
+    "method": "serial_chip_id",
+    "timeout_ms": 5000,
+    "baud_rate": 115200
+  },
+  "capabilities": ["flash", "verify", "erase", "reset"]
+}
+

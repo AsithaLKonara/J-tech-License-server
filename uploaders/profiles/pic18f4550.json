@@ -1,0 +1,41 @@
+{
+  "chip_id": "PIC18F4550",
+  "chip_variant": null,
+  "chip_name": "PIC18F4550",
+  "manufacturer": "Microchip",
+  "architecture": "PIC18",
+  "flash_size_bytes": 32768,
+  "ram_size_bytes": 2048,
+  "cpu_frequency_mhz": 48,
+  "supported_formats": ["hex"],
+  "toolchain": {
+    "compiler": "xc8",
+    "linker": "xc8",
+    "flasher": "pk2cmd",
+    "version_required": "1.20"
+  },
+  "flash_options": {
+    "default_baud_rate": 9600,
+    "supported_baud_rates": [9600],
+    "programmer": "pk2",
+    "flash_size": "32KB"
+  },
+  "build_options": {
+    "defines": ["__18F4550"],
+    "include_paths": [],
+    "linker_script_required": false,
+    "config_bits_required": true,
+    "bootloader_required": false
+  },
+  "verification": {
+    "supports_hash_verification": true,
+    "verification_method": "pk2cmd_verify",
+    "hash_algorithm": "sha256"
+  },
+  "device_detection": {
+    "method": "pk2cmd_detect",
+    "timeout_ms": 5000
+  },
+  "capabilities": ["flash", "verify"]
+}
+

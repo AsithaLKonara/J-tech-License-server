@@ -5,8 +5,11 @@ Complete PySide6 implementation
 
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QMenuBar, QMenu, 
                                 QStatusBar, QFileDialog, QMessageBox,
-                                QToolBar, QApplication, QSplitter)
-from PySide6.QtCore import Qt, QSettings
+                                QToolBar, QApplication, QSplitter, QDockWidget,
+                                QListWidget, QListWidgetItem, QVBoxLayout, QHBoxLayout,
+                                QPushButton, QLabel, QWidget, QComboBox)
+from PySide6.QtCore import Qt, QSettings, Signal
+from typing import Optional
 from PySide6.QtGui import QIcon, QAction
 import sys
 import os
@@ -15,8 +18,15 @@ import logging
 
 from core.pattern import Pattern
 from parsers.parser_registry import parse_pattern_file, ParserRegistry
+from core.pattern_clipboard import PatternClipboard
+from core.tab_state_manager import TabStateManager
+from core.undo_redo_manager import SharedUndoRedoManager
+from core.workspace_manager import WorkspaceManager
 from ui.tabs.preview_tab import PreviewTab
 from ui.tabs.flash_tab import FlashTab
+from ui.tabs.batch_flash_tab import BatchFlashTab
+from ui.tabs.pattern_library_tab import PatternLibraryTab
+from ui.tabs.audio_reactive_tab import AudioReactiveTab
 from ui.tabs.wifi_upload_tab import WiFiUploadTab
 from ui.tabs.media_upload_tab import MediaUploadTab
 from ui.tabs.arduino_ide_tab import ArduinoIDETab
@@ -41,6 +51,10 @@ class UploadBridgeMainWindow(QMainWindow):
     - Project management
     """
     
+    # Signals for cross-tab communication
+    pattern_changed = Signal(Pattern)
+    save_state_changed = Signal(bool)
+    
     def __init__(self):
         super().__init__()
         
@@ -48,6 +62,10 @@ class UploadBridgeMainWindow(QMainWindow):
         self.current_file: str = None
         self.is_dirty: bool = False
         self.settings = QSettings("UploadBridge", "UploadBridge")
+        self.clipboard = PatternClipboard()  # Pattern clipboard manager
+        self.tab_state_manager = TabStateManager(self.settings)  # Tab state persistence
+        self.undo_redo_manager = SharedUndoRedoManager(max_history=50)  # Cross-tab undo/redo
+        self.workspace = WorkspaceManager()  # Multi-pattern workspace
         
         self.setup_ui()
         self.load_settings()
@@ -80,6 +98,44 @@ class UploadBridgeMainWindow(QMainWindow):
         # Create toolbar
         self.create_toolbar()
         
+        # Create workspace dock widget
+        self.workspace_dock = QDockWidget("Workspace", self)
+        self.workspace_dock.setObjectName("WorkspaceDock")
+        workspace_widget = QWidget()
+        workspace_layout = QVBoxLayout(workspace_widget)
+        
+        # Pattern list
+        self.workspace_list = QListWidget()
+        self.workspace_list.itemDoubleClicked.connect(self._on_workspace_pattern_double_clicked)
+        self.workspace_list.itemSelectionChanged.connect(self._on_workspace_pattern_selected)
+        workspace_layout.addWidget(QLabel("Patterns:"))
+        workspace_layout.addWidget(self.workspace_list)
+        
+        # Workspace buttons
+        workspace_buttons = QHBoxLayout()
+        self.new_pattern_btn = QPushButton("New")
+        self.new_pattern_btn.clicked.connect(self._new_workspace_pattern)
+        workspace_buttons.addWidget(self.new_pattern_btn)
+        
+        self.duplicate_pattern_btn = QPushButton("Duplicate")
+        self.duplicate_pattern_btn.clicked.connect(self._duplicate_workspace_pattern)
+        workspace_buttons.addWidget(self.duplicate_pattern_btn)
+        
+        self.remove_pattern_btn = QPushButton("Remove")
+        self.remove_pattern_btn.clicked.connect(self._remove_workspace_pattern)
+        workspace_buttons.addWidget(self.remove_pattern_btn)
+        
+        workspace_layout.addLayout(workspace_buttons)
+        workspace_widget.setLayout(workspace_layout)
+        self.workspace_dock.setWidget(workspace_widget)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.workspace_dock)
+        self.workspace_dock.setVisible(False)  # Hidden by default, can be toggled via View menu
+        
+        # Connect workspace signals
+        self.workspace.pattern_added.connect(self._on_workspace_pattern_added)
+        self.workspace.pattern_removed.connect(self._on_workspace_pattern_removed)
+        self.workspace.active_pattern_changed.connect(self._on_workspace_active_changed)
+        
         # Create tab widget
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
@@ -90,6 +146,9 @@ class UploadBridgeMainWindow(QMainWindow):
             'design_tools': False,
             'preview': False,
             'flash': False,
+            'batch_flash': False,
+            'pattern_library': False,
+            'audio_reactive': False,
             'wifi_upload': False,
             'arduino_ide': False
         }
@@ -99,6 +158,9 @@ class UploadBridgeMainWindow(QMainWindow):
         self.design_tab = None
         self.preview_tab = None
         self.flash_tab = None
+        self.batch_flash_tab = None
+        self.pattern_library_tab = None
+        self.audio_reactive_tab = None
         self.wifi_upload_tab = None
         self.arduino_ide_tab = None
         
@@ -107,11 +169,16 @@ class UploadBridgeMainWindow(QMainWindow):
         self.tabs.addTab(self.create_placeholder_tab("🎨 Design Tools"), "🎨 Design Tools")
         self.tabs.addTab(self.create_placeholder_tab("👁️ Preview"), "👁️ Preview")
         self.tabs.addTab(self.create_placeholder_tab("⚡ Flash"), "⚡ Flash")
+        self.tabs.addTab(self.create_placeholder_tab("🚀 Batch Flash"), "🚀 Batch Flash")
+        self.tabs.addTab(self.create_placeholder_tab("📚 Pattern Library"), "📚 Pattern Library")
+        self.tabs.addTab(self.create_placeholder_tab("🎵 Audio Reactive"), "🎵 Audio Reactive")
         self.tabs.addTab(self.create_placeholder_tab("📡 WiFi Upload"), "📡 WiFi Upload")
         self.tabs.addTab(self.create_placeholder_tab("🔧 Arduino IDE"), "🔧 Arduino IDE")
         
         # Connect to tab change signal for lazy initialization
         self.tabs.currentChanged.connect(self.on_tab_changed)
+        # Also update undo/redo states when tab changes
+        self.tabs.currentChanged.connect(lambda: self._update_undo_redo_states())
         
         # Status bar
         self.status_bar = QStatusBar()
@@ -152,7 +219,7 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def on_tab_changed(self, index: int):
         """Handle tab change - initialize tab if not already initialized"""
-        tab_names = ['media_upload', 'design_tools', 'preview', 'flash', 'wifi_upload', 'arduino_ide']
+        tab_names = ['media_upload', 'design_tools', 'preview', 'flash', 'batch_flash', 'pattern_library', 'audio_reactive', 'wifi_upload', 'arduino_ide']
         
         if 0 <= index < len(tab_names):
             tab_name = tab_names[index]
@@ -179,6 +246,10 @@ class UploadBridgeMainWindow(QMainWindow):
                 self.tabs.insertTab(1, self.design_tab, "🎨 Design Tools")
                 self.design_tab.pattern_modified.connect(self.on_pattern_modified)
                 self.design_tab.pattern_created.connect(self._on_design_pattern_created)
+                # Connect pattern_changed signal for live updates
+                self.pattern_changed.connect(self.design_tab.update_pattern)
+                # Connect playback sync signals
+                self._connect_playback_signals()
                 self._tabs_initialized['design_tools'] = True
                 
             elif tab_name == 'preview' and self.preview_tab is None:
@@ -186,6 +257,10 @@ class UploadBridgeMainWindow(QMainWindow):
                 self.tabs.removeTab(2)
                 self.tabs.insertTab(2, self.preview_tab, "👁️ Preview")
                 self.preview_tab.pattern_modified.connect(self.on_pattern_modified)
+                # Connect pattern_changed signal for live preview updates
+                self.pattern_changed.connect(self.preview_tab.update_pattern)
+                # Connect playback sync signals (will be connected to DesignToolsTab when it's initialized)
+                self._connect_playback_signals()
                 self._tabs_initialized['preview'] = True
                 
             elif tab_name == 'flash' and self.flash_tab is None:
@@ -193,23 +268,93 @@ class UploadBridgeMainWindow(QMainWindow):
                 self.tabs.removeTab(3)
                 self.tabs.insertTab(3, self.flash_tab, "⚡ Flash")
                 self.flash_tab.flash_complete.connect(self.on_flash_complete)
+                # Connect pattern_changed signal for live preview updates
+                self.pattern_changed.connect(self.flash_tab.refresh_preview)
+                # Connect firmware signals
+                self.flash_tab.firmware_building.connect(self.on_firmware_building)
+                self.flash_tab.firmware_built.connect(self.on_firmware_built)
                 self._tabs_initialized['flash'] = True
+                
+            elif tab_name == 'batch_flash' and self.batch_flash_tab is None:
+                self.batch_flash_tab = BatchFlashTab()
+                self.tabs.removeTab(4)
+                self.tabs.insertTab(4, self.batch_flash_tab, "🚀 Batch Flash")
+                # Connect pattern_changed signal for live updates
+                self.pattern_changed.connect(self.batch_flash_tab.update_pattern)
+                # Connect batch flash signals
+                self.batch_flash_tab.batch_flash_complete.connect(self.on_batch_flash_complete)
+                self._tabs_initialized['batch_flash'] = True
+                
+            elif tab_name == 'pattern_library' and self.pattern_library_tab is None:
+                self.pattern_library_tab = PatternLibraryTab()
+                self.tabs.removeTab(5)
+                self.tabs.insertTab(5, self.pattern_library_tab, "📚 Pattern Library")
+                self.pattern_library_tab.pattern_selected.connect(self.on_pattern_library_selected)
+                # Connect pattern_added signal for notifications
+                self.pattern_library_tab.pattern_added.connect(self.on_pattern_added_to_library)
+                self._tabs_initialized['pattern_library'] = True
+                
+            elif tab_name == 'audio_reactive' and self.audio_reactive_tab is None:
+                self.audio_reactive_tab = AudioReactiveTab()
+                self.tabs.removeTab(6)
+                self.tabs.insertTab(6, self.audio_reactive_tab, "🎵 Audio Reactive")
+                self.audio_reactive_tab.pattern_generated.connect(self.on_audio_pattern_generated)
+                self._tabs_initialized['audio_reactive'] = True
                 
             elif tab_name == 'wifi_upload' and self.wifi_upload_tab is None:
                 self.wifi_upload_tab = WiFiUploadTab()
-                self.tabs.removeTab(4)
-                self.tabs.insertTab(4, self.wifi_upload_tab, "📡 WiFi Upload")
+                self.tabs.removeTab(7)
+                self.tabs.insertTab(7, self.wifi_upload_tab, "📡 WiFi Upload")
+                # Connect pattern_changed signal for live preview updates
+                self.pattern_changed.connect(self.wifi_upload_tab.refresh_preview)
+                # Connect WiFi upload signals
+                self.wifi_upload_tab.upload_started.connect(self.on_wifi_upload_started)
+                self.wifi_upload_tab.upload_progress.connect(self.on_wifi_upload_progress)
+                self.wifi_upload_tab.upload_complete.connect(self.on_wifi_upload_complete)
+                self.wifi_upload_tab.brightness_changed.connect(self.on_brightness_changed)
+                self.wifi_upload_tab.schedule_updated.connect(self.on_schedule_updated)
                 self._tabs_initialized['wifi_upload'] = True
                 
             elif tab_name == 'arduino_ide' and self.arduino_ide_tab is None:
                 self.arduino_ide_tab = ArduinoIDETab()
-                self.tabs.removeTab(5)
-                self.tabs.insertTab(5, self.arduino_ide_tab, "🔧 Arduino IDE")
+                self.tabs.removeTab(8)
+                self.tabs.insertTab(8, self.arduino_ide_tab, "🔧 Arduino IDE")
+                # Connect code generation signal
+                if hasattr(self.arduino_ide_tab, 'code_generated'):
+                    self.arduino_ide_tab.code_generated.connect(self.on_code_generated)
                 self._tabs_initialized['arduino_ide'] = True
             
-            # Load pattern if one is already loaded
-            if self.pattern:
-                self.load_pattern_to_tab(tab_name, self.pattern, self.current_file)
+            # Get the tab reference (already initialized above)
+            tab = None
+            if tab_name == 'media_upload':
+                tab = self.media_upload_tab
+            elif tab_name == 'design_tools':
+                tab = self.design_tab
+            elif tab_name == 'preview':
+                tab = self.preview_tab
+            elif tab_name == 'flash':
+                tab = self.flash_tab
+            elif tab_name == 'batch_flash':
+                tab = self.batch_flash_tab
+            elif tab_name == 'pattern_library':
+                tab = self.pattern_library_tab
+            elif tab_name == 'audio_reactive':
+                tab = self.audio_reactive_tab
+            elif tab_name == 'wifi_upload':
+                tab = self.wifi_upload_tab
+            elif tab_name == 'arduino_ide':
+                tab = self.arduino_ide_tab
+            
+            # Load pattern if one is already loaded (avoid recursion by calling load_pattern directly)
+            if self.pattern and tab and hasattr(tab, 'load_pattern'):
+                try:
+                    tab.load_pattern(self.pattern, self.current_file)
+                except Exception:
+                    pass  # Tab may not support load_pattern
+            
+            # Restore tab state
+            if tab:
+                self._restore_tab_state(tab_name, tab)
                 
             self.status_bar.showMessage("Ready")
             
@@ -221,6 +366,18 @@ class UploadBridgeMainWindow(QMainWindow):
             )
             self.status_bar.showMessage("Tab initialization failed")
     
+    def _connect_playback_signals(self):
+        """Connect playback synchronization signals between PreviewTab and DesignToolsTab"""
+        if self.preview_tab and self.design_tab:
+            # Connect PreviewTab → DesignToolsTab
+            if not hasattr(self, '_playback_signals_connected'):
+                self.preview_tab.playback_state_changed.connect(self.design_tab.sync_playback_state)
+                self.preview_tab.frame_changed.connect(self.design_tab.sync_frame_selection)
+                # Connect DesignToolsTab → PreviewTab
+                self.design_tab.playback_state_changed.connect(self.preview_tab.sync_playback_state)
+                self.design_tab.frame_changed.connect(self.preview_tab.sync_frame_selection)
+                self._playback_signals_connected = True
+    
     def get_tab(self, tab_name: str):
         """Get a tab, initializing it if necessary"""
         tab_map = {
@@ -228,6 +385,9 @@ class UploadBridgeMainWindow(QMainWindow):
             'design_tools': (self.design_tab, 'design_tools'),
             'preview': (self.preview_tab, 'preview'),
             'flash': (self.flash_tab, 'flash'),
+            'batch_flash': (self.batch_flash_tab, 'batch_flash'),
+            'pattern_library': (self.pattern_library_tab, 'pattern_library'),
+            'audio_reactive': (self.audio_reactive_tab, 'audio_reactive'),
             'wifi_upload': (self.wifi_upload_tab, 'wifi_upload'),
             'arduino_ide': (self.arduino_ide_tab, 'arduino_ide')
         }
@@ -540,6 +700,67 @@ class UploadBridgeMainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
+        # Edit menu
+        edit_menu = menubar.addMenu("&Edit")
+        
+        copy_pattern_action = QAction("Copy &Pattern", self)
+        copy_pattern_action.setShortcut("Ctrl+C")
+        copy_pattern_action.triggered.connect(self.copy_pattern)
+        edit_menu.addAction(copy_pattern_action)
+        
+        paste_pattern_action = QAction("&Paste Pattern", self)
+        paste_pattern_action.setShortcut("Ctrl+V")
+        paste_pattern_action.triggered.connect(self.paste_pattern)
+        edit_menu.addAction(paste_pattern_action)
+        
+        # Update paste action state based on clipboard
+        self.clipboard.clipboard_changed.connect(lambda has_pattern: paste_pattern_action.setEnabled(has_pattern))
+        paste_pattern_action.setEnabled(self.clipboard.has_pattern())
+        
+        edit_menu.addSeparator()
+        
+        # Undo/Redo actions
+        undo_action = QAction("&Undo", self)
+        undo_action.setShortcut("Ctrl+Z")
+        undo_action.triggered.connect(self.undo_action)
+        edit_menu.addAction(undo_action)
+        self.undo_action = undo_action  # Store reference for state updates
+        
+        redo_action = QAction("&Redo", self)
+        redo_action.setShortcut("Ctrl+Y")
+        redo_action.triggered.connect(self.redo_action)
+        edit_menu.addAction(redo_action)
+        self.redo_action = redo_action  # Store reference for state updates
+        
+        # Connect undo/redo manager signals to update menu states
+        self.undo_redo_manager.undo_available_changed.connect(self._on_undo_available_changed)
+        self.undo_redo_manager.redo_available_changed.connect(self._on_redo_available_changed)
+        
+        # Initialize menu states
+        self._update_undo_redo_states()
+        
+        # View menu
+        view_menu = menubar.addMenu("&View")
+        
+        toggle_workspace_action = QAction("&Workspace", self)
+        toggle_workspace_action.setCheckable(True)
+        toggle_workspace_action.setChecked(False)
+        toggle_workspace_action.triggered.connect(lambda checked: self.workspace_dock.setVisible(checked))
+        view_menu.addAction(toggle_workspace_action)
+        
+        # Add workspace actions to File menu
+        file_menu.insertSeparator(file_menu.actions()[-1])  # Before Exit
+        
+        new_pattern_action = QAction("&New Pattern", self)
+        new_pattern_action.setShortcut("Ctrl+N")
+        new_pattern_action.triggered.connect(self._new_workspace_pattern)
+        file_menu.insertAction(file_menu.actions()[-1], new_pattern_action)
+        
+        duplicate_pattern_action = QAction("&Duplicate Pattern", self)
+        duplicate_pattern_action.setShortcut("Ctrl+Shift+D")
+        duplicate_pattern_action.triggered.connect(self._duplicate_workspace_pattern)
+        file_menu.insertAction(file_menu.actions()[-1], duplicate_pattern_action)
+        
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
         
@@ -590,6 +811,20 @@ class UploadBridgeMainWindow(QMainWindow):
         open_btn = QAction("📁 Open", self)
         open_btn.triggered.connect(self.open_pattern)
         toolbar.addAction(open_btn)
+        
+        toolbar.addSeparator()
+        
+        # Pattern switcher
+        toolbar.addWidget(QLabel("Pattern:"))
+        self.pattern_switcher = QComboBox()
+        self.pattern_switcher.setMinimumWidth(150)
+        self.pattern_switcher.currentTextChanged.connect(self._on_pattern_switcher_changed)
+        toolbar.addWidget(self.pattern_switcher)
+        
+        # Connect workspace signals to update switcher
+        self.workspace.pattern_added.connect(self._update_pattern_switcher)
+        self.workspace.pattern_removed.connect(self._update_pattern_switcher)
+        self.workspace.active_pattern_changed.connect(self._update_pattern_switcher)
         
         toolbar.addSeparator()
         
@@ -692,6 +927,11 @@ class UploadBridgeMainWindow(QMainWindow):
                 
             elif file_path.endswith('.ledproj'):
                 pattern = Pattern.load_from_file(file_path)
+                try:
+                    pattern.metadata.source_format = "project"
+                    pattern.metadata.source_path = file_path
+                except Exception:
+                    pass
                 self.status_bar.showMessage(f"Loaded project: {pattern.name}")
                 
                 # Load into ALL tabs
@@ -709,6 +949,11 @@ class UploadBridgeMainWindow(QMainWindow):
                 if is_valid:
                     # Always parse using the registry to also know which parser was used
                     pattern, format_name = registry.parse_file(file_path)
+                    try:
+                        pattern.metadata.source_format = format_name
+                        pattern.metadata.source_path = file_path
+                    except Exception:
+                        pass
                     self.status_bar.showMessage(
                         f"Loaded ({format_name}): {pattern.led_count} LEDs, {pattern.frame_count} frames")
                     # Load into ALL tabs
@@ -734,6 +979,13 @@ class UploadBridgeMainWindow(QMainWindow):
                         return
                     
                     pattern = parse_pattern_file(file_path, led_count, frame_count)
+                    try:
+                        pattern.metadata.source_format = "manual"
+                        pattern.metadata.source_path = file_path
+                        pattern.metadata.dimension_source = "manual"
+                        pattern.metadata.dimension_confidence = 1.0
+                    except Exception:
+                        pass
                     self.status_bar.showMessage(f"Loaded: {led_count} LEDs, {frame_count} frames")
                     
                     # Load into ALL tabs
@@ -773,6 +1025,11 @@ class UploadBridgeMainWindow(QMainWindow):
             registry = ParserRegistry()
             leds = int(w) * int(h)
             pattern, format_name = registry.parse_file(self.current_file, suggested_leds=leds, suggested_frames=int(fcount))
+            try:
+                pattern.metadata.source_format = format_name
+                pattern.metadata.source_path = self.current_file
+            except Exception:
+                pass
             # Ensure metadata matches grid
             try:
                 pattern.metadata.width = int(w)
@@ -793,6 +1050,7 @@ class UploadBridgeMainWindow(QMainWindow):
         if self.current_file and self.current_file.endswith('.ledproj'):
             # Save to existing project file
             try:
+                old_dirty = self.is_dirty
                 self.pattern.save_to_file(self.current_file)
                 self.is_dirty = False  # Clear dirty flag after save
                 self.status_bar.showMessage(f"Saved: {self.current_file}")
@@ -800,6 +1058,9 @@ class UploadBridgeMainWindow(QMainWindow):
                 base_name = os.path.basename(self.current_file)
                 self.setWindowTitle(f"Upload Bridge - {base_name}")
                 QMessageBox.information(self, "Saved", "Project saved successfully!")
+                # Emit save state change
+                if old_dirty != self.is_dirty:
+                    self.save_state_changed.emit(self.is_dirty)
             except Exception as e:
                 QMessageBox.critical(self, "Save Error", f"Failed to save:\n\n{str(e)}")
         else:
@@ -823,6 +1084,7 @@ class UploadBridgeMainWindow(QMainWindow):
             return
         
         try:
+            old_dirty = self.is_dirty
             self.pattern.save_to_file(file_path)
             self.current_file = file_path
             self.is_dirty = False  # Clear dirty flag after save
@@ -831,11 +1093,15 @@ class UploadBridgeMainWindow(QMainWindow):
             base_name = os.path.basename(file_path)
             self.setWindowTitle(f"Upload Bridge - {base_name}")
             QMessageBox.information(self, "Saved", "Project saved successfully!")
+            # Emit save state change
+            if old_dirty != self.is_dirty:
+                self.save_state_changed.emit(self.is_dirty)
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save:\n\n{str(e)}")
     
     def on_pattern_modified(self):
         """Pattern was modified in preview"""
+        old_dirty = self.is_dirty
         self.is_dirty = True
         self.status_bar.showMessage("Pattern modified")
         # Update window title to show unsaved changes
@@ -843,6 +1109,11 @@ class UploadBridgeMainWindow(QMainWindow):
             base_name = os.path.basename(self.current_file)
             if not self.windowTitle().endswith('*'):
                 self.setWindowTitle(f"Upload Bridge - {base_name} *")
+        # Emit signals for cross-tab synchronization
+        if self.pattern:
+            self.pattern_changed.emit(self.pattern)
+        if old_dirty != self.is_dirty:
+            self.save_state_changed.emit(self.is_dirty)
     
     def on_flash_complete(self, success: bool, message: str):
         """Flash operation completed"""
@@ -851,9 +1122,280 @@ class UploadBridgeMainWindow(QMainWindow):
         else:
             self.status_bar.showMessage("❌ Flash failed")
     
+    def on_firmware_building(self):
+        """Firmware build started"""
+        self.status_bar.showMessage("Building firmware...")
+    
+    def on_firmware_built(self, firmware_path: str):
+        """Firmware build completed - share with BatchFlashTab if available"""
+        self.status_bar.showMessage(f"Firmware built: {os.path.basename(firmware_path)}")
+        # Share firmware with BatchFlashTab if it exists
+        if self.batch_flash_tab and hasattr(self.batch_flash_tab, 'use_firmware'):
+            try:
+                self.batch_flash_tab.use_firmware(firmware_path)
+            except Exception as e:
+                logging.getLogger(__name__).warning("Failed to share firmware with BatchFlashTab: %s", e)
+    
+    def on_batch_flash_complete(self, results: dict):
+        """Batch flash operation completed"""
+        # results format: {port: (success, message), ...}
+        total = len(results)
+        successful = sum(1 for success, _ in results.values() if success)
+        failed = total - successful
+        
+        message = f"Batch flash complete: {successful}/{total} successful"
+        if failed > 0:
+            message += f", {failed} failed"
+        
+        self.status_bar.showMessage(message)
+        
+        # Show summary dialog
+        summary_text = f"Batch Flash Summary:\n\n"
+        summary_text += f"Total: {total}\n"
+        summary_text += f"Successful: {successful}\n"
+        summary_text += f"Failed: {failed}\n\n"
+        summary_text += "Details:\n"
+        for port, (success, msg) in results.items():
+            status = "✅" if success else "❌"
+            summary_text += f"{status} {port}: {msg}\n"
+        
+        QMessageBox.information(self, "Batch Flash Complete", summary_text)
+    
+    def on_wifi_upload_started(self):
+        """WiFi upload started"""
+        self.status_bar.showMessage("Uploading pattern over WiFi...")
+    
+    def on_wifi_upload_progress(self, percent: int):
+        """WiFi upload progress update"""
+        self.status_bar.showMessage(f"Uploading pattern over WiFi... {percent}%")
+    
+    def on_wifi_upload_complete(self, success: bool, message: str):
+        """WiFi upload completed"""
+        if success:
+            self.status_bar.showMessage(f"✅ WiFi upload successful: {message}")
+        else:
+            self.status_bar.showMessage(f"❌ WiFi upload failed: {message}")
+    
+    def on_brightness_changed(self, value: int):
+        """Brightness changed on WiFi device"""
+        self.status_bar.showMessage(f"Brightness set to {value}/255")
+    
+    def on_schedule_updated(self, schedule: dict):
+        """Schedule updated on WiFi device"""
+        self.status_bar.showMessage("Schedule updated on WiFi device")
+    
+    def on_code_generated(self, code: str, file_path: str):
+        """Arduino code generated"""
+        self.status_bar.showMessage(f"Code generated: {os.path.basename(file_path)}")
+        # Optionally open in Arduino IDE
+        reply = QMessageBox.question(
+            self,
+            "Code Generated",
+            f"Code has been generated and saved to:\n{file_path}\n\nOpen in Arduino IDE?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                import subprocess
+                import platform
+                if platform.system() == "Windows":
+                    subprocess.Popen(["arduino", file_path], shell=True)
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.Popen(["open", "-a", "Arduino", file_path])
+                else:  # Linux
+                    subprocess.Popen(["arduino", file_path])
+            except Exception as e:
+                QMessageBox.warning(self, "Open Failed", f"Could not open Arduino IDE:\n{e}")
+    
+    def _offer_add_to_library(self, pattern: Pattern, source: str):
+        """Offer to add pattern to library after creation"""
+        reply = QMessageBox.question(
+            self,
+            "Add to Pattern Library?",
+            f"Pattern '{pattern.name}' was created from {source}.\n\n"
+            "Would you like to add it to your Pattern Library?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                pattern_library_tab = self.get_tab('pattern_library')
+                if pattern_library_tab and hasattr(pattern_library_tab, 'add_pattern_programmatic'):
+                    pattern_library_tab.add_pattern_programmatic(
+                        pattern,
+                        file_path=None,
+                        category="Uncategorized",
+                        tags=[],
+                        description=f"Created from {source}",
+                        author=""
+                    )
+                    self.status_bar.showMessage(f"Pattern '{pattern.name}' added to library")
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Library Unavailable",
+                        "Pattern Library tab is not available. Please try again later."
+                    )
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Add to Library Failed",
+                    f"Failed to add pattern to library:\n{str(e)}"
+                )
+                logging.getLogger(__name__).error("Failed to add pattern to library: %s", e, exc_info=True)
+    
+    def on_pattern_added_to_library(self, pattern: Pattern):
+        """Handle pattern added to library notification"""
+        self.status_bar.showMessage(f"Pattern '{pattern.name}' added to library")
+    
+    def copy_pattern(self):
+        """Copy current pattern to clipboard"""
+        if self.pattern:
+            self.clipboard.copy_pattern(self.pattern)
+            self.status_bar.showMessage(f"Pattern '{self.pattern.name}' copied to clipboard")
+        else:
+            QMessageBox.information(self, "No Pattern", "No pattern loaded to copy.")
+    
+    def paste_pattern(self):
+        """Paste pattern from clipboard"""
+        if not self.clipboard.has_pattern():
+            QMessageBox.information(self, "Clipboard Empty", "No pattern in clipboard.")
+            return
+        
+        pattern = self.clipboard.paste_pattern()
+        if pattern:
+            # Ask user if they want to replace current pattern
+            if self.pattern and self.is_dirty:
+                reply = QMessageBox.question(
+                    self,
+                    "Replace Pattern?",
+                    "You have unsaved changes. Replace current pattern with clipboard pattern?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            
+            self.load_pattern_to_all_tabs(pattern, None)
+            self.is_dirty = True
+            self.status_bar.showMessage(f"Pattern '{pattern.name}' pasted from clipboard")
+        else:
+            QMessageBox.warning(self, "Paste Failed", "Failed to paste pattern from clipboard.")
+    
+    def undo_action(self):
+        """Undo last action in current tab"""
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            tab_name = self._get_tab_name(current_tab)
+            if tab_name and self.undo_redo_manager.can_undo(tab_name):
+                self.undo_redo_manager.undo(tab_name)
+                self.status_bar.showMessage("Undo")
+            else:
+                # Try design_tools tab (most common for undo)
+                if self.design_tab and hasattr(self.design_tab, 'history_manager'):
+                    # Use design tab's internal undo if available
+                    if hasattr(self.design_tab.history_manager, 'undo'):
+                        self.design_tab.history_manager.undo()
+                        self.status_bar.showMessage("Undo")
+    
+    def redo_action(self):
+        """Redo last undone action in current tab"""
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            tab_name = self._get_tab_name(current_tab)
+            if tab_name and self.undo_redo_manager.can_redo(tab_name):
+                self.undo_redo_manager.redo(tab_name)
+                self.status_bar.showMessage("Redo")
+            else:
+                # Try design_tools tab (most common for redo)
+                if self.design_tab and hasattr(self.design_tab, 'history_manager'):
+                    # Use design tab's internal redo if available
+                    if hasattr(self.design_tab.history_manager, 'redo'):
+                        self.design_tab.history_manager.redo()
+                        self.status_bar.showMessage("Redo")
+    
+    def _get_tab_name(self, tab_widget) -> Optional[str]:
+        """Get tab name from widget"""
+        tab_map = {
+            self.media_upload_tab: 'media_upload',
+            self.design_tab: 'design_tools',
+            self.preview_tab: 'preview',
+            self.flash_tab: 'flash',
+            self.batch_flash_tab: 'batch_flash',
+            self.pattern_library_tab: 'pattern_library',
+            self.audio_reactive_tab: 'audio_reactive',
+            self.wifi_upload_tab: 'wifi_upload',
+            self.arduino_ide_tab: 'arduino_ide',
+        }
+        return tab_map.get(tab_widget)
+    
+    def _on_undo_available_changed(self, tab_name: str, available: bool):
+        """Handle undo availability change"""
+        # Update menu if current tab matches
+        current_tab = self.tabs.currentWidget()
+        current_tab_name = self._get_tab_name(current_tab)
+        if current_tab_name == tab_name:
+            self._update_undo_redo_states()
+    
+    def _on_redo_available_changed(self, tab_name: str, available: bool):
+        """Handle redo availability change"""
+        # Update menu if current tab matches
+        current_tab = self.tabs.currentWidget()
+        current_tab_name = self._get_tab_name(current_tab)
+        if current_tab_name == tab_name:
+            self._update_undo_redo_states()
+    
+    def _update_undo_redo_states(self):
+        """Update undo/redo menu item states based on current tab"""
+        if not hasattr(self, 'tabs') or not self.tabs:
+            if hasattr(self, 'undo_action'):
+                self.undo_action.setEnabled(False)
+            if hasattr(self, 'redo_action'):
+                self.redo_action.setEnabled(False)
+            return
+        
+        current_tab = self.tabs.currentWidget()
+        if not current_tab:
+            if hasattr(self, 'undo_action'):
+                self.undo_action.setEnabled(False)
+            if hasattr(self, 'redo_action'):
+                self.redo_action.setEnabled(False)
+            return
+        
+        tab_name = self._get_tab_name(current_tab)
+        if tab_name:
+            can_undo = self.undo_redo_manager.can_undo(tab_name)
+            can_redo = self.undo_redo_manager.can_redo(tab_name)
+            
+            # Also check design_tools internal history
+            if tab_name == 'design_tools' and self.design_tab:
+                if hasattr(self.design_tab, 'history_manager'):
+                    if hasattr(self.design_tab.history_manager, 'can_undo'):
+                        can_undo = can_undo or self.design_tab.history_manager.can_undo()
+                    if hasattr(self.design_tab.history_manager, 'can_redo'):
+                        can_redo = can_redo or self.design_tab.history_manager.can_redo()
+            
+            self.undo_action.setEnabled(can_undo)
+            self.redo_action.setEnabled(can_redo)
+        else:
+            self.undo_action.setEnabled(False)
+            self.redo_action.setEnabled(False)
+    
+    def on_pattern_library_selected(self, pattern: Pattern, file_path: str):
+        """Handle pattern selection from library"""
+        self.load_pattern_to_all_tabs(pattern, file_path)
+    
+    def on_audio_pattern_generated(self, pattern: Pattern):
+        """Handle audio-reactive pattern generation"""
+        self.load_pattern_to_all_tabs(pattern, None)
+        # Offer to add to library
+        self._offer_add_to_library(pattern, "audio reactive")
+    
     def load_pattern_to_all_tabs(self, pattern: Pattern, file_path: str = None):
         """Load pattern into all relevant tabs with error recovery (lazy initialization)"""
         # Store pattern first (so it's available even if tabs fail)
+        old_dirty = self.is_dirty
         self.pattern = pattern
         if file_path:
             self.current_file = file_path
@@ -883,7 +1425,7 @@ class UploadBridgeMainWindow(QMainWindow):
         try:
             design_tab = self.get_tab('design_tools')
             if design_tab and hasattr(design_tab, 'load_pattern'):
-                design_tab.load_pattern(pattern)
+                design_tab.load_pattern(pattern, file_path)
                 tabs_loaded.append("Design Tools")
         except Exception as e:
             tabs_failed.append(f"Design Tools: {str(e)}")
@@ -899,6 +1441,16 @@ class UploadBridgeMainWindow(QMainWindow):
             tabs_failed.append(f"Flash: {str(e)}")
             logging.getLogger(__name__).warning("Flash tab load failed: %s", e)
         
+        # Batch Flash Tab (initialize and load)
+        try:
+            batch_flash = self.get_tab('batch_flash')
+            if batch_flash and hasattr(batch_flash, 'load_pattern'):
+                batch_flash.load_pattern(pattern)
+                tabs_loaded.append("Batch Flash")
+        except Exception as e:
+            tabs_failed.append(f"Batch Flash: {str(e)}")
+            logging.getLogger(__name__).warning("Batch Flash tab load failed: %s", e)
+        
         # WiFi Upload Tab (initialize and load)
         try:
             wifi = self.get_tab('wifi_upload')
@@ -908,6 +1460,16 @@ class UploadBridgeMainWindow(QMainWindow):
         except Exception as e:
             tabs_failed.append(f"WiFi Upload: {str(e)}")
             logging.getLogger(__name__).warning("WiFi Upload tab load failed: %s", e)
+        
+        # Pattern Library Tab (initialize and load - for awareness, not active loading)
+        try:
+            pattern_library = self.get_tab('pattern_library')
+            # Pattern library doesn't need to load the pattern, but we ensure it's aware
+            # The library is for browsing, not displaying patterns
+            tabs_loaded.append("Pattern Library")
+        except Exception as e:
+            tabs_failed.append(f"Pattern Library: {str(e)}")
+            logging.getLogger(__name__).warning("Pattern Library tab load failed: %s", e)
         
         # Report if any tabs failed
         if tabs_failed:
@@ -945,11 +1507,18 @@ class UploadBridgeMainWindow(QMainWindow):
             "Pattern Loaded",
             f"Successfully loaded pattern:\n\n{pattern_info}"
         )
+        
+        # Emit signals for cross-tab synchronization
+        self.pattern_changed.emit(pattern)
+        if old_dirty != self.is_dirty:
+            self.save_state_changed.emit(self.is_dirty)
 
     def _on_design_pattern_created(self, pattern: Pattern):
         """Handle pattern exports from design tab."""
         # When design tools emits a pattern, load it everywhere.
         self.load_pattern_to_all_tabs(pattern, None)
+        # Offer to add to library
+        self._offer_add_to_library(pattern, "design tools")
     
     def load_pattern_from_media(self, pattern: Pattern):
         """Load pattern created from media conversion"""
@@ -957,6 +1526,8 @@ class UploadBridgeMainWindow(QMainWindow):
         self.load_pattern_to_all_tabs(pattern, None)
         self.is_dirty = True  # Media patterns are unsaved
         self.status_bar.showMessage(f"Pattern loaded from media: {pattern.name}")
+        # Offer to add to library
+        self._offer_add_to_library(pattern, "media upload")
     
     def show_about(self):
         """Show about dialog"""
@@ -1087,6 +1658,9 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Handle window close"""
+        # Save tab states before closing
+        self._save_all_tab_states()
+        
         # Check if pattern modified and ask to save
         if self.is_dirty and self.pattern:
             reply = QMessageBox.question(
@@ -1121,4 +1695,177 @@ class UploadBridgeMainWindow(QMainWindow):
         # Save settings
         self.settings.setValue("geometry", self.saveGeometry())
         event.accept()
+    
+    def _save_all_tab_states(self):
+        """Save state for all initialized tabs"""
+        tab_map = {
+            'flash': self.flash_tab,
+            'design_tools': self.design_tab,
+            'wifi_upload': self.wifi_upload_tab,
+            'batch_flash': self.batch_flash_tab,
+            'preview': self.preview_tab,
+            'pattern_library': self.pattern_library_tab,
+        }
+        
+        for tab_name, tab in tab_map.items():
+            if tab and hasattr(tab, 'get_state'):
+                try:
+                    state = tab.get_state()
+                    if state:
+                        self.tab_state_manager.save_tab_state(tab_name, state)
+                except Exception as e:
+                    logging.getLogger(__name__).warning(f"Failed to save state for {tab_name}: {e}")
+    
+    def _restore_tab_state(self, tab_name: str, tab):
+        """Restore state for a tab if it has restore_state method"""
+        if tab and hasattr(tab, 'restore_state'):
+            try:
+                state = self.tab_state_manager.load_tab_state(tab_name)
+                if state:
+                    tab.restore_state(state)
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Failed to restore state for {tab_name}: {e}")
+    
+    def _new_workspace_pattern(self):
+        """Create a new pattern in workspace"""
+        from core.pattern import Pattern, PatternMetadata
+        
+        # Create empty pattern
+        metadata = PatternMetadata(width=72, height=1)
+        new_pattern = Pattern(name="New Pattern", metadata=metadata, frames=[])
+        
+        # Add to workspace
+        pattern_name = self.workspace.add_pattern(new_pattern)
+        self.workspace.set_active_pattern(pattern_name)
+        
+        # Load it
+        self.load_pattern_to_all_tabs(new_pattern, None)
+        self.status_bar.showMessage(f"Created new pattern: {pattern_name}")
+    
+    def _duplicate_workspace_pattern(self):
+        """Duplicate current pattern in workspace"""
+        if not self.pattern:
+            QMessageBox.information(self, "No Pattern", "No pattern to duplicate.")
+            return
+        
+        active_name = self.workspace.get_active_pattern_name()
+        if not active_name:
+            QMessageBox.information(self, "No Active Pattern", "No active pattern to duplicate.")
+            return
+        
+        new_name = self.workspace.duplicate_pattern(active_name)
+        if new_name:
+            # Load the duplicated pattern
+            new_pattern = self.workspace.get_pattern(new_name)
+            if new_pattern:
+                self.workspace.set_active_pattern(new_name)
+                self.load_pattern_to_all_tabs(new_pattern, None)
+                self.status_bar.showMessage(f"Duplicated pattern: {new_name}")
+        else:
+            QMessageBox.warning(self, "Duplicate Failed", "Failed to duplicate pattern.")
+    
+    def _remove_workspace_pattern(self):
+        """Remove current pattern from workspace"""
+        active_name = self.workspace.get_active_pattern_name()
+        if not active_name:
+            QMessageBox.information(self, "No Pattern", "No pattern to remove.")
+            return
+        
+        if self.workspace.count() <= 1:
+            QMessageBox.information(self, "Cannot Remove", "Cannot remove the last pattern in workspace.")
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Remove Pattern?",
+            f"Remove pattern '{active_name}' from workspace?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.workspace.remove_pattern(active_name)
+            # Switch to another pattern
+            remaining = self.workspace.list_patterns()
+            if remaining:
+                new_active = remaining[0]
+                self.workspace.set_active_pattern(new_active)
+                pattern = self.workspace.get_pattern(new_active)
+                if pattern:
+                    self.load_pattern_to_all_tabs(pattern, None)
+    
+    def _on_workspace_pattern_added(self, pattern_name: str):
+        """Handle pattern added to workspace"""
+        item = QListWidgetItem(pattern_name)
+        item.setData(Qt.ItemDataRole.UserRole, pattern_name)
+        self.workspace_list.addItem(item)
+        self._update_workspace_selection()
+    
+    def _on_workspace_pattern_removed(self, pattern_name: str):
+        """Handle pattern removed from workspace"""
+        for i in range(self.workspace_list.count()):
+            item = self.workspace_list.item(i)
+            if item and item.data(Qt.ItemDataRole.UserRole) == pattern_name:
+                self.workspace_list.takeItem(i)
+                break
+        self._update_workspace_selection()
+    
+    def _on_workspace_active_changed(self, pattern_name: str):
+        """Handle active pattern change"""
+        self._update_workspace_selection()
+        if pattern_name:
+            pattern = self.workspace.get_pattern(pattern_name)
+            if pattern and pattern != self.pattern:
+                self.load_pattern_to_all_tabs(pattern, None)
+    
+    def _on_workspace_pattern_selected(self):
+        """Handle workspace pattern selection"""
+        selected_items = self.workspace_list.selectedItems()
+        if selected_items:
+            pattern_name = selected_items[0].data(Qt.ItemDataRole.UserRole)
+            if pattern_name:
+                self.workspace.set_active_pattern(pattern_name)
+    
+    def _on_workspace_pattern_double_clicked(self, item: QListWidgetItem):
+        """Handle workspace pattern double-click"""
+        pattern_name = item.data(Qt.ItemDataRole.UserRole)
+        if pattern_name:
+            self.workspace.set_active_pattern(pattern_name)
+    
+    def _update_workspace_selection(self):
+        """Update workspace list selection to match active pattern"""
+        active_name = self.workspace.get_active_pattern_name()
+        for i in range(self.workspace_list.count()):
+            item = self.workspace_list.item(i)
+            if item:
+                pattern_name = item.data(Qt.ItemDataRole.UserRole)
+                if pattern_name == active_name:
+                    self.workspace_list.setCurrentItem(item)
+                    break
+    
+    def _update_pattern_switcher(self, pattern_name: str = None):
+        """Update pattern switcher combo box"""
+        if not hasattr(self, 'pattern_switcher'):
+            return
+        
+        self.pattern_switcher.blockSignals(True)
+        self.pattern_switcher.clear()
+        
+        patterns = self.workspace.list_patterns()
+        for name in patterns:
+            self.pattern_switcher.addItem(name)
+        
+        # Set current to active pattern
+        active_name = self.workspace.get_active_pattern_name()
+        if active_name:
+            index = self.pattern_switcher.findText(active_name)
+            if index >= 0:
+                self.pattern_switcher.setCurrentIndex(index)
+        
+        self.pattern_switcher.blockSignals(False)
+    
+    def _on_pattern_switcher_changed(self, pattern_name: str):
+        """Handle pattern switcher selection change"""
+        if pattern_name and pattern_name in self.workspace.list_patterns():
+            self.workspace.set_active_pattern(pattern_name)
 

@@ -114,6 +114,20 @@ class ParserRegistry:
             # Set pattern name from filename
             pattern.name = path.stem
             
+            # Extract wiring hints from filename and set on pattern metadata
+            from core.filename_hints import extract_wiring_hints
+            wiring_hint, corner_hint, hint_confidence = extract_wiring_hints(path.name)
+            if wiring_hint:
+                pattern.metadata.wiring_mode_hint = wiring_hint
+            if corner_hint:
+                pattern.metadata.data_in_corner_hint = corner_hint
+            if hint_confidence > 0:
+                pattern.metadata.hint_confidence = hint_confidence
+            
+            # Set source path for debugging
+            pattern.metadata.source_path = str(path)
+            pattern.metadata.source_format = format_name.lower()
+            
             return (pattern, format_name)
         
         except Exception as e:

@@ -1,279 +1,165 @@
-"""
-Comprehensive Pattern Testing Script
-Tests all pattern files from patterns/ directory with all Upload Bridge features
-"""
+#!/usr/bin/env python3
+"""Test metadata detection for all patterns in the patterns directory."""
 
-import os
 import sys
 from pathlib import Path
-from typing import List, Tuple, Dict
+from parsers.parser_registry import ParserRegistry
+from core.file_format_detector import detect_file_format
 
-# Initialize QApplication for GUI components
-from PySide6.QtWidgets import QApplication
-
-def test_pattern_parsing():
-    """Test pattern file parsing"""
-    print("=" * 70)
-    print("📁 PATTERN FILE PARSING TEST")
-    print("=" * 70)
-    
-    from parsers.parser_registry import parse_pattern_file
-    
-    patterns_dir = Path('patterns')
-    pattern_files = [f for f in patterns_dir.glob('*') if f.suffix.lower() in ['.bin', '.hex', '.dat', '.leds']]
-    
-    results = []
-    for file in pattern_files:
-        try:
-            pattern = parse_pattern_file(str(file))
-            results.append({
-                'file': file.name,
-                'success': True,
-                'width': pattern.metadata.width,
-                'height': pattern.metadata.height,
-                'frames': len(pattern.frames),
-                'error': None
-            })
-            print(f"✅ {file.name}: {pattern.metadata.width}x{pattern.metadata.height}, {len(pattern.frames)} frames")
-        except Exception as e:
-            results.append({
-                'file': file.name,
-                'success': False,
-                'width': None,
-                'height': None,
-                'frames': None,
-                'error': str(e)[:100]
-            })
-            print(f"❌ {file.name}: {str(e)[:80]}...")
-    
-    success_count = sum(1 for r in results if r['success'])
-    print(f"\n✅ Successfully parsed: {success_count}/{len(results)} files")
-    return results
-
-
-def test_media_conversion():
-    """Test media file conversion"""
-    print("\n" + "=" * 70)
-    print("🎬 MEDIA CONVERSION TEST")
-    print("=" * 70)
-    
-    from core.media_converter import MediaConverter
-    from core.pattern import PatternMetadata
-    
-    patterns_dir = Path('patterns')
-    media_files = [f for f in patterns_dir.glob('*') if f.suffix.lower() in ['.mp4', '.gif', '.jpeg', '.jpg', '.png', '.bmp']]
-    
-    results = []
-    for file in media_files:
-        try:
-            converter = MediaConverter()
-            metadata = PatternMetadata(width=64, height=32)
-            pattern = converter.convert_to_pattern(str(file), metadata)
-            
-            results.append({
-                'file': file.name,
-                'success': True,
-                'width': pattern.metadata.width,
-                'height': pattern.metadata.height,
-                'frames': len(pattern.frames),
-                'error': None
-            })
-            print(f"✅ {file.name}: {pattern.metadata.width}x{pattern.metadata.height}, {len(pattern.frames)} frames")
-        except Exception as e:
-            results.append({
-                'file': file.name,
-                'success': False,
-                'width': None,
-                'height': None,
-                'frames': None,
-                'error': str(e)[:100]
-            })
-            print(f"❌ {file.name}: {str(e)[:80]}...")
-    
-    success_count = sum(1 for r in results if r['success'])
-    print(f"\n✅ Successfully converted: {success_count}/{len(results)} files")
-    return results
-
-
-def test_preview_system(results: List[Dict]):
-    """Test pattern preview system"""
-    print("\n" + "=" * 70)
-    print("👁️ PREVIEW SYSTEM TEST")
-    print("=" * 70)
-    
-    from ui.tabs.preview_tab import PreviewTab
-    
-    tab = PreviewTab()
-    success_count = 0
-    
-    for result in results:
-        if result['success']:
-            try:
-                from parsers.parser_registry import parse_pattern_file
-                from core.media_converter import MediaConverter, MediaInfo
-                from core.pattern import PatternMetadata
-                
-                file_path = f"patterns/{result['file']}"
-                
-                # Load pattern
-                if result['file'].endswith(('.bin', '.hex', '.dat', '.leds')):
-                    pattern = parse_pattern_file(file_path)
-                else:
-                    converter = MediaConverter()
-                    metadata = PatternMetadata(width=64, height=32)
-                    pattern = converter.convert_to_pattern(file_path, metadata)
-                
-                # Test preview loading
-                tab.load_pattern(pattern)
-                success_count += 1
-                print(f"✅ {result['file']}: Loaded in preview")
-            except Exception as e:
-                print(f"❌ {result['file']}: {str(e)[:80]}...")
-    
-    print(f"\n✅ Successfully loaded in preview: {success_count}/{sum(1 for r in results if r['success'])} files")
-    return success_count
-
-
-def test_flash_system(results: List[Dict]):
-    """Test flash system with patterns"""
-    print("\n" + "=" * 70)
-    print("⚡ FLASH SYSTEM TEST")
-    print("=" * 70)
-    
-    from ui.tabs.flash_tab import FlashTab
-    
-    tab = FlashTab()
-    success_count = 0
-    
-    for result in results[:3]:  # Test with first 3 successful patterns
-        if result['success']:
-            try:
-                from parsers.parser_registry import parse_pattern_file
-                from core.media_converter import MediaConverter
-                from core.pattern import PatternMetadata
-                
-                file_path = f"patterns/{result['file']}"
-                
-                # Load pattern
-                if result['file'].endswith(('.bin', '.hex', '.dat', '.leds')):
-                    pattern = parse_pattern_file(file_path)
-                else:
-                    converter = MediaConverter()
-                    metadata = PatternMetadata(width=64, height=32)
-                    pattern = converter.convert_to_pattern(file_path, metadata)
-                
-                # Test flash loading
-                tab.load_pattern(pattern)
-                success_count += 1
-                print(f"✅ {result['file']}: Loaded for flashing")
-            except Exception as e:
-                print(f"❌ {result['file']}: {str(e)[:80]}...")
-    
-    print(f"\n✅ Successfully loaded for flash: {success_count}/3 files")
-    return success_count
-
-
-def test_wifi_upload(results: List[Dict]):
-    """Test WiFi upload system"""
-    print("\n" + "=" * 70)
-    print("📡 WIFI UPLOAD TEST")
-    print("=" * 70)
-    
-    from ui.tabs.wifi_upload_tab import WiFiUploadTab
-    
-    tab = WiFiUploadTab()
-    success_count = 0
-    
-    for result in results[:2]:  # Test with first 2 successful patterns
-        if result['success']:
-            try:
-                from parsers.parser_registry import parse_pattern_file
-                from core.media_converter import MediaConverter
-                from core.pattern import PatternMetadata
-                
-                file_path = f"patterns/{result['file']}"
-                
-                # Load pattern
-                if result['file'].endswith(('.bin', '.hex', '.dat', '.leds')):
-                    pattern = parse_pattern_file(file_path)
-                else:
-                    converter = MediaConverter()
-                    metadata = PatternMetadata(width=64, height=32)
-                    pattern = converter.convert_to_pattern(file_path, metadata)
-                
-                # Test WiFi upload loading
-                tab.set_pattern(pattern)
-                success_count += 1
-                print(f"✅ {result['file']}: Loaded for WiFi upload")
-            except Exception as e:
-                print(f"❌ {result['file']}: {str(e)[:80]}...")
-    
-    print(f"\n✅ Successfully loaded for WiFi upload: {success_count}/2 files")
-    return success_count
-
-
-def generate_test_report(pattern_results, media_results, preview_count, flash_count, wifi_count):
-    """Generate comprehensive test report"""
-    print("\n" + "=" * 70)
-    print("📊 COMPREHENSIVE TEST REPORT")
-    print("=" * 70)
-    
-    total_pattern_files = len(pattern_results)
-    successful_pattern_files = sum(1 for r in pattern_results if r['success'])
-    failed_pattern_files = total_pattern_files - successful_pattern_files
-    
-    total_media_files = len(media_results)
-    successful_media_files = sum(1 for r in media_results if r['success'])
-    failed_media_files = total_media_files - successful_media_files
-    
-    print(f"\n📁 PATTERN FILE TESTING:")
-    print(f"   Total Files: {total_pattern_files}")
-    print(f"   ✅ Success: {successful_pattern_files}")
-    print(f"   ❌ Failed: {failed_pattern_files}")
-    print(f"   Success Rate: {(successful_pattern_files/total_pattern_files*100):.1f}%")
-    
-    print(f"\n🎬 MEDIA FILE TESTING:")
-    print(f"   Total Files: {total_media_files}")
-    print(f"   ✅ Success: {successful_media_files}")
-    print(f"   ❌ Failed: {failed_media_files}")
-    print(f"   Success Rate: {(successful_media_files/total_media_files*100):.1f}%")
-    
-    print(f"\n🔧 FEATURE INTEGRATION TESTING:")
-    print(f"   👁️ Preview System: {preview_count}/{successful_pattern_files + successful_media_files} files")
-    print(f"   ⚡ Flash System: {flash_count}/3 tested files")
-    print(f"   📡 WiFi Upload: {wifi_count}/2 tested files")
-    
-    print(f"\n🎯 OVERALL STATUS:")
-    total_tests = total_pattern_files + total_media_files + preview_count + flash_count + wifi_count
-    total_successful = successful_pattern_files + successful_media_files + preview_count + flash_count + wifi_count
-    print(f"   Total Tests: {total_tests}")
-    print(f"   ✅ Successful: {total_successful}")
-    print(f"   📈 Overall Success Rate: {(total_successful/total_tests*100):.1f}%")
-    
-    print(f"\n🚀 UPLOAD BRIDGE TESTING: COMPLETE!")
-    print("   All systems tested and verified!")
-
+def test_pattern_file(filepath: Path):
+    """Test a single pattern file and return results."""
+    try:
+        registry = ParserRegistry()
+        pattern, format_name = registry.parse_file(str(filepath))
+        
+        # Detect wiring format
+        wiring_mode, data_in_corner = detect_file_format(pattern)
+        
+        return {
+            'success': True,
+            'format': format_name,
+            'width': pattern.metadata.width,
+            'height': pattern.metadata.height,
+            'led_count': pattern.led_count,
+            'frame_count': pattern.frame_count,
+            'wiring_mode': wiring_mode,
+            'data_in_corner': data_in_corner,
+            'dimension_source': pattern.metadata.dimension_source,
+            'dimension_confidence': pattern.metadata.dimension_confidence,
+            'error': None
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'format': None,
+            'width': None,
+            'height': None,
+            'led_count': None,
+            'frame_count': None,
+            'wiring_mode': None,
+            'data_in_corner': None,
+            'dimension_source': None,
+            'dimension_confidence': None
+        }
 
 def main():
-    """Run comprehensive testing"""
-    # Initialize application
-    app = QApplication(sys.argv)
+    patterns_dir = Path("patterns")
+    if not patterns_dir.exists():
+        print(f"ERROR: Patterns directory not found: {patterns_dir}")
+        return 1
     
-    print("🧪 UPLOAD BRIDGE COMPREHENSIVE PATTERN TESTING")
-    print("=" * 70)
-    print("\nTesting all pattern files with all features...")
+    # Collect all pattern files
+    pattern_files = []
     
-    # Run all tests
-    pattern_results = test_pattern_parsing()
-    media_results = test_media_conversion()
-    preview_count = test_preview_system(pattern_results + media_results)
-    flash_count = test_flash_system(pattern_results + media_results)
-    wifi_count = test_wifi_upload(pattern_results + media_results)
+    # Root level files
+    for ext in ['.bin', '.dat', '.leds', '.hex']:
+        pattern_files.extend(patterns_dir.glob(f"*{ext}"))
     
-    # Generate report
-    generate_test_report(pattern_results, media_results, preview_count, flash_count, wifi_count)
-
+    # 15x6 directory
+    if (patterns_dir / "15x6").exists():
+        for ext in ['.bin', '.dat', '.leds', '.hex']:
+            pattern_files.extend((patterns_dir / "15x6").glob(f"*{ext}"))
+    
+    # 12x6 patterns directory
+    if (patterns_dir / "12x6 patterns").exists():
+        for ext in ['.bin', '.dat', '.leds', '.hex']:
+            pattern_files.extend((patterns_dir / "12x6 patterns").glob(f"*{ext}"))
+        # Also check correct subdirectory
+        correct_dir = patterns_dir / "12x6 patterns" / "correct"
+        if correct_dir.exists():
+            for ext in ['.bin', '.dat', '.leds', '.hex']:
+                pattern_files.extend(correct_dir.glob(f"*{ext}"))
+    
+    # Sort for consistent output
+    pattern_files.sort()
+    
+    print("=" * 100)
+    print("PATTERN METADATA DETECTION TEST RESULTS")
+    print("=" * 100)
+    print()
+    
+    results = []
+    for filepath in pattern_files:
+        # Get relative path for display
+        try:
+            rel_path = filepath.relative_to(patterns_dir.parent)
+        except (ValueError, AttributeError):
+            rel_path = filepath
+        print(f"Testing: {rel_path}")
+        result = test_pattern_file(filepath)
+        result['filepath'] = rel_path
+        results.append(result)
+        
+        if result['success']:
+            print(f"  ✓ Format: {result['format']}")
+            print(f"  ✓ Dimensions: {result['width']}x{result['height']} = {result['led_count']} LEDs")
+            print(f"  ✓ Frames: {result['frame_count']}")
+            print(f"  ✓ Wiring: {result['wiring_mode']} ({result['data_in_corner']})")
+            print(f"  ✓ Dimension source: {result['dimension_source']} (confidence: {result['dimension_confidence']:.2f})")
+        else:
+            print(f"  ✗ ERROR: {result['error']}")
+        print()
+    
+    # Summary
+    print("=" * 100)
+    print("SUMMARY")
+    print("=" * 100)
+    successful = sum(1 for r in results if r['success'])
+    failed = len(results) - successful
+    print(f"Total files tested: {len(results)}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {failed}")
+    print()
+    
+    # Group by expected dimensions
+    print("Grouped by detected dimensions:")
+    dim_groups = {}
+    for r in results:
+        if r['success']:
+            key = f"{r['width']}x{r['height']}"
+            if key not in dim_groups:
+                dim_groups[key] = []
+            dim_groups[key].append(r)
+    
+    for dim, group in sorted(dim_groups.items()):
+        print(f"\n  {dim} ({len(group)} files):")
+        for r in group:
+            wiring_info = f"{r['wiring_mode']} {r['data_in_corner']}"
+            fp = r['filepath']
+            name = fp.name if hasattr(fp, 'name') else str(fp).split('/')[-1].split('\\')[-1]
+            print(f"    - {name}: {wiring_info}")
+    
+    # Check for specific issues
+    print()
+    print("=" * 100)
+    print("SPECIFIC CHECKS")
+    print("=" * 100)
+    
+    # Check 15x6 patterns
+    print("\n15x6 patterns:")
+    for r in results:
+        fp_str = str(r['filepath'])
+        if r['success'] and '15x6' in fp_str:
+            expected_wiring = "Column-serpentine" if "alternate" in fp_str.lower() else "Column-major" if "column" in fp_str.lower() else "Row-major"
+            status = "✓" if r['wiring_mode'] == expected_wiring or (expected_wiring == "Column-serpentine" and r['wiring_mode'] == "Column-major") else "✗"
+            name = r['filepath'].name if hasattr(r['filepath'], 'name') else fp_str.split('/')[-1].split('\\')[-1]
+            print(f"  {status} {name}: {r['wiring_mode']} {r['data_in_corner']} (expected: {expected_wiring})")
+    
+    # Check 12x6 patterns
+    print("\n12x6 patterns:")
+    for r in results:
+        fp_str = str(r['filepath'])
+        if r['success'] and ('12x6' in fp_str or '12.6' in fp_str):
+            expected_wiring = "Column-serpentine" if "alternate" in fp_str.lower() or "down up" in fp_str.lower() or "up down" in fp_str.lower() else "Row-major" if "row" in fp_str.lower() else None
+            name = r['filepath'].name if hasattr(r['filepath'], 'name') else fp_str.split('/')[-1].split('\\')[-1]
+            if expected_wiring:
+                status = "✓" if r['wiring_mode'] == expected_wiring or (expected_wiring == "Column-serpentine" and r['wiring_mode'] == "Column-major") else "✗"
+                print(f"  {status} {name}: {r['wiring_mode']} {r['data_in_corner']} (expected: {expected_wiring})")
+            else:
+                print(f"  ? {name}: {r['wiring_mode']} {r['data_in_corner']}")
+    
+    return 0 if failed == 0 else 1
 
 if __name__ == "__main__":
-    main()
-
+    sys.exit(main())

@@ -423,6 +423,121 @@ class Stm32Uploader(UploaderBase):
         
         return 0
     
+    def probe_device(self, port: str) -> Optional[DeviceInfo]:
+        """
+        Probe STM32 device information using stm32flash or st-info.
+        
+        Args:
+            port: Serial port to probe (for serial bootloader) or None (for ST-Link)
+            
+        Returns:
+            DeviceInfo if device detected, None otherwise
+        """
+        import shutil
+        
+        # Try ST-Link first (if available)
+        if shutil.which('st-info'):
+            try:
+                cmd = ["st-info", "--probe"]
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    output = result.stdout + result.stderr
+                    
+                    # Parse device ID from output
+                    device_id_match = re.search(r'Device ID:\s*0x([0-9A-Fa-f]+)', output)
+                    flash_size_match = re.search(r'Flash size:\s*(\d+)', output)
+                    
+                    if device_id_match:
+                        device_id = device_id_match.group(1)
+                        chip_detected = self._identify_chip_from_device_id(device_id)
+                        
+                        flash_size = None
+                        if flash_size_match:
+                            flash_size = int(flash_size_match.group(1))
+                        
+                        return DeviceInfo(
+                            port="ST-Link",
+                            chip_detected=chip_detected,
+                            flash_size=flash_size,
+                            bootloader_version="ST-Link"
+                        )
+            except Exception:
+                pass
+        
+        # Try serial bootloader (stm32flash)
+        if port and shutil.which('stm32flash'):
+            try:
+                cmd = ["stm32flash", "-b", "115200", port]
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    output = result.stdout + result.stderr
+                    
+                    # Parse device info from stm32flash output
+                    device_match = re.search(r'Device ID:\s*0x([0-9A-Fa-f]+)', output)
+                    flash_match = re.search(r'Flash:\s*(\d+)\s*bytes', output)
+                    
+                    if device_match:
+                        device_id = device_match.group(1)
+                        chip_detected = self._identify_chip_from_device_id(device_id)
+                        
+                        flash_size = None
+                        if flash_match:
+                            flash_size = int(flash_match.group(1))
+                        
+                        return DeviceInfo(
+                            port=port,
+                            chip_detected=chip_detected,
+                            flash_size=flash_size,
+                            bootloader_version="Serial Bootloader"
+                        )
+            except Exception:
+                pass
+        
+        return None
+    
+    def _identify_chip_from_device_id(self, device_id: str) -> Optional[str]:
+        """
+        Identify STM32 chip from device ID.
+        
+        Args:
+            device_id: Device ID hex string (e.g., "0x410", "0x440")
+            
+        Returns:
+            Chip ID string or None if unknown
+        """
+        device_id_int = int(device_id, 16) if isinstance(device_id, str) else device_id
+        
+        # Map device IDs to chip models
+        device_id_map = {
+            0x410: "stm32f103c8",  # STM32F103 series
+            0x440: "stm32f030f4",   # STM32F030 series
+            0x423: "stm32f401",     # STM32F401 series
+            0x431: "stm32f411",     # STM32F411 series
+        }
+        
+        # Check exact match
+        if device_id_int in device_id_map:
+            return device_id_map[device_id_int]
+        
+        # Check range matches (device ID is often masked)
+        for dev_id, chip in device_id_map.items():
+            if (device_id_int & 0xFFF) == (dev_id & 0xFFF):
+                return chip
+        
+        return None
+    
     def get_bootloader_instructions(self) -> str:
         """Get STM32-specific bootloader instructions"""
         return (

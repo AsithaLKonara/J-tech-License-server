@@ -1,0 +1,42 @@
+{
+  "chip_id": "NuvotonM051",
+  "chip_variant": "M051",
+  "chip_name": "Nuvoton M051",
+  "manufacturer": "Nuvoton",
+  "architecture": "ARM Cortex-M0",
+  "flash_size_bytes": 65536,
+  "ram_size_bytes": 4096,
+  "cpu_frequency_mhz": 50,
+  "supported_formats": ["bin", "hex"],
+  "toolchain": {
+    "compiler": "arm-none-eabi-gcc",
+    "linker": "arm-none-eabi-ld",
+    "objcopy": "arm-none-eabi-objcopy",
+    "flasher": "nu-link",
+    "version_required": "3.08"
+  },
+  "flash_options": {
+    "default_baud_rate": 115200,
+    "supported_baud_rates": [115200],
+    "flash_start": "0x00000000",
+    "flash_size": "64KB"
+  },
+  "build_options": {
+    "defines": ["M051"],
+    "include_paths": [],
+    "linker_script_required": true,
+    "startup_file_required": true,
+    "bootloader_required": false
+  },
+  "verification": {
+    "supports_hash_verification": true,
+    "verification_method": "nu-link_verify",
+    "hash_algorithm": "sha256"
+  },
+  "device_detection": {
+    "method": "nu-link_detect",
+    "timeout_ms": 5000
+  },
+  "capabilities": ["flash", "verify"]
+}
+

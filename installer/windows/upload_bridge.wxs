@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Upload Bridge Windows Installer (MSI) Configuration
+  Generated using WiX Toolset
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Upload Bridge" Language="1033" Version="3.0.0" Manufacturer="Upload Bridge" UpgradeCode="GUID-HERE">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Description="Upload Bridge - LED Pattern Designer" />
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate />
+    
+    <Feature Id="ProductFeature" Title="Upload Bridge" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="FirmwareComponents" />
+      <ComponentGroupRef Id="DocumentationComponents" />
+    </Feature>
+    
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="UploadBridge">
+          <Directory Id="FirmwareFolder" Name="firmware" />
+          <Directory Id="DocsFolder" Name="docs" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Upload Bridge" />
+      </Directory>
+    </Directory>
+    
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable">
+        <File Id="UploadBridgeExe" Source="dist/UploadBridge.exe" KeyPath="yes" />
+        <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Name="Upload Bridge" WorkingDirectory="INSTALLFOLDER" Icon="UploadBridgeIcon.exe" IconIndex="0" />
+        <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Upload Bridge" WorkingDirectory="INSTALLFOLDER" Icon="UploadBridgeIcon.exe" IconIndex="0" />
+      </Component>
+    </ComponentGroup>
+    
+    <ComponentGroup Id="FirmwareComponents" Directory="FirmwareFolder">
+      <!-- Firmware templates will be installed here -->
+    </ComponentGroup>
+    
+    <ComponentGroup Id="DocumentationComponents" Directory="DocsFolder">
+      <!-- Documentation files will be installed here -->
+    </ComponentGroup>
+    
+    <Icon Id="UploadBridgeIcon" SourceFile="UploadBridge.ico" />
+  </Product>
+</Wix>
+

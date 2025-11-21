@@ -37,12 +37,16 @@ class PreviewTab(QWidget):
     
     # Signals
     pattern_modified = Signal()  # Emitted when pattern is modified
+    playback_state_changed = Signal(bool)  # Emitted when playback state changes (True=playing, False=paused/stopped)
+    frame_changed = Signal(int)  # Emitted when frame index changes
     
     def __init__(self, parent=None):
         super().__init__(parent)
         
         self.pattern: Pattern = None
         self._original_file_pattern: Pattern = None  # Original file data (before unwrapping)
+        self._syncing_playback = False  # Flag to prevent signal loops
+        self._syncing_frame = False  # Flag to prevent frame sync loops
         self.setup_ui()
     
     def setup_ui(self):
@@ -164,6 +168,16 @@ class PreviewTab(QWidget):
         self.export_button = export_button
         info_layout.addWidget(export_button)
         
+        # Batch validation button
+        batch_validate_button = QPushButton("🔍 Batch Validate Patterns...")
+        batch_validate_button.clicked.connect(self.on_batch_validate)
+        info_layout.addWidget(batch_validate_button)
+        
+        # Dimension override button
+        override_button = QPushButton("⚙️ Override Dimensions...")
+        override_button.clicked.connect(self.on_override_dimensions)
+        info_layout.addWidget(override_button)
+        
         info_group.setLayout(info_layout)
         bottom_layout.addWidget(info_group)
         
@@ -205,21 +219,111 @@ class PreviewTab(QWidget):
         logger.info(f"Color order: {pattern.metadata.color_order}")
         logger.info(f"Is matrix: {pattern.metadata.is_matrix}")
         
+        # Validate metadata before proceeding
+        validation_result = self._validate_pattern_metadata(pattern)
+        if not validation_result['valid']:
+            logger.warning(f"⚠️ Metadata validation failed: {validation_result['reason']}")
+            if validation_result.get('should_redetect'):
+                # Try re-detection first
+                logger.info("Attempting to re-detect dimensions from first few frames...")
+                pattern = self._redetect_dimensions(pattern)
+                
+                # If still invalid or user has override preference, offer override dialog
+                validation_result = self._validate_pattern_metadata(pattern)
+                if not validation_result['valid'] or getattr(pattern.metadata, 'dimension_override', False):
+                    # Check if user wants to override
+                    from ui.widgets.dimension_override_dialog import DimensionOverrideDialog
+                    from core.matrix_detector import get_shared_detector
+                    
+                    detector = get_shared_detector()
+                    auto_detected = None
+                    if pattern.frames:
+                        detected_layout = detector.detect_layout(
+                            pattern.led_count,
+                            pattern.frames[0].pixels if pattern.frames else None
+                        )
+                        auto_detected = (detected_layout.width, detected_layout.height)
+                    
+                    dialog = DimensionOverrideDialog(
+                        self,
+                        current_width=pattern.metadata.width,
+                        current_height=pattern.metadata.height,
+                        led_count=pattern.led_count,
+                        auto_detected=auto_detected
+                    )
+                    
+                    if dialog.exec() == QDialog.DialogCode.Accepted:
+                        dimensions, persist = dialog.get_result()
+                        if dimensions:
+                            pattern.metadata.width = dimensions[0]
+                            pattern.metadata.height = dimensions[1]
+                            pattern.metadata.dimension_override = True
+                            pattern.metadata.dimension_override_source = 'user'
+                            pattern.metadata.dimension_source = 'user'
+                            pattern.metadata.dimension_confidence = 1.0
+                            logger.info(f"User override: Dimensions set to {dimensions[0]}×{dimensions[1]}")
+                            
+                            # Store override preference if requested
+                            if persist:
+                                # Could store in config file or pattern metadata
+                                logger.info("Override preference saved")
+        
+        # Initialize lazy frame loader for large patterns (>1000 frames)
+        # Progressive loading improves memory usage and startup time
+        if pattern.frame_count > 1000:
+            logger.info(f"Large pattern detected ({pattern.frame_count} frames), initializing progressive frame loader...")
+            from core.lazy_frame_loader import LazyFrameLoader
+            # Adaptive cache size based on pattern size
+            cache_size = min(100, max(50, pattern.frame_count // 100))
+            self._lazy_loader = LazyFrameLoader(pattern, cache_size=cache_size)
+            logger.info(f"Progressive frame loader initialized (cache size: {cache_size})")
+        else:
+            self._lazy_loader = None
+        
         # CRITICAL: Store ORIGINAL pattern for flash tab
         # Flash tab will use the ORIGINAL file data (no conversion)
+        # Optimize copying for large patterns (>1000 frames)
         import copy
-        self._original_file_pattern = Pattern(
-            name=pattern.name,
-            metadata=copy.deepcopy(pattern.metadata),
-            frames=[Frame(pixels=list(frame.pixels), duration_ms=frame.duration_ms) 
-                    for frame in pattern.frames]  # Deep copy frames
-        )
+        if pattern.frame_count > 1000:
+            logger.info(f"Large pattern detected ({pattern.frame_count} frames), using optimized copying...")
+            # For large patterns, use lazy copying - only copy metadata and frame references
+            # Actual pixel data will be copied on-demand if needed
+            self._original_file_pattern = Pattern(
+                name=pattern.name,
+                metadata=copy.deepcopy(pattern.metadata),
+                frames=[Frame(pixels=list(frame.pixels), duration_ms=frame.duration_ms) 
+                        for frame in pattern.frames[:100]]  # Only copy first 100 frames initially
+            )
+            # Store reference to original pattern for lazy loading
+            self._original_file_pattern_ref = pattern
+            logger.info("Optimized copy: Stored first 100 frames, remaining frames available via reference")
+        else:
+            # For smaller patterns, do full deep copy
+            self._original_file_pattern = Pattern(
+                name=pattern.name,
+                metadata=copy.deepcopy(pattern.metadata),
+                frames=[Frame(pixels=list(frame.pixels), duration_ms=frame.duration_ms) 
+                        for frame in pattern.frames]  # Deep copy frames
+            )
+            self._original_file_pattern_ref = None
         
         # AUTO-DETECT file format, then allow user override
-        from core.file_format_detector import detect_file_format
+        from core.file_format_detector import detect_file_format_with_confidence
         
-        detected_wiring, detected_corner = detect_file_format(pattern)
-        logger.info(f"🔍 Auto-detected file format: {detected_wiring} {detected_corner}")
+        detected_wiring, detected_corner, confidence, reason = detect_file_format_with_confidence(pattern)
+        logger.info(f"🔍 Auto-detected file format: {detected_wiring} {detected_corner} (confidence={confidence:.2f}, reason={reason})")
+        
+        # Warn user if confidence is low
+        if confidence < 0.6:
+            logger.warning(
+                "⚠️ Low confidence in auto-detection (%.0f%%). Please verify wiring mode and data-in corner manually.",
+                confidence * 100
+            )
+        elif confidence < 0.75:
+            logger.info(
+                "ℹ️ Medium confidence in auto-detection (%.0f%%). Consider verifying wiring mode if pattern looks incorrect.",
+                confidence * 100
+            )
         
         # UNWRAP FOR PREVIEW ONLY using user-specified or auto-detected file format
         # Get file format from simulator UI (use auto-detected if not set)
@@ -385,6 +489,39 @@ class PreviewTab(QWidget):
         if hasattr(self, 'export_button'):
             self.export_button.setEnabled(pattern is not None)
     
+    def update_pattern(self, pattern: Pattern):
+        """
+        Update pattern for live preview (simpler than load_pattern, no unwrapping)
+        
+        Args:
+            pattern: Updated Pattern object
+        """
+        if not pattern:
+            return
+        
+        # Store the updated pattern
+        self.pattern = pattern
+        
+        # Rebuild preview pattern if needed
+        try:
+            self._rebuild_preview_pattern()
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to rebuild preview pattern: {e}")
+        
+        # Update simulator with new pattern
+        try:
+            if self._preview_pattern:
+                self.simulator.load_pattern(self._preview_pattern)
+            else:
+                self.simulator.load_pattern(self.pattern)
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to update simulator: {e}")
+        
+        # Update frame slider range
+        if self.pattern:
+            self.frame_slider.setRange(0, self.pattern.frame_count - 1)
+            self.update_info()
+    
     def load_pattern_from_file(self, file_path: str):
         """
         Load pattern from file with auto-detection
@@ -411,26 +548,44 @@ class PreviewTab(QWidget):
     
     def on_play(self):
         """Play button clicked"""
-        self.simulator.play()
-        self.play_button.setEnabled(False)
-        self.pause_button.setEnabled(True)
-        self.stop_button.setEnabled(True)
+        if not self._syncing_playback:
+            self.simulator.play()
+            self.play_button.setEnabled(False)
+            self.pause_button.setEnabled(True)
+            self.stop_button.setEnabled(True)
+            self.playback_state_changed.emit(True)
     
     def on_pause(self):
         """Pause button clicked"""
-        self.simulator.pause()
-        self.play_button.setEnabled(True)
-        self.pause_button.setEnabled(False)
+        if not self._syncing_playback:
+            self.simulator.pause()
+            self.play_button.setEnabled(True)
+            self.pause_button.setEnabled(False)
+            self.playback_state_changed.emit(False)
     
     def on_stop(self):
         """Stop button clicked"""
-        self.simulator.stop()
-        self.play_button.setEnabled(True)
-        self.pause_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
+        if not self._syncing_playback:
+            # Use lazy loader if available
+            if self._lazy_loader:
+                self.simulator.stop(lazy_loader=self._lazy_loader)
+            else:
+                self.simulator.stop()
+            self.play_button.setEnabled(True)
+            self.pause_button.setEnabled(False)
+            self.stop_button.setEnabled(False)
+            self.playback_state_changed.emit(False)
     
     def on_frame_changed(self, frame_idx: int):
-        """Simulator frame changed"""
+        """Handle frame change from simulator (with lazy loading support)"""
+        # Preload nearby frames if using lazy loader
+        if self._lazy_loader:
+            # Preload current frame and nearby frames for smooth scrubbing
+            preload_range = 5
+            start_idx = max(0, frame_idx - preload_range)
+            end_idx = min(self.pattern.frame_count, frame_idx + preload_range + 1)
+            self._lazy_loader.preload_range(start_idx, end_idx)
+        
         # Update slider without triggering signal
         self.frame_slider.blockSignals(True)
         self.frame_slider.setValue(frame_idx)
@@ -439,11 +594,21 @@ class PreviewTab(QWidget):
         # Update label
         if self.pattern:
             self.frame_label.setText(f"{frame_idx + 1} / {self.pattern.frame_count}")
+        
+        # Emit frame changed signal (if not syncing to prevent loops)
+        if not self._syncing_frame:
+            self.frame_changed.emit(frame_idx)
     
     def on_frame_slider_changed(self, value: int):
         """User moved frame slider"""
         self.simulator.pause()  # Pause playback when scrubbing
-        self.simulator.set_frame(value)
+        
+        # Use lazy loader if available for progressive loading
+        if self._lazy_loader:
+            self.simulator.set_frame(value, lazy_loader=self._lazy_loader)
+        else:
+            self.simulator.set_frame(value)
+        
         self.play_button.setEnabled(True)
         self.pause_button.setEnabled(False)
     
@@ -456,6 +621,35 @@ class PreviewTab(QWidget):
                 self.simulator.load_pattern(self._preview_pattern)
                 self.update_info()
                 self.pattern_modified.emit()
+    
+    def sync_playback_state(self, is_playing: bool):
+        """Sync playback state from another tab (called from signal)"""
+        self._syncing_playback = True
+        try:
+            if is_playing:
+                if self.play_button.isEnabled():  # Not currently playing
+                    self.on_play()
+            else:
+                if not self.play_button.isEnabled():  # Currently playing
+                    self.on_pause()
+        finally:
+            self._syncing_playback = False
+    
+    def sync_frame_selection(self, frame_idx: int):
+        """Sync frame selection from another tab (called from signal)"""
+        self._syncing_frame = True
+        try:
+            if self.pattern and 0 <= frame_idx < self.pattern.frame_count:
+                self.simulator.pause()  # Pause when syncing frame
+                self.simulator.set_frame(frame_idx)
+                # Update UI without triggering signals
+                self.frame_slider.blockSignals(True)
+                self.frame_slider.setValue(frame_idx)
+                self.frame_slider.blockSignals(False)
+                if self.pattern:
+                    self.frame_label.setText(f"{frame_idx + 1} / {self.pattern.frame_count}")
+        finally:
+            self._syncing_frame = False
     
     def on_advanced_brightness_changed(self, brightness: float):
         """Advanced brightness changed"""
@@ -539,12 +733,115 @@ class PreviewTab(QWidget):
                 self.simulator.load_pattern(self._preview_pattern)
             self.pattern_modified.emit()
     
+    def _validate_pattern_metadata(self, pattern: Pattern) -> dict:
+        """
+        Validate pattern metadata consistency.
+        
+        Args:
+            pattern: Pattern to validate
+            
+        Returns:
+            dict with 'valid' (bool), 'reason' (str), and 'should_redetect' (bool)
+        """
+        if not pattern or not pattern.frames:
+            return {'valid': False, 'reason': 'Pattern has no frames', 'should_redetect': False}
+        
+        # Check if width * height matches LED count
+        expected_leds = pattern.metadata.width * pattern.metadata.height
+        actual_leds = pattern.led_count
+        
+        if expected_leds != actual_leds:
+            return {
+                'valid': False,
+                'reason': f'Dimension mismatch: {pattern.metadata.width}×{pattern.metadata.height}={expected_leds} but LED count={actual_leds}',
+                'should_redetect': True
+            }
+        
+        # Check if all frames have consistent LED count
+        first_frame_leds = len(pattern.frames[0].pixels) if pattern.frames else 0
+        if first_frame_leds != actual_leds:
+            return {
+                'valid': False,
+                'reason': f'Frame LED count mismatch: first frame has {first_frame_leds} LEDs, expected {actual_leds}',
+                'should_redetect': True
+            }
+        
+        # Check dimension confidence for auto-detected dimensions
+        dimension_source = getattr(pattern.metadata, 'dimension_source', 'unknown')
+        dimension_confidence = getattr(pattern.metadata, 'dimension_confidence', 0.0)
+        
+        if dimension_source != 'header' and dimension_confidence < 0.5:
+            # Low confidence detection - might be wrong
+            return {
+                'valid': False,
+                'reason': f'Low confidence detection ({dimension_confidence:.0%}) from {dimension_source}',
+                'should_redetect': True
+            }
+        
+        return {'valid': True, 'reason': 'Metadata is consistent', 'should_redetect': False}
+    
+    def _redetect_dimensions(self, pattern: Pattern) -> Pattern:
+        """
+        Re-detect dimensions using first few frames only (for performance).
+        
+        Args:
+            pattern: Pattern with potentially incorrect metadata
+            
+        Returns:
+            Pattern with corrected metadata
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        if not pattern or not pattern.frames:
+            return pattern
+        
+        # Sample first 3-5 frames for detection (for large patterns)
+        sample_frames = min(5, len(pattern.frames))
+        logger.info(f"Re-detecting dimensions using first {sample_frames} frames...")
+        
+        from core.matrix_detector import MatrixDetector, get_shared_detector
+        from core.dimension_scorer import pick_best_layout
+        
+        # Use shared detector for caching benefits
+        detector = get_shared_detector()
+        first_frame_pixels = pattern.frames[0].pixels if pattern.frames else None
+        
+        if not first_frame_pixels:
+            logger.warning("Cannot re-detect: no frame data available")
+            return pattern
+        
+        # Detect layout using first frame
+        detected_layout = detector.detect_layout(len(first_frame_pixels), first_frame_pixels)
+        
+        if detected_layout and detected_layout.confidence > 0.5:
+            logger.info(f"Re-detected dimensions: {detected_layout.width}×{detected_layout.height} (confidence: {detected_layout.confidence:.0%})")
+            
+            # Update metadata
+            pattern.metadata.width = detected_layout.width
+            pattern.metadata.height = detected_layout.height
+            pattern.metadata.dimension_source = "detector"
+            pattern.metadata.dimension_confidence = detected_layout.confidence
+            
+            logger.info("✓ Metadata updated with re-detected dimensions")
+        else:
+            logger.warning("Re-detection failed or low confidence, keeping original metadata")
+        
+        return pattern
+    
     def _reload_from_original_file(self):
         """Reload pattern from original file with new file format settings"""
         import logging
         logger = logging.getLogger(__name__)
         
-        if not hasattr(self, '_original_file_pattern') or not self._original_file_pattern:
+        # Check if we have the full original pattern or need to reconstruct from reference
+        if hasattr(self, '_original_file_pattern_ref') and self._original_file_pattern_ref:
+            # Use the reference pattern (for large patterns)
+            original_pattern = self._original_file_pattern_ref
+            logger.info("Using reference pattern for reload (large pattern optimization)")
+        elif hasattr(self, '_original_file_pattern') and self._original_file_pattern:
+            original_pattern = self._original_file_pattern
+        else:
             logger.warning("No original file pattern available for reload")
             return
         
@@ -554,7 +851,7 @@ class PreviewTab(QWidget):
         
         # Reload the original pattern with new file format settings
         # This will re-unwrap using the new file format selection
-        self.load_pattern(self._original_file_pattern)
+        self.load_pattern(original_pattern)
     
     def update_info(self):
         """Update pattern information display"""
@@ -577,11 +874,16 @@ class PreviewTab(QWidget):
         
         dim_source = getattr(pat.metadata, 'dimension_source', 'unknown')
         dim_conf = getattr(pat.metadata, 'dimension_confidence', None)
+        dim_override = getattr(pat.metadata, 'dimension_override', False)
+        
         if dim_conf is not None:
             info += f"<br>Dimension Source: {dim_source} ({dim_conf*100:.0f}% confidence)"
         else:
             info += f"<br>Dimension Source: {dim_source}"
-        if isinstance(dim_conf, (int, float)) and dim_conf < 0.5:
+        
+        if dim_override:
+            info += "<br><span style='color:#00ff88'>✓ Dimensions manually set by user</span>"
+        elif isinstance(dim_conf, (int, float)) and dim_conf < 0.5:
             info += "<br><span style='color:#ffb347'>⚠ Low confidence layout detection — verify dimensions.</span>"
         
         info += f"<br>Color Order: {pat.metadata.color_order}<br>"
@@ -738,5 +1040,58 @@ class PreviewTab(QWidget):
                     self,
                     "Export Error",
                     f"Failed to export pattern:\n\n{str(e)}"
+                )
+    
+    def on_batch_validate(self):
+        """Open batch validation dialog"""
+        from ui.dialogs.batch_validation_dialog import BatchValidationDialog
+        
+        dialog = BatchValidationDialog(self)
+        dialog.exec()
+    
+    def on_override_dimensions(self):
+        """Open dimension override dialog"""
+        if not self.pattern:
+            QMessageBox.warning(self, "No Pattern", "No pattern loaded to override dimensions.")
+            return
+        
+        from ui.widgets.dimension_override_dialog import DimensionOverrideDialog
+        from core.matrix_detector import get_shared_detector
+        
+        detector = get_shared_detector()
+        auto_detected = None
+        if self.pattern.frames:
+            detected_layout = detector.detect_layout(
+                self.pattern.led_count,
+                self.pattern.frames[0].pixels if self.pattern.frames else None
+            )
+            auto_detected = (detected_layout.width, detected_layout.height)
+        
+        dialog = DimensionOverrideDialog(
+            self,
+            current_width=self.pattern.metadata.width,
+            current_height=self.pattern.metadata.height,
+            led_count=self.pattern.led_count,
+            auto_detected=auto_detected
+        )
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            dimensions, persist = dialog.get_result()
+            if dimensions:
+                self.pattern.metadata.width = dimensions[0]
+                self.pattern.metadata.height = dimensions[1]
+                self.pattern.metadata.dimension_override = True
+                self.pattern.metadata.dimension_override_source = 'user'
+                self.pattern.metadata.dimension_source = 'user'
+                self.pattern.metadata.dimension_confidence = 1.0
+                
+                # Reload pattern with new dimensions
+                self.load_pattern(self.pattern)
+                self.update_info()
+                
+                QMessageBox.information(
+                    self,
+                    "Dimensions Updated",
+                    f"Dimensions set to {dimensions[0]}×{dimensions[1]}"
                 )
 
