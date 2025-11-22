@@ -29,6 +29,10 @@ class AutomationQueueManager(QObject):
         self._actions.append(action)
         self.queue_changed.emit(self.actions())
 
+    def enqueue(self, action: DesignAction) -> None:
+        """Alias for append() to match documented API."""
+        self.append(action)
+
     def remove_at(self, index: int) -> None:
         if 0 <= index < len(self._actions):
             del self._actions[index]
