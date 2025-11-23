@@ -39,16 +39,22 @@ jobs:
       
       - name: Build firmware (Docker)
         run: |
+          mkdir -p build
           docker build -t upload-bridge-${{ matrix.chip }}:latest -f docker/${{ matrix.chip }}/Dockerfile .
-          docker run --rm upload-bridge-${{ matrix.chip }}:latest \
+          # Mount build directory to extract artifacts from container
+          docker run --rm \
+            -v ${{ github.workspace }}/build:/workspace/build \
+            upload-bridge-${{ matrix.chip }}:latest \
             python -m pytest tests/integration/test_${{ matrix.chip }}_build.py -v
       
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: firmware-${{ matrix.chip }}
           path: build/*.bin
           retention-days: 7
+          if-no-files-found: warn
   
   verify-builds:
     name: Verify All Builds

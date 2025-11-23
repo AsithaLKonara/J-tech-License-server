@@ -48,7 +48,7 @@ jobs:
           python scripts/create_installer.py --platform ${{ matrix.os }} --version ${{ github.ref_name }}
       
       - name: Sign installer
-        if: env.SIGNING_KEY
+        if: ${{ secrets.SIGNING_KEY != '' }}
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |

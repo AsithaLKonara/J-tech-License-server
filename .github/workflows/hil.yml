@@ -44,9 +44,15 @@ jobs:
           echo "Installing toolchain for ${{ matrix.chip }}"
       
       - name: Connect hardware
-        uses: actions/checkout@v4
-        # Note: In production, this would connect to actual hardware
-        # For CI, use mock hardware or skip if hardware not available
+        run: |
+          # Check if hardware is available
+          if [ -e /dev/ttyUSB0 ] || [ -e /dev/ttyACM0 ]; then
+            echo "Hardware detected"
+          else
+            echo "No hardware detected - using mock hardware for CI"
+            # In production, this would connect to actual hardware
+            # For CI, we'll skip hardware-dependent steps or use mocks
+          fi
       
       - name: Build firmware
         run: |
