@@ -15,8 +15,8 @@
 ### Support & Help
 - **[Support Guide](SUPPORT.md)** - Troubleshooting and FAQ
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Release Notes](../RELEASE_NOTES.md)** - What's new in this version
-- **[Changelog](../CHANGELOG.md)** - Complete version history
+- **[Release Notes](RELEASE_NOTES.md)** - What's new in this version
+- **[Changelog](CHANGELOG.md)** - Complete version history
 
 ### Testing & Quality
 - **[UAT Plan](UAT_PLAN.md)** - User Acceptance Testing plan

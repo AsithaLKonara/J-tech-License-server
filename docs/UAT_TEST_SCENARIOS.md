@@ -1,438 +1,297 @@
-# UAT Test Scenarios
+# User Acceptance Testing (UAT) Scenarios
 
-**Project**: Upload Bridge  
-**Version**: 1.0  
-**Date**: 2024
+## Overview
+This document outlines test scenarios for User Acceptance Testing (UAT) of the Upload Bridge application. UAT will be conducted with 3-5 internal team members over 3-5 days.
 
----
+## Test Environment
+- **Platform**: Windows 10/11
+- **Python Version**: 3.10, 3.11, or 3.12
+- **Test Duration**: 3-5 days
+- **Participants**: 3-5 internal team members
 
-## Test Scenario Format
+## Critical Workflow Test Scenarios
 
-Each scenario includes:
-- **ID**: Unique identifier
-- **Title**: Scenario name
-- **Priority**: Critical / High / Medium / Low
-- **Prerequisites**: What's needed before starting
-- **Steps**: Detailed test steps
-- **Expected Result**: What should happen
-- **Actual Result**: [To be filled by tester]
-- **Status**: Pass / Fail / Blocked
-- **Notes**: Additional observations
-
----
-
-## Category 1: Basic Functionality
-
-### TS-001: Create New Pattern
-**Priority**: Critical  
-**Prerequisites**: Application installed and launched
+### Scenario 1: Pattern Creation and Editing
+**Objective**: Verify users can create and edit patterns successfully
 
 **Steps**:
-1. Click "New Pattern" or File → New
-2. Set dimensions: 16x16
-3. Click "Create"
-4. Verify canvas appears
-5. Draw a simple shape using brush tool
-6. Click "Save" or File → Save
-7. Enter filename: "test_pattern"
-8. Click "Save"
-9. Close application
-10. Reopen application
-11. File → Open → "test_pattern"
-12. Verify pattern loads correctly
+1. Launch application
+2. Create new pattern (12x6, 24 FPS)
+3. Use pixel brush to draw on frame 1
+4. Add 3 more frames
+5. Draw different content on each frame
+6. Save pattern to file
+7. Close and reopen the saved pattern
 
-**Expected Result**:
-- Pattern creates successfully
-- Canvas displays correctly
-- Drawing works
-- Pattern saves to file
-- Pattern can be reopened
-- All data preserved
+**Expected Results**:
+- ✅ Pattern creates successfully
+- ✅ Drawing works correctly
+- ✅ Frames can be added
+- ✅ Pattern saves and loads correctly
+- ✅ All frames preserved after save/load
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Error messages are clear if save fails
+- ✅ Unsaved changes warning appears when closing with unsaved work
 
 ---
 
-### TS-002: Import Image
-**Priority**: Critical  
-**Prerequisites**: Test image file available (PNG, 16x16 or larger)
+### Scenario 2: File Loading with Error Handling
+**Objective**: Verify error handling for invalid/corrupted files
 
 **Steps**:
-1. Create new pattern (16x16)
-2. Click "Import" → "Import Image"
-3. Select test image file
-4. Choose resize mode: "Fit"
-5. Click "Import"
-6. Verify image appears on canvas
-7. Verify colors match original
+1. Try to open a non-existent file
+2. Try to open a corrupted .dat file
+3. Try to open an empty file
+4. Try to open a valid pattern file
+5. Try to open a file with unsupported format
 
-**Expected Result**:
-- Image imports successfully
-- Image fits canvas correctly
-- Colors preserved accurately
-- No errors or crashes
+**Expected Results**:
+- ✅ Clear error messages for each failure type
+- ✅ User-friendly error dialogs
+- ✅ Application remains stable after errors
+- ✅ Valid files load successfully
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Error messages explain what went wrong
+- ✅ Suggestions provided for fixing issues
 
 ---
 
-### TS-003: Export Pattern
-**Priority**: Critical  
-**Prerequisites**: Pattern created with at least 1 frame
+### Scenario 3: Frame Management
+**Objective**: Verify frame operations work correctly
 
 **Steps**:
-1. Open or create pattern
-2. Click "Export" or File → Export
-3. Select format: "Binary (.bin)"
-4. Choose export location
-5. Click "Export"
-6. Verify file created
-7. Verify file size > 0
+1. Create pattern with 5 frames
+2. Try to delete the last frame (should show error)
+3. Delete frame 3 (should succeed)
+4. Duplicate frame 2
+5. Move frame 1 to position 3
+6. Change frame duration
 
-**Expected Result**:
-- Export dialog appears
-- Export completes successfully
-- File created at specified location
-- File contains valid data
+**Expected Results**:
+- ✅ Cannot delete last frame (error shown)
+- ✅ Frames can be deleted when more than 1 exists
+- ✅ Frames can be duplicated
+- ✅ Frames can be reordered
+- ✅ Frame duration changes apply
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Clear error when trying to delete last frame
+- ✅ Visual feedback for all operations
 
 ---
 
-## Category 2: Animation Features
-
-### TS-004: Create Multi-Frame Animation
-**Priority**: High  
-**Prerequisites**: Pattern created
+### Scenario 4: Brush Broadcast Warning
+**Objective**: Verify broadcast mode warning works
 
 **Steps**:
 1. Create pattern with 3 frames
 2. Draw different content on each frame
-3. Set frame durations: 100ms, 200ms, 300ms
-4. Click "Play" to preview
-5. Verify animation plays
-6. Verify timing is correct
+3. Enable "Apply brush strokes to all frames" checkbox
+4. Observe warning dialog
+5. Click "No" - verify checkbox stays unchecked
+6. Enable again, click "Yes"
+7. Draw on frame 1
+8. Check frames 2 and 3
 
-**Expected Result**:
-- Frames can be added
-- Each frame can be edited independently
-- Preview plays animation smoothly
-- Frame durations apply correctly
+**Expected Results**:
+- ✅ Warning dialog appears on first enable
+- ✅ Dialog has clear warning message
+- ✅ User can cancel enabling broadcast
+- ✅ When enabled, drawing affects all frames
+- ✅ Visual indicator (red border/banner) shows when active
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Warning is clear and prominent
+- ✅ Visual indicators are obvious
 
 ---
 
-### TS-005: Frame Duplication
-**Priority**: Medium  
-**Prerequisites**: Pattern with at least 1 frame
+### Scenario 5: Undo/Redo Operations
+**Objective**: Verify undo/redo works correctly
 
 **Steps**:
-1. Select frame 0
-2. Draw content on frame
-3. Right-click frame → "Duplicate"
-4. Verify new frame created
-5. Verify content copied
-6. Modify duplicated frame
-7. Verify original unchanged
+1. Create pattern and draw on frame 1
+2. Check undo button state (should be enabled)
+3. Press Ctrl+Z to undo
+4. Check redo button state (should be enabled)
+5. Press Ctrl+Y to redo
+6. Make multiple changes
+7. Undo several times
+8. Check tooltips show action count
 
-**Expected Result**:
-- Frame duplicates successfully
-- Content copied correctly
-- Modifications don't affect original
-- Frame count increases
+**Expected Results**:
+- ✅ Undo/redo buttons enable/disable correctly
+- ✅ Tooltips show available actions
+- ✅ Undo/redo works as expected
+- ✅ Buttons disabled when nothing to undo/redo
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Visual indication of undo/redo availability
+- ✅ Tooltips are helpful
 
 ---
 
-## Category 3: Advanced Features
-
-### TS-006: Layer Management
-**Priority**: High  
-**Prerequisites**: Pattern created
+### Scenario 6: Unsaved Changes Warning
+**Objective**: Verify unsaved changes are protected
 
 **Steps**:
-1. Open layer panel
-2. Add new layer
-3. Draw on new layer
-4. Toggle layer visibility
-5. Adjust layer opacity (50%)
-6. Reorder layers
-7. Delete layer (not last one)
+1. Create pattern and make changes
+2. Try to load a new file
+3. Observe unsaved changes dialog
+4. Click "Save and Continue" - verify save dialog appears
+5. Cancel save, try loading again
+6. Click "Discard and Continue" - verify changes lost
+7. Make changes again, try loading
+8. Click "Cancel" - verify nothing happens
 
-**Expected Result**:
-- Layers can be added/removed
-- Visibility toggle works
-- Opacity adjustment works
-- Layer reordering works
-- Last layer cannot be deleted
+**Expected Results**:
+- ✅ Warning appears when loading with unsaved changes
+- ✅ Three options: Save, Discard, Cancel
+- ✅ Save option opens save dialog
+- ✅ Discard option discards changes
+- ✅ Cancel option cancels load operation
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Dialog is clear and easy to understand
+- ✅ Options are well-labeled
 
 ---
 
-### TS-007: Template Library
-**Priority**: Medium  
-**Prerequisites**: None
+### Scenario 7: Image Import
+**Objective**: Verify image import with error handling
 
 **Steps**:
-1. Click "Templates" or Tools → Templates
-2. Browse template library
-3. Select "Scrolling Text" template
-4. Customize parameters:
-   - Text: "TEST"
-   - Speed: 2
-   - Color: Red
-5. Click "Generate"
-6. Verify pattern created
-7. Preview pattern
+1. Create pattern (12x6)
+2. Import a PNG image
+3. Try to import a corrupted image file
+4. Try to import an unsupported format
+5. Try to import a very large image
+6. Import a GIF with multiple frames
 
-**Expected Result**:
-- Template library opens
-- Templates are listed
-- Parameters can be customized
-- Pattern generates correctly
-- Preview shows expected result
+**Expected Results**:
+- ✅ Valid images import successfully
+- ✅ Clear error messages for invalid files
+- ✅ Specific errors for different failure types
+- ✅ GIF imports create multiple frames
+- ✅ Large file warning appears
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Error messages are specific and helpful
+- ✅ User knows what went wrong
 
 ---
 
-### TS-008: Enhanced Text Tool
-**Priority**: Medium  
-**Prerequisites**: Pattern created
+### Scenario 8: Export Functionality
+**Objective**: Verify export works and validates correctly
 
 **Steps**:
-1. Select "Text Tool"
-2. Enter text: "Hello"
-3. Select font: "5x7"
-4. Enable outline
-5. Set outline color: Red
-6. Enable shadow
-7. Set alignment: Center
-8. Click "Generate"
-9. Verify text appears correctly
+1. Try to export with no pattern loaded
+2. Create pattern with empty frames
+3. Try to export (should show validation error)
+4. Add content to frames
+5. Export to .bin format
+6. Export to .dat format
+7. Export frame as image
 
-**Expected Result**:
-- Text tool opens
-- Text can be entered
-- Font selection works
-- Effects (outline, shadow) apply
-- Alignment works
-- Preview updates live
+**Expected Results**:
+- ✅ Export disabled/validated when no pattern
+- ✅ Validation errors are clear
+- ✅ Export works for all formats
+- ✅ Image export works correctly
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Validation prevents invalid exports
+- ✅ Error messages guide user
 
 ---
 
-## Category 4: Firmware Operations
-
-### TS-009: Build Firmware
-**Priority**: Critical  
-**Prerequisites**: Pattern created, chip type selected
+### Scenario 9: LMS Preview and Restore
+**Objective**: Verify LMS preview restore functionality
 
 **Steps**:
-1. Create or open pattern
-2. Go to "Firmware" tab
-3. Select chip: "ESP32"
-4. Configure options:
-   - GPIO pin: 2
-   - Brightness: 100%
-5. Click "Build Firmware"
-6. Wait for build to complete
-7. Verify firmware file created
-8. Verify build log shows success
+1. Create pattern with 5 frames
+2. Build LMS sequence
+3. Preview sequence
+4. Observe preview changes pattern
+5. Click "Restore Original" button
+6. Verify original pattern restored
+7. Preview again
+8. Click "Apply Preview Changes"
+9. Verify changes are permanent
 
-**Expected Result**:
-- Firmware builds successfully
-- No build errors
-- Firmware file created
-- Build log shows success
+**Expected Results**:
+- ✅ Preview shows changes
+- ✅ "Restore Original" button visible
+- ✅ "Apply Changes" button visible
+- ✅ Restore works correctly
+- ✅ Apply makes changes permanent
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Buttons are clearly visible
+- ✅ Workflow is intuitive
 
 ---
 
-### TS-010: Upload Firmware
-**Priority**: Critical  
-**Prerequisites**: Firmware built, device connected
+### Scenario 10: Layer Operations
+**Objective**: Verify layer management works
 
 **Steps**:
-1. Build firmware (from TS-009)
-2. Connect ESP32 device
-3. Select COM port
-4. Click "Upload"
-5. Monitor upload progress
-6. Wait for completion
-7. Verify device displays pattern
+1. Create pattern with multiple layers
+2. Hide layer 2
+3. Paint on hidden layer
+4. Observe warning banner
+5. Show layer 2
+6. Verify painting is visible
+7. Change active layer
+8. Paint on different layers
 
-**Expected Result**:
-- Device detected
-- Upload starts
-- Progress shown
-- Upload completes successfully
-- Device displays pattern correctly
+**Expected Results**:
+- ✅ Layers can be shown/hidden
+- ✅ Warning appears when painting on hidden layer
+- ✅ Warning banner is persistent
+- ✅ Painting on visible layers works normally
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
-
----
-
-## Category 5: Error Handling
-
-### TS-011: Invalid File Import
-**Priority**: High  
-**Prerequisites**: Invalid test file available
-
-**Steps**:
-1. Click "Import" → "Import Image"
-2. Select invalid file (e.g., .txt file renamed to .png)
-3. Click "Import"
-4. Observe error handling
-
-**Expected Result**:
-- Error message appears
-- Message is clear and helpful
-- Application doesn't crash
-- User can recover and try again
-
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+**UX Verification**:
+- ✅ Warning is clear and persistent
+- ✅ User knows they're painting on hidden layer
 
 ---
 
-### TS-012: Device Connection Failure
-**Priority**: High  
-**Prerequisites**: No device connected
+## UAT Feedback Form
 
-**Steps**:
-1. Build firmware
-2. Attempt upload without device connected
-3. Observe error handling
+For each scenario, testers should provide:
+1. **Pass/Fail**: Did the scenario work as expected?
+2. **Issues Found**: Any bugs or problems encountered
+3. **Usability Notes**: Was the workflow intuitive?
+4. **Suggestions**: Any improvements recommended
 
-**Expected Result**:
-- Clear error message
-- Suggests checking connection
-- Application doesn't crash
-- User can retry after connecting
+## UAT Sign-off Criteria
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
+- ✅ All critical scenarios pass
+- ✅ No critical bugs found
+- ✅ Usability feedback is positive
+- ✅ Team members can complete tasks successfully
 
----
+## UAT Schedule
 
-## Category 6: Performance
+**Day 1**: Preparation
+- Distribute test scenarios
+- Set up test environment
+- Brief team on testing process
 
-### TS-013: Large Pattern Handling
-**Priority**: Medium  
-**Prerequisites**: None
+**Day 2-3**: Execution
+- Testers execute scenarios
+- Document findings
+- Collect feedback
 
-**Steps**:
-1. Create pattern: 64x64, 50 frames
-2. Draw content on multiple frames
-3. Measure:
-   - Load time
-   - Frame switching time
-   - Preview playback smoothness
-   - Export time
+**Day 4**: Analysis
+- Compile feedback
+- Prioritize issues
+- Create bug reports
 
-**Expected Result**:
-- Pattern loads in < 5 seconds
-- Frame switching is smooth (< 1s)
-- Preview plays without stuttering
-- Export completes in reasonable time
+**Day 5**: Follow-up (if needed)
+- Retest fixes
+- Final sign-off
 
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
-
----
-
-## Category 7: Usability
-
-### TS-014: Feature Discoverability
-**Priority**: Medium  
-**Prerequisites**: New user (first time using application)
-
-**Steps**:
-1. Launch application (first time)
-2. Without reading documentation, attempt to:
-   - Create a pattern
-   - Add animation
-   - Export pattern
-3. Note: How easy was it to find features?
-4. Note: Were tooltips/help available?
-
-**Expected Result**:
-- Features are discoverable
-- UI is intuitive
-- Help/tooltips available
-- User can complete tasks without documentation
-
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
-
----
-
-### TS-015: Undo/Redo
-**Priority**: Medium  
-**Prerequisites**: Pattern created
-
-**Steps**:
-1. Draw on canvas
-2. Press Ctrl+Z (Undo)
-3. Verify last action undone
-4. Press Ctrl+Y (Redo)
-5. Verify action redone
-6. Test multiple undo/redo operations
-
-**Expected Result**:
-- Undo works correctly
-- Redo works correctly
-- Multiple operations supported
-- Keyboard shortcuts work
-
-**Actual Result**: [To be filled]  
-**Status**: [ ]  
-**Notes**: [To be filled]
-
----
-
-## Test Execution Summary
-
-**Total Scenarios**: 15  
-**Critical**: 4  
-**High**: 5  
-**Medium**: 6  
-**Low**: 0
-
-**Execution Date**: [To be filled]  
-**Tester**: [To be filled]  
-**Environment**: [To be filled]
-
----
-
-**Last Updated**: 2024
