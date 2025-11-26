@@ -26,29 +26,11 @@ def test_alternate_column_down_up_detection():
     pattern = parse_pattern_file(str(pattern_path))
     wiring, corner = detect_file_format(pattern)
     
-    # Detection is heuristic-based and may have false positives/negatives
-    # Accept Column-serpentine or note if detection is uncertain
-    # This is a known limitation of heuristic detection
-    acceptable_wirings = ("Column-serpentine", "Serpentine", "Row-major")
-    if wiring not in acceptable_wirings:
-        pytest.skip(
-            f"Detection uncertain: got {wiring} (expected Column-serpentine). "
-            f"Pattern: {pattern_path.name}, "
-            f"Dimensions: {pattern.metadata.width}×{pattern.metadata.height}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
-    # Prefer Column-serpentine but accept others as detection uncertainty
-    if wiring == "Column-serpentine":
-        assert True  # Perfect detection
-    else:
-        # Detection was uncertain - log but don't fail
-        import warnings
-        warnings.warn(
-            f"Column-serpentine pattern detected as {wiring}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
+    assert wiring == "Column-serpentine", (
+        f"Expected Column-serpentine, got {wiring}. "
+        f"Pattern: {pattern_path.name}, "
+        f"Dimensions: {pattern.metadata.width}×{pattern.metadata.height}"
+    )
     assert corner in ("LT", "LB", "RT", "RB"), f"Invalid corner: {corner}"
 
 
@@ -62,29 +44,11 @@ def test_alternate_column_up_down_detection():
     pattern = parse_pattern_file(str(pattern_path))
     wiring, corner = detect_file_format(pattern)
     
-    # Detection is heuristic-based and may have false positives/negatives
-    # Accept Column-serpentine or note if detection is uncertain
-    # This is a known limitation of heuristic detection
-    acceptable_wirings = ("Column-serpentine", "Serpentine", "Row-major")
-    if wiring not in acceptable_wirings:
-        pytest.skip(
-            f"Detection uncertain: got {wiring} (expected Column-serpentine). "
-            f"Pattern: {pattern_path.name}, "
-            f"Dimensions: {pattern.metadata.width}×{pattern.metadata.height}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
-    # Prefer Column-serpentine but accept others as detection uncertainty
-    if wiring == "Column-serpentine":
-        assert True  # Perfect detection
-    else:
-        # Detection was uncertain - log but don't fail
-        import warnings
-        warnings.warn(
-            f"Column-serpentine pattern detected as {wiring}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
+    assert wiring == "Column-serpentine", (
+        f"Expected Column-serpentine, got {wiring}. "
+        f"Pattern: {pattern_path.name}, "
+        f"Dimensions: {pattern.metadata.width}×{pattern.metadata.height}"
+    )
     assert corner in ("LT", "LB", "RT", "RB"), f"Invalid corner: {corner}"
 
 
@@ -116,28 +80,11 @@ def test_row_serpentine_pattern_detection():
     pattern = parse_pattern_file(str(pattern_path))
     wiring, corner = detect_file_format(pattern)
     
-    # Detection is heuristic-based and may have false positives/negatives
-    # Accept row-based wirings or note if detection is uncertain
-    # This is a known limitation of heuristic detection
-    acceptable_wirings = ("Row-major", "Serpentine", "Column-serpentine", "Column-major")
-    if wiring not in acceptable_wirings:
-        pytest.skip(
-            f"Detection uncertain: got {wiring} (expected row-based). "
-            f"Pattern: {pattern_path.name}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
-    # Prefer row-based but accept others as detection uncertainty
-    if wiring in ("Row-major", "Serpentine"):
-        assert True  # Perfect detection
-    else:
-        # Detection was uncertain - log but don't fail
-        import warnings
-        warnings.warn(
-            f"Row-based pattern detected as {wiring}. "
-            f"This may indicate a detection heuristic limitation."
-        )
-    
+    # Should be row-based serpentine
+    assert wiring in ("Row-major", "Serpentine"), (
+        f"Expected row-based wiring, got {wiring}. "
+        f"Pattern: {pattern_path.name}"
+    )
     assert corner in ("LT", "LB", "RT", "RB"), f"Invalid corner: {corner}"
 
 

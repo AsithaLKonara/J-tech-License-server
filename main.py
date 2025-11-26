@@ -14,41 +14,87 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QCoreApplication, Qt
 
-# Initialize logging early (enable file logging in debug)
+# Initialize enterprise logging and configuration early
 try:
-    from core.logging_config import setup_logging
-    log_to_file = bool(os.environ.get("UPLOADBRIDGE_LOG_FILE"))
-    setup_logging(log_to_file=log_to_file)
+    # Initialize configuration first
+    from core.config import get_config
+    from core.logging import setup_logging, get_logger, LogLevel
+    from pathlib import Path
+    
+    config = get_config()
+    
+    # Setup enterprise logging with configuration
+    log_level_str = config.get('log_level', 'INFO').upper()
     try:
+        log_level = LogLevel[log_level_str]
+    except KeyError:
+        log_level = LogLevel.INFO
+    
+    setup_logging(
+        level=log_level,
+        log_to_file=config.get('log_to_file', True),
+        log_to_console=config.get('log_to_console', True),
+        json_format=config.get('log_json', False),
+        log_dir=Path(config.get('log_dir', 'logs'))
+    )
+    
+    logger = get_logger(__name__)
+    logger.info("Enterprise logging initialized", extra={
+        'log_level': log_level_str,
+        'log_to_file': config.get('log_to_file'),
+        'log_to_console': config.get('log_to_console'),
+        'environment': config.environment.value
+    })
+except Exception as e:
+    # Fallback to basic logging if enterprise logging fails
+    try:
+        from core.logging_config import setup_logging
+        log_to_file = bool(os.environ.get("UPLOADBRIDGE_LOG_FILE"))
+        setup_logging(log_to_file=log_to_file)
         import logging as _logging
-        _logging.getLogger(__name__).info("Logging initialized (log_to_file=%s)", log_to_file)
+        _logging.getLogger(__name__).warning("Enterprise logging failed, using fallback: %s", e)
     except Exception:
         pass
-except Exception:
-    pass
 
 def _startup_health_check() -> None:
-    """Log key environment and resource checks to aid troubleshooting."""
+    """Run comprehensive health check and log results."""
     try:
-        import logging as _logging
-        import traceback as _tb
+        from core.health import get_health_checker
+        from core.logging import get_logger
         import os as _os
         import sys as _sys
         from pathlib import Path as _Path
 
-        log = _logging.getLogger(__name__)
-        log.info("Health check: starting")
-        # Qt plugin environment
-        log.info("QT_PLUGIN_PATH=%s", _os.environ.get("QT_PLUGIN_PATH", ""))
-        log.info("QT_QPA_PLATFORM_PLUGIN_PATH=%s", _os.environ.get("QT_QPA_PLATFORM_PLUGIN_PATH", ""))
+        logger = get_logger(__name__)
+        logger.info("Starting comprehensive health check")
+        
+        # Run enterprise health check
+        try:
+            health_checker = get_health_checker()
+            health_status = health_checker.check_health()
+            logger.info("Health check completed", extra={
+                'overall_status': health_status['status'],
+                'checks': health_status['checks']
+            })
+        except Exception as e:
+            logger.warning("Enterprise health check failed, running basic checks: %s", e)
+        
+        # Basic environment checks
+        logger.info("Environment check", extra={
+            'QT_PLUGIN_PATH': _os.environ.get("QT_PLUGIN_PATH", ""),
+            'QT_QPA_PLATFORM_PLUGIN_PATH': _os.environ.get("QT_QPA_PLATFORM_PLUGIN_PATH", ""),
+            'python_version': _sys.version
+        })
+        
         # Firmware template resolution probe (esp8266 as representative)
         try:
             from firmware.builder import FirmwareBuilder  # type: ignore
             fb = FirmwareBuilder()
             tpl = fb._resolve_template_dir("esp8266")
-            log.info("Firmware template (esp8266) path: %s", tpl)
+            logger.info("Firmware template (esp8266) path: %s", tpl)
         except Exception as e:
-            log.error("Firmware template resolution failed: %s", e)
+            logger.error("Firmware template resolution failed: %s", e, exc_info=True)
+        
         # Write access probe
         try:
             appdata = _Path(_os.environ.get("APPDATA", str(_Path.home())))/"UploadBridge"
@@ -56,9 +102,9 @@ def _startup_health_check() -> None:
             probe = appdata/"write_test.tmp"
             probe.write_text("ok", encoding="utf-8")
             probe.unlink(missing_ok=True)
-            log.info("Write-access OK: %s", appdata)
+            logger.info("Write-access OK: %s", appdata)
         except Exception as e:
-            log.error("Write-access check failed: %s", e)
+            logger.error("Write-access check failed: %s", e, exc_info=True)
     except Exception:
         # Do not raise; this is diagnostic-only
         pass
@@ -131,13 +177,33 @@ except Exception as e:
 
 def main():
     """Main application entry point"""
+    # Get logger for main function
+    try:
+        from core.logging import get_logger
+        logger = get_logger(__name__)
+    except Exception:
+        import logging
+        logger = logging.getLogger(__name__)
+    
+    # Log application startup
+    try:
+        from core.config import get_config
+        config = get_config()
+        logger.info("Application starting", extra={
+            'app_name': config.get('app_name'),
+            'app_version': config.get('app_version'),
+            'environment': config.environment.value,
+            'debug': config.get('debug', False)
+        })
+    except Exception:
+        logger.info("Application starting")
+    
     # Crash handler to surface errors in GUI
     def _excepthook(exc_type, exc, tb):
         import traceback
         tb_text = "".join(traceback.format_exception(exc_type, exc, tb))
         try:
-            import logging as _logging
-            _logging.getLogger(__name__).error("Unhandled exception:\n%s", tb_text)
+            logger.error("Unhandled exception", exc_info=(exc_type, exc, tb))
         except Exception:
             pass
         try:
@@ -188,23 +254,50 @@ def main():
         pass
 
     # Create and show main window
-    window = UploadBridgeMainWindow()
     try:
-        if 'icon_path' in locals() and icon_path:
-            window.setWindowIcon(QIcon(icon_path))
-    except Exception:
-        pass
-    # Open file passed via file association (if any)
-    try:
-        file_to_open = sys.argv[1] if len(sys.argv) > 1 else None
-        if file_to_open and hasattr(window, 'load_file'):
-            window.load_file(file_to_open)
-    except Exception:
-        pass
-    window.show()
+        logger.info("Creating main window")
+        window = UploadBridgeMainWindow()
+        try:
+            if 'icon_path' in locals() and icon_path:
+                window.setWindowIcon(QIcon(icon_path))
+        except Exception:
+            pass
+        
+        # Log audit event for application start
+        try:
+            from core.logging import EnterpriseLogger
+            enterprise_logger = EnterpriseLogger.instance()
+            enterprise_logger.log_audit("application_started", details={
+                'version': config.get('app_version') if 'config' in locals() else 'unknown'
+            })
+        except Exception:
+            pass
+        
+        # Open file passed via file association (if any)
+        try:
+            file_to_open = sys.argv[1] if len(sys.argv) > 1 else None
+            if file_to_open and hasattr(window, 'load_file'):
+                logger.info("Opening file from command line", extra={'file': file_to_open})
+                window.load_file(file_to_open)
+        except Exception as e:
+            logger.error("Failed to open file from command line: %s", e, exc_info=True)
+        
+        window.show()
+        logger.info("Main window shown, entering event loop")
+    except Exception as e:
+        logger.critical("Failed to create main window: %s", e, exc_info=True)
+        QMessageBox.critical(None, "Upload Bridge - Fatal Error", 
+                           f"Failed to start application:\n{str(e)}")
+        sys.exit(1)
     
     # Run application
-    sys.exit(app.exec())
+    try:
+        exit_code = app.exec()
+        logger.info("Application exiting", extra={'exit_code': exit_code})
+        sys.exit(exit_code)
+    except Exception as e:
+        logger.critical("Fatal error during application execution: %s", e, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

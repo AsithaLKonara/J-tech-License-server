@@ -7,151 +7,198 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2024-11-XX
+## [1.0.0] - 2024
 
 ### Added
 
 #### Core Features
-- **Design Tools**: Professional LED pattern editor with 8 drawing tools (Pixel, Line, Rectangle, Circle, Fill, Eraser, Text, Gradient)
-- **Media Upload**: Convert images, GIFs, and videos to LED patterns
-  - Supported formats: PNG, JPG, JPEG, BMP, GIF (animated), MP4, AVI, MOV, MKV, WebM
-  - Automatic dimension detection
-  - Brightness and color adjustment
-  - Frame extraction from videos/GIFs
-- **Multi-Layer System**: Create complex patterns with multiple layers
-  - Layer blend modes (Normal, Add, Multiply, Screen, Overlay, etc.)
-  - Layer opacity control
-  - Layer visibility toggle
-  - Layer reordering
-- **Timeline Editor**: Visual timeline with frame management
-  - Multi-select support
-  - Drag & drop reordering
-  - Frame duplication
-  - Frame deletion
-  - Frame presets (save/load individual frames)
-- **Automation Actions**: Parametric actions for pattern generation
-  - Scroll (horizontal/vertical)
-  - Rotate (90/180/270 degrees)
-  - Mirror (horizontal/vertical)
-  - Invert (colors)
-  - Wipe (directional)
-  - Reveal (directional)
-  - Bounce (horizontal/vertical)
-- **Effects Engine**: Procedural visual effects library
-  - Fire effect
-  - Rain effect
-  - Sparkle effect
-  - Wave effect
-  - Plasma effect
-- **Project Files**: Save/load projects with `.ledproj` format
-  - Pattern data
-  - Metadata (dimensions, frame count, etc.)
-  - Frame presets
-  - Layer information
+- **Pattern Creation and Editing**
+  - Create patterns with customizable dimensions (1x1 to 256x256)
+  - Multi-frame animation support
+  - Frame-by-frame editing
+  - Frame duplication and management
+  - Undo/Redo system with unlimited history
 
-#### Hardware Support
-- **9 Chip Uploaders**: Complete firmware generation and flashing
-  - ESP32 (4 variants: ESP32, ESP32-S, ESP32-C3, ESP32-S3)
-  - ATmega2560
-  - ATtiny85
-  - STM32F407
-  - PIC18F4550
-  - Nuvoton M051
-- **Device Profiles**: JSON-based configuration for each chip type
-- **Firmware Verification**: Hash-based verification system
-- **Auto-Detection**: Automatic pattern information detection from various file formats
+- **Drawing Tools**
+  - Brush tool with adjustable size
+  - Pencil tool for pixel-perfect editing
+  - Fill tool (bucket)
+  - Line tool
+  - Rectangle tool
+  - Circle tool
+  - Color picker (eyedropper)
+  - Eraser tool
+
+- **Layer System**
+  - Multi-layer support per frame
+  - Layer visibility toggle
+  - Layer opacity control (0-100%)
+  - Layer reordering (drag and drop)
+  - Layer groups
+  - Per-pixel layer masks
+  - Blend modes (normal, add, multiply, screen)
+
+- **Animation Features**
+  - Frame timeline with visual editor
+  - Frame duration control (1ms to 65535ms)
+  - Animation preview with play/pause/stop
+  - Frame insertion and deletion
+  - Frame copying and pasting
+  - Animation effects (fade, scroll, bounce, reveal)
+
+- **Text Tool**
+  - Enhanced text rendering with live preview
+  - Multiple bitmap fonts (5x7, 8x8, custom)
+  - Text effects:
+    - Outline with customizable color and thickness
+    - Shadow with offset and color
+    - Gradient fills (vertical/horizontal)
+  - Character spacing control
+  - Line spacing control
+  - Text alignment (left, center, right)
+  - Multi-line text support
+  - Typing animation
+  - Scrolling text animation (all directions)
+
+- **Template Library**
+  - 15+ built-in pattern templates
+  - Template categories:
+    - Animation (Bouncing Ball, Wave, Spiral)
+    - Effects (Fire, Rain, Matrix Rain, Color Cycle, Pulse, Fade, Random Pixels)
+    - Text (Scrolling Text, Clock, Weather Display)
+  - Customizable template parameters
+  - Template preview
+
+- **Import/Export**
+  - **Import Formats**:
+    - PNG, BMP, JPEG images
+    - Animated GIFs
+    - SVG vector graphics
+    - PDF documents (single page or all pages)
+  - **Export Formats**:
+    - Binary (.bin)
+    - Intel HEX (.hex)
+    - DAT format (.dat)
+    - LEDS format (.leds)
+    - JSON (.json)
+    - CSV (.csv)
+    - Text (.txt)
+    - C Header (.h)
+    - Project file (.ledproj)
+    - Video (MP4, AVI, MOV)
+  - **Advanced Export Options**:
+    - MSB/LSB bit ordering
+    - Bit position (Top/Bottom)
+    - Row/Column scanning direction
+    - Scan order (LeftToRight, RightToLeft, TopToBottom, BottomToTop, Alternate)
+    - Serpentine wiring support
+    - RGB color ordering (RGB, BGR, GRB, BRG, RBG, GBR)
+    - Color space (RGB888, RGB565)
+    - Bit depth per channel
+    - Bytes per line grouping
+    - Number format (Hex, Decimal, Binary)
+
+- **Firmware Support**
+  - **Supported Chips**:
+    - ESP8266 (NodeMCU, ESP-01)
+    - ESP32
+    - ESP32-S2
+    - ESP32-C3
+    - STM32F103C8
+    - STM32F030F4P6
+    - ATmega328P (Arduino)
+    - PIC16F877A
+    - NuMicro M031
+  - Firmware templates with customizable options
+  - GPIO pin configuration
+  - Brightness control
+  - Build manifest generation
+  - Batch flashing support
+
+- **Device Upload**
+  - Serial port detection
+  - Automatic device detection
+  - Upload progress tracking
+  - Upload verification
+  - Error handling and recovery
+  - OTA update support (WiFi-enabled devices)
+
+- **Keyframe Animation System**
+  - Keyframe-based animation
+  - Multiple keyframe types (position, color, scale, rotation, opacity)
+  - Animation curves (linear, ease-in, ease-out, bounce, elastic, etc.)
+  - Tweening and interpolation
+  - Motion paths
+  - Keyframe editor UI
+
+- **Pattern Templates**
+  - Pre-built pattern generators
+  - Parameter customization
+  - Template preview
+  - Template library browser
+
+#### User Interface
+- Modern, intuitive Qt-based interface
+- Tabbed interface (Design Tools, Firmware, Batch Flash, Settings)
+- Canvas with zoom and pan
+- Timeline editor
+- Layer panel with drag-and-drop
+- Color picker with palette
+- Tool palette
+- Status bar with pattern information
+- Context menus
+- Keyboard shortcuts
+- Tooltips and help text
 
 #### Advanced Features
-- **Advanced Brightness Control**:
-  - Gamma correction
-  - Per-channel RGB control
-  - Hardware-specific brightness mapping
-  - Brightness curves (Linear, Gamma, Logarithmic, Exponential, S-Curve)
-- **Pattern Speed Control**:
-  - Variable speed with keyframes
-  - Easing functions
-  - Frame interpolation
-  - Speed multiplier (0.1x - 10x)
-- **Real-time Preview**: Live pattern visualization
-  - 60 FPS rendering
-  - Brightness adjustment
-  - Playback controls
-  - Frame-by-frame navigation
-- **Export Pipeline**: Export to 7+ formats
-  - BIN (binary)
-  - HEX (Intel HEX)
-  - DAT (raw data)
-  - LEDS (LED Matrix Studio format)
-  - JSON (structured data)
-  - CSV (comma-separated values)
-  - TXT (text format)
+- Pattern validation
+- Export preview
+- Hardware preview simulation
+- Frame caching for performance
+- Background processing
+- Configuration management
+- Plugin system architecture
+- Scripting API foundation
 
-#### UI/UX
-- **Professional Interface**: Modern, responsive design
-- **Accessibility**: Keyboard shortcuts, screen reader support
-- **Internationalization**: i18n support infrastructure
-- **Dark Theme**: Modern dark theme with customizable colors
-- **Tooltips**: Comprehensive help tooltips
-- **Status Bar**: Real-time status and progress information
+### Changed
+- Improved pattern loading performance
+- Enhanced error messages
+- Better file format detection
+- Improved UI responsiveness
 
-#### Documentation
-- **User Manual**: Comprehensive 50+ page guide
-- **Quick Start Guide**: 10-20 page getting started guide
-- **Installation Guide**: Platform-specific installation instructions
-- **API Documentation**: Code documentation
-- **UAT Planning**: User Acceptance Testing documents
-
-#### Testing
-- **Unit Tests**: Comprehensive unit test coverage
-- **Integration Tests**: End-to-end workflow tests
-- **Performance Tests**: Large pattern and long session tests
-- **GUI Tests**: UI component tests
-- **Test Coverage**: 80%+ code coverage
-
-#### Build & Distribution
-- **Windows Installer**: MSI installer build script
-- **macOS Installer**: PKG installer build script
-- **Linux Installers**: DEB and RPM package build scripts
-- **Cross-Platform**: Windows, macOS, Linux support
+### Fixed
+- Fixed frame synchronization issues
+- Fixed layer compositing bugs
+- Fixed export format issues
+- Fixed memory leaks in pattern handling
+- Fixed undo/redo edge cases
 
 ### Security
-- **Dependency Scanning**: Security audit tools integrated
-- **Input Validation**: File input validation
-- **Project File Security**: Project file encryption/signing support
-
-### Performance
-- **Optimized Rendering**: Efficient canvas rendering
-- **Memory Management**: Optimized memory usage
-- **Large Pattern Support**: Handles patterns up to 128x128
-- **Long Session Stability**: Memory leak detection and prevention
+- Input validation for all file operations
+- Safe file path handling
+- Secure firmware building process
 
 ---
 
 ## [Unreleased]
 
 ### Planned
-- WiFi OTA updates
-- Batch flashing UI
-- Pattern library system
-- Audio-reactive effects
-- Remote brightness control
-- Pattern scheduling
-- Multi-device synchronization
+- Real-time collaboration
+- Cloud pattern storage
+- Advanced AI pattern generation
+- 3D preview mode
+- VR preview mode
+- Enhanced plugin system
+- Full scripting API
 
 ---
 
-## Version History
+**For detailed information about specific features, see the [User Manual](docs/USER_MANUAL.md).**
 
-- **1.0.0** (2024-11-XX): Initial release
-  - Complete feature set
-  - All 9 chip uploaders
-  - Comprehensive documentation
-  - Full test coverage
+**For installation instructions, see the [Installation Guide](docs/INSTALLATION.md).**
+
+**For support, see [SUPPORT.md](docs/SUPPORT.md).**
 
 ---
 
-**Note**: This changelog follows [Semantic Versioning](https://semver.org/). Version numbers are in the format `MAJOR.MINOR.PATCH`.
-
----
-
-**Last Updated**: 2024-11-XX
+**Last Updated**: 2024

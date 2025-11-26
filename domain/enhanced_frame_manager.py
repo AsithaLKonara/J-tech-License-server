@@ -4,10 +4,11 @@ Enhanced Frame Manager - Multi-select, bulk operations, frame presets
 Extends FrameManager with advanced frame management features.
 """
 
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict, Any
 from PySide6.QtCore import QObject, Signal
 
 from core.pattern import Frame, Pattern
+from core.schemas.pattern_converter import PatternConverter
 from domain.pattern_state import PatternState
 from domain.frames import FrameManager
 
@@ -24,6 +25,7 @@ class EnhancedFrameManager(FrameManager):
         super().__init__(state)
         self._selected_indices: Set[int] = set()
         self._frame_presets: List[Frame] = []
+        self._preset_names: List[str] = []  # Store preset names separately
     
     def select_multiple(self, indices: List[int]) -> None:
         """
@@ -205,8 +207,8 @@ class EnhancedFrameManager(FrameManager):
     def save_preset(self, name: str, frame: Frame) -> None:
         """Save frame as preset"""
         preset = frame.copy()
-        preset.name = name  # Store name in frame if supported
         self._frame_presets.append(preset)
+        self._preset_names.append(name)
     
     def load_preset(self, preset_index: int, insert_at: Optional[int] = None) -> None:
         """Load frame preset"""
@@ -216,5 +218,48 @@ class EnhancedFrameManager(FrameManager):
     
     def get_presets(self) -> List[str]:
         """Get list of preset names"""
+        if len(self._preset_names) == len(self._frame_presets):
+            return self._preset_names.copy()
+        # Fallback if names don't match
         return [f"Preset {i+1}" for i in range(len(self._frame_presets))]
+    
+    def get_preset(self, index: int) -> Optional[Frame]:
+        """Get preset frame by index"""
+        if 0 <= index < len(self._frame_presets):
+            return self._frame_presets[index].copy()
+        return None
+    
+    def delete_preset(self, index: int) -> None:
+        """Delete preset by index"""
+        if 0 <= index < len(self._frame_presets):
+            del self._frame_presets[index]
+            if index < len(self._preset_names):
+                del self._preset_names[index]
+    
+    def to_presets_dict(self) -> List[Dict[str, Any]]:
+        """Convert presets to dictionary for saving"""
+        presets = []
+        for i, (preset, name) in enumerate(zip(self._frame_presets, self._preset_names)):
+            presets.append({
+                "name": name,
+                "frame": PatternConverter.frame_to_json(preset),
+                "index": i
+            })
+        return presets
+    
+    def load_presets_from_dict(self, presets_data: List[Dict[str, Any]]) -> None:
+        """Load presets from dictionary"""
+        self._frame_presets.clear()
+        self._preset_names.clear()
+        
+        for preset_data in presets_data:
+            name = preset_data.get("name", f"Preset {len(self._frame_presets) + 1}")
+            frame_data = preset_data.get("frame", {})
+            try:
+                frame = PatternConverter.frame_from_json(frame_data)
+                self._frame_presets.append(frame)
+                self._preset_names.append(name)
+            except Exception:
+                # Skip invalid presets
+                continue
 

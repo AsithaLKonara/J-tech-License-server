@@ -28,7 +28,7 @@ class ExportOptions:
     serpentine: bool = False
     
     # RGB color ordering
-    rgb_order: str = "RGB"  # "RGB", "BGR", "GRB"
+    rgb_order: str = "RGB"  # "RGB", "BGR", "GRB", "BRG", "RBG", "GBR"
     
     # Color space
     color_space: str = "RGB888"  # "RGB888" or "RGB565"
@@ -132,11 +132,19 @@ class ExportOptions:
         """
         r, g, b = pixel
         
-        if self.rgb_order == "BGR":
+        if self.rgb_order == "RGB":
+            return (r, g, b)
+        elif self.rgb_order == "BGR":
             return (b, g, r)
         elif self.rgb_order == "GRB":
             return (g, r, b)
-        else:  # RGB
+        elif self.rgb_order == "BRG":
+            return (b, r, g)
+        elif self.rgb_order == "RBG":
+            return (r, b, g)
+        elif self.rgb_order == "GBR":
+            return (g, b, r)
+        else:  # Default to RGB
             return (r, g, b)
 
     def trim_to_bit_depth(self, pixel: RGB) -> RGB:

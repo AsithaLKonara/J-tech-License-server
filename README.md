@@ -4,13 +4,28 @@ Universal firmware uploader for LED patterns across multiple microcontroller pla
 
 ## Features
 
+### Core Features
+- **🎨 Design Tools**: Professional LED pattern editor with 8 drawing tools
 - **🎬 Media Upload**: Convert images, GIFs, and videos to LED patterns (PNG, JPG, BMP, GIF, MP4, AVI, MOV, MKV, WebM)
-- **Multi-Platform Support**: ESP8266, ESP32, AVR (ATmega/ATtiny), STM32, PIC, Nuvoton
+- **📐 Multi-Layer System**: Create complex patterns with multiple layers and blend modes
+- **⏱️ Timeline Editor**: Visual timeline with multi-select, drag & drop, and frame management
+- **🤖 Automation**: Parametric actions (scroll, rotate, mirror, invert, wipe, reveal, bounce)
+- **✨ Effects Engine**: Procedural visual effects library
+- **💾 Project Files**: Save/load projects with `.ledproj` format
+
+### Hardware Support
+- **Multi-Platform Support**: ESP32 (4 variants), ATmega2560, ATtiny85, STM32F407, PIC18F4550, Nuvoton M051
+- **9 Chip Uploaders**: Complete firmware generation and flashing for all supported chips
+- **Device Profiles**: JSON-based configuration for each chip type
+- **Firmware Verification**: Hash-based verification system
+
+### Advanced Features
 - **Advanced Brightness Control**: Gamma correction, per-channel control, hardware-specific mapping
 - **Pattern Speed Control**: Variable speed with keyframes, easing functions, frame interpolation
 - **Real-time Preview**: Live pattern visualization with brightness adjustment
 - **Auto-Detection**: Automatic pattern information detection from various file formats
-- **Professional UI**: Modern, responsive interface with scrollable areas
+- **Export Pipeline**: Export to 7+ formats (BIN, HEX, DAT, LEDS, JSON, CSV, TXT)
+- **Professional UI**: Modern, responsive interface with accessibility and i18n support
 
 ## Media Upload Feature
 
@@ -43,22 +58,46 @@ Upload Bridge now supports converting images, GIFs, and videos directly into LED
 
 ## Quick Start
 
-### Windows
-1. Run `install_requirements.bat` to install Python dependencies
-2. Install additional tools as prompted
-3. Run `python main.py` to start the application
+**New to Upload Bridge?** Start here:
+- 📖 **[Quick Start Guide](docs/QUICKSTART.md)** - Get started in 5 minutes
+- 📘 **[Installation Guide](docs/INSTALLATION.md)** - Complete installation instructions
+- 📚 **[User Manual](docs/USER_MANUAL.md)** - Comprehensive documentation
 
-### Linux/macOS
-1. Run `chmod +x install_requirements.sh && ./install_requirements.sh`
-2. Install additional tools as prompted
-3. Run `python3 main.py` to start the application
+### Quick Installation
 
-## Installation
+**Windows:**
+1. Download installer: `upload_bridge_3.0.0.msi`
+2. Run installer and follow wizard
+3. Launch from Start Menu
 
-### Python Dependencies
+**macOS:**
+1. Download installer: `upload_bridge_3.0.0.pkg`
+2. Run installer and follow wizard
+3. Launch from Applications
+
+**Linux:**
 ```bash
-pip install -r requirements.txt
+# DEB (Ubuntu/Debian)
+sudo dpkg -i upload-bridge_3.0.0_amd64.deb
+
+# RPM (Fedora/RHEL)
+sudo rpm -ivh upload-bridge-3.0.0-1.x86_64.rpm
 ```
+
+**Manual Installation:**
+```bash
+# Clone repository
+git clone https://github.com/your-repo/upload_bridge.git
+cd upload_bridge
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run application
+python main.py
+```
+
+For detailed installation instructions, see [Installation Guide](docs/INSTALLATION.md).
 
 ### Additional Tools Required
 
@@ -99,11 +138,20 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. **Load Pattern**: Click "Open" to load a pattern file
-2. **Select Chip**: Choose your microcontroller from the dropdown
-3. **Configure Settings**: Set GPIO pin, brightness, speed, etc.
-4. **Preview**: Use the preview tab to see your pattern
-5. **Upload**: Click "Flash" to build and upload firmware
+### Basic Workflow
+
+1. **Create Pattern**: Use Design Tools tab to draw your pattern
+2. **Add Frames**: Create multiple frames for animation
+3. **Preview**: Use preview to see your animation
+4. **Export**: Export pattern to desired format
+5. **Flash**: Select chip, configure settings, and flash to device
+
+### Detailed Guides
+
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Create your first pattern in 10 steps
+- **[User Manual](docs/USER_MANUAL.md)** - Complete feature documentation
+- **[Installation Guide](docs/INSTALLATION.md)** - Platform-specific installation
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## Brightness Control
 
@@ -176,13 +224,43 @@ flake8 .
 
 MIT License - see LICENSE file for details
 
+## Documentation
+
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get started in minutes
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete installation instructions
+- **[User Manual](docs/USER_MANUAL.md)** - Comprehensive feature documentation
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[API Reference](docs/enterprise/API_REFERENCE.md)** - Developer documentation
+- **[Chip Integration Guide](docs/enterprise/CHIP_INTEGRATION_GUIDE.md)** - Adding new chips
+
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/AsithaLKonara/Microcontroller-Uploader/issues)
-- **Documentation**: [README](https://github.com/AsithaLKonara/Microcontroller-Uploader#readme)
+- **Documentation**: See [Documentation](#documentation) section above
 - **Discussions**: [GitHub Discussions](https://github.com/AsithaLKonara/Microcontroller-Uploader/discussions)
 
+## Troubleshooting
+
+Common issues and quick fixes:
+
+- **Application won't start**: Check Python version (needs 3.10+), reinstall dependencies
+- **Can't connect to device**: Check USB cable, verify COM port, install drivers
+- **Pattern doesn't display**: Check LED wiring, verify color order, check dimensions
+
+For detailed troubleshooting, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
+
 ## Changelog
+
+### v3.0.0 (Enterprise Edition)
+- ✅ Complete Design Tools implementation (8 drawing tools, layers, timeline)
+- ✅ 9 chip uploaders with firmware templates
+- ✅ Export pipeline (7+ formats)
+- ✅ Automation and effects engine
+- ✅ Project file format (.ledproj) with versioning
+- ✅ Comprehensive test suite (300+ tests)
+- ✅ CI/CD workflows and Docker images
+- ✅ Cross-platform installers (Windows, macOS, Linux)
+- ✅ Complete documentation (User Manual, Quick Start, Installation Guide)
 
 ### v1.0.0
 - Initial release

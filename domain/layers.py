@@ -24,13 +24,17 @@ class Layer:
         pixels: Optional[List[Color]] = None,
         visible: bool = True,
         opacity: float = 1.0,
-        blend_mode: str = "normal"
+        blend_mode: str = "normal",
+        group_id: Optional[str] = None,
+        mask: Optional[List[float]] = None  # Mask values 0.0-1.0 per pixel
     ):
         self.name = name
         self.pixels = pixels or []
         self.visible = visible
         self.opacity = max(0.0, min(1.0, opacity))  # Clamp 0-1
         self.blend_mode = blend_mode  # "normal", "add", "multiply", "screen"
+        self.group_id = group_id  # ID of layer group this layer belongs to
+        self.mask = mask  # Per-pixel mask (0.0 = transparent, 1.0 = opaque)
     
     def copy(self) -> Layer:
         """Create a deep copy of this layer."""
@@ -38,8 +42,45 @@ class Layer:
             name=self.name,
             pixels=deepcopy(self.pixels),
             visible=self.visible,
-            opacity=self.opacity
+            opacity=self.opacity,
+            blend_mode=self.blend_mode,
+            group_id=self.group_id,
+            mask=deepcopy(self.mask) if self.mask else None
         )
+    
+    def apply_mask(self, width: int, height: int) -> List[Color]:
+        """Apply mask to layer pixels."""
+        if not self.mask:
+            return self.pixels
+        
+        expected = width * height
+        masked_pixels = []
+        mask_values = self.mask[:expected]
+        if len(mask_values) < expected:
+            mask_values += [1.0] * (expected - len(mask_values))
+        
+        pixels = self.pixels[:expected]
+        if len(pixels) < expected:
+            pixels += [(0, 0, 0)] * (expected - len(pixels))
+        
+        for i, (pixel, mask_value) in enumerate(zip(pixels, mask_values)):
+            r, g, b = pixel
+            masked_r = int(r * mask_value)
+            masked_g = int(g * mask_value)
+            masked_b = int(b * mask_value)
+            masked_pixels.append((masked_r, masked_g, masked_b))
+        
+        return masked_pixels
+
+
+class LayerGroup:
+    """Represents a group of layers."""
+    
+    def __init__(self, group_id: str, name: str = "Group", visible: bool = True, opacity: float = 1.0):
+        self.group_id = group_id
+        self.name = name
+        self.visible = visible
+        self.opacity = max(0.0, min(1.0, opacity))  # Clamp 0-1
 
 
 class LayerManager(QObject):
@@ -51,6 +92,8 @@ class LayerManager(QObject):
     - Adjusted for opacity
     - Reordered
     - Composed together for display
+    - Grouped together
+    - Masked with per-pixel masks
     """
 
     pixel_changed = Signal(int, int, int, tuple)  # frame_index, x, y, colour
@@ -59,23 +102,28 @@ class LayerManager(QObject):
     layer_added = Signal(int, int)  # frame_index, layer_index
     layer_removed = Signal(int, int)  # frame_index, layer_index
     layer_moved = Signal(int, int, int)  # frame_index, from_index, to_index
+    group_changed = Signal(int)  # frame_index
 
     def __init__(self, state: PatternState):
         super().__init__()
         self._state = state
         # Store layers per frame: {frame_index: [Layer, ...]}
         self._layers: Dict[int, List[Layer]] = {}
+        # Store layer groups per frame: {frame_index: {group_id: LayerGroup}}
+        self._groups: Dict[int, Dict[str, LayerGroup]] = {}
 
     def set_pattern(self, pattern: Pattern) -> None:
         """Initialize layers for all frames."""
         self._state.set_pattern(pattern)
         self._layers = {}
+        self._groups = {}
         
         # Create default layer for each frame
         if pattern and pattern.frames:
             for idx, frame in enumerate(pattern.frames):
                 layer = Layer(name="Layer 1", pixels=list(frame.pixels))
                 self._layers[idx] = [layer]
+                self._groups[idx] = {}
 
     def get_layers(self, frame_index: int) -> List[Layer]:
         """Get all layers for a frame."""
@@ -156,7 +204,7 @@ class LayerManager(QObject):
             self.layers_changed.emit(frame_index)
 
     def get_composite_pixels(self, frame_index: int) -> List[Color]:
-        """Get composite pixels from all visible layers using blend modes."""
+        """Get composite pixels from all visible layers using blend modes, groups, and masks."""
         try:
             from domain.layer_blending.blending import BlendMode, blend_pixels
         except ImportError:
@@ -167,18 +215,35 @@ class LayerManager(QObject):
         width = self._state.width()
         height = self._state.height()
         expected = width * height
+        groups = self._groups.get(frame_index, {})
         
         # Start with black background
         composite = [(0, 0, 0)] * expected
         
         # Blend visible layers from bottom to top
         for layer in layers:
+            # Check layer visibility
             if not layer.visible:
                 continue
+            
+            # Check group visibility
+            if layer.group_id and layer.group_id in groups:
+                group = groups[layer.group_id]
+                if not group.visible:
+                    continue
             
             layer_pixels = layer.pixels[:expected]
             if len(layer_pixels) < expected:
                 layer_pixels += [(0, 0, 0)] * (expected - len(layer_pixels))
+            
+            # Apply mask if present
+            if layer.mask:
+                layer_pixels = layer.apply_mask(width, height)
+            
+            # Apply group opacity
+            effective_opacity = layer.opacity
+            if layer.group_id and layer.group_id in groups:
+                effective_opacity *= groups[layer.group_id].opacity
             
             # Convert blend_mode string to enum
             blend_mode_map = {
@@ -194,7 +259,7 @@ class LayerManager(QObject):
                 composite[i] = blend_pixels(
                     bottom=composite[i],
                     top=layer_pixels[i],
-                    opacity=layer.opacity,
+                    opacity=effective_opacity,
                     blend_mode=blend_mode
                 )
         
@@ -282,3 +347,94 @@ class LayerManager(QObject):
         
         for idx in range(len(self._state.pattern().frames)):
             self.sync_frame_from_layers(idx)
+    
+    # Layer Group Methods
+    def create_group(self, frame_index: int, name: str = "Group") -> str:
+        """Create a new layer group."""
+        import uuid
+        group_id = str(uuid.uuid4())
+        if frame_index not in self._groups:
+            self._groups[frame_index] = {}
+        self._groups[frame_index][group_id] = LayerGroup(group_id, name)
+        self.group_changed.emit(frame_index)
+        return group_id
+    
+    def remove_group(self, frame_index: int, group_id: str) -> bool:
+        """Remove a layer group and ungroup its layers."""
+        if frame_index in self._groups and group_id in self._groups[frame_index]:
+            # Ungroup all layers in this group
+            layers = self.get_layers(frame_index)
+            for layer in layers:
+                if layer.group_id == group_id:
+                    layer.group_id = None
+            del self._groups[frame_index][group_id]
+            self.group_changed.emit(frame_index)
+            self.layers_changed.emit(frame_index)
+            return True
+        return False
+    
+    def add_layer_to_group(self, frame_index: int, layer_index: int, group_id: str) -> bool:
+        """Add a layer to a group."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers) and frame_index in self._groups and group_id in self._groups[frame_index]:
+            layers[layer_index].group_id = group_id
+            self.group_changed.emit(frame_index)
+            self.layers_changed.emit(frame_index)
+            return True
+        return False
+    
+    def remove_layer_from_group(self, frame_index: int, layer_index: int) -> bool:
+        """Remove a layer from its group."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            layers[layer_index].group_id = None
+            self.group_changed.emit(frame_index)
+            self.layers_changed.emit(frame_index)
+            return True
+        return False
+    
+    def set_group_visible(self, frame_index: int, group_id: str, visible: bool) -> None:
+        """Set group visibility."""
+        if frame_index in self._groups and group_id in self._groups[frame_index]:
+            self._groups[frame_index][group_id].visible = visible
+            self.group_changed.emit(frame_index)
+            self.layers_changed.emit(frame_index)
+    
+    def set_group_opacity(self, frame_index: int, group_id: str, opacity: float) -> None:
+        """Set group opacity."""
+        if frame_index in self._groups and group_id in self._groups[frame_index]:
+            self._groups[frame_index][group_id].opacity = max(0.0, min(1.0, opacity))
+            self.group_changed.emit(frame_index)
+            self.layers_changed.emit(frame_index)
+    
+    def get_groups(self, frame_index: int) -> Dict[str, LayerGroup]:
+        """Get all groups for a frame."""
+        return self._groups.get(frame_index, {}).copy()
+    
+    # Layer Mask Methods
+    def set_layer_mask(self, frame_index: int, layer_index: int, mask: List[float]) -> bool:
+        """Set mask for a layer."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            # Clamp mask values to 0.0-1.0
+            clamped_mask = [max(0.0, min(1.0, v)) for v in mask]
+            layers[layer_index].mask = clamped_mask
+            self.layers_changed.emit(frame_index)
+            return True
+        return False
+    
+    def clear_layer_mask(self, frame_index: int, layer_index: int) -> bool:
+        """Clear mask for a layer."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            layers[layer_index].mask = None
+            self.layers_changed.emit(frame_index)
+            return True
+        return False
+    
+    def get_layer_mask(self, frame_index: int, layer_index: int) -> Optional[List[float]]:
+        """Get mask for a layer."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            return layers[layer_index].mask
+        return None

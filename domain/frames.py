@@ -94,6 +94,60 @@ class FrameManager(QObject):
         self.frames_changed.emit()
         self.frame_index_changed.emit(dest)
 
+    def clear_selected_frames(self, indices: List[int]) -> None:
+        """Clear pixels in selected frames."""
+        pattern = self._state.pattern()
+        width = self._state.width()
+        height = self._state.height()
+        total_pixels = width * height
+        
+        for idx in indices:
+            idx = self._normalise_index(idx)
+            if 0 <= idx < len(pattern.frames):
+                pattern.frames[idx].pixels = [(0, 0, 0)] * total_pixels
+        
+        self.frames_changed.emit()
+    
+    def invert_selected_frames(self, indices: List[int]) -> None:
+        """Invert colors in selected frames."""
+        pattern = self._state.pattern()
+        
+        for idx in indices:
+            idx = self._normalise_index(idx)
+            if 0 <= idx < len(pattern.frames):
+                frame = pattern.frames[idx]
+                inverted = []
+                for pixel in frame.pixels:
+                    if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                        r, g, b = pixel[0], pixel[1], pixel[2]
+                        inverted.append((255 - r, 255 - g, 255 - b))
+                    else:
+                        inverted.append((255, 255, 255))
+                frame.pixels = inverted
+        
+        self.frames_changed.emit()
+    
+    def delete_selected_frames(self, indices: List[int]) -> None:
+        """Delete selected frames."""
+        pattern = self._state.pattern()
+        if len(pattern.frames) <= len(indices):
+            return  # Can't delete all frames
+        
+        # Sort indices in reverse order to delete from end to start
+        sorted_indices = sorted(set(indices), reverse=True)
+        
+        for idx in sorted_indices:
+            idx = self._normalise_index(idx)
+            if 0 <= idx < len(pattern.frames):
+                del pattern.frames[idx]
+        
+        # Adjust current index
+        if self._current_index >= len(pattern.frames):
+            self._current_index = len(pattern.frames) - 1
+        
+        self.frames_changed.emit()
+        self.frame_index_changed.emit(self._current_index)
+
     def set_duration(self, index: int, duration_ms: int) -> None:
         index = self._normalise_index(index)
         frame = self._state.frames()[index]

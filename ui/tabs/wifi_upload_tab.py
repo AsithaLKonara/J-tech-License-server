@@ -908,7 +908,7 @@ WiFi Network Details:
             
             # Connect to upload worker signals
             if self.wifi_uploader.upload_worker:
-                self.wifi_uploader.upload_worker.upload_complete.connect(self.upload_complete)
+                self.wifi_uploader.upload_worker.upload_complete.connect(self._on_upload_complete)
         else:
             QMessageBox.warning(self, "Upload Failed", "Failed to start upload. Check if another upload is in progress.")
     
@@ -922,7 +922,7 @@ WiFi Network Details:
         
         self.log_message("Upload cancelled by user")
     
-    def upload_complete(self, success, message):
+    def _on_upload_complete(self, success, message):
         """Handle upload completion"""
         self.upload_button.setEnabled(True)
         self.cancel_button.setEnabled(False)

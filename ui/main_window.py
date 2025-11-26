@@ -22,6 +22,8 @@ from core.pattern_clipboard import PatternClipboard
 from core.tab_state_manager import TabStateManager
 from core.undo_redo_manager import SharedUndoRedoManager
 from core.workspace_manager import WorkspaceManager
+from core.repositories.pattern_repository import PatternRepository
+from core.services.pattern_service import PatternService
 from ui.tabs.preview_tab import PreviewTab
 from ui.tabs.flash_tab import FlashTab
 from ui.tabs.batch_flash_tab import BatchFlashTab
@@ -58,17 +60,31 @@ class UploadBridgeMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        # Initialize services and repository
+        self.repository = PatternRepository.instance()
+        self.pattern_service = PatternService()
+        
+        # Legacy attributes (kept for backward compatibility during migration)
+        # These will be removed once all code is migrated to use repository
         self.pattern: Pattern = None
         self.current_file: str = None
         self.is_dirty: bool = False
+        
         self.settings = QSettings("UploadBridge", "UploadBridge")
         self.clipboard = PatternClipboard()  # Pattern clipboard manager
         self.tab_state_manager = TabStateManager(self.settings)  # Tab state persistence
         self.undo_redo_manager = SharedUndoRedoManager(max_history=50)  # Cross-tab undo/redo
         self.workspace = WorkspaceManager()  # Multi-pattern workspace
         
+        # Connect repository signals
+        self.repository.pattern_changed.connect(self._on_repository_pattern_changed)
+        self.repository.pattern_cleared.connect(self._on_repository_pattern_cleared)
+        
         self.setup_ui()
         self.load_settings()
+        
+        # Sync legacy attributes with repository
+        self._sync_legacy_attributes()
     
     def setup_ui(self):
         """Create UI elements"""
@@ -195,9 +211,8 @@ class UploadBridgeMainWindow(QMainWindow):
             if not any(lower.endswith(ext) for ext in (".bin", ".dat", ".leds", ".hex")):
                 QMessageBox.information(self, "Open", f"Unsupported file type: {os.path.basename(file_path)}")
                 return
-            # Parse with registry to also capture format name for diagnostics
-            registry = ParserRegistry()
-            pattern, format_name = registry.parse_file(file_path)
+            # Use PatternService to load pattern
+            pattern, format_name = self.pattern_service.load_pattern(file_path)
             try:
                 print(f"[DEBUG] Parsed {file_path} as {format_name}: leds={pattern.led_count}, frames={pattern.frame_count}, {pattern.metadata.width}x{pattern.metadata.height}")
             except Exception:
@@ -306,13 +321,23 @@ class UploadBridgeMainWindow(QMainWindow):
                 self.tabs.removeTab(7)
                 self.tabs.insertTab(7, self.wifi_upload_tab, "📡 WiFi Upload")
                 # Connect pattern_changed signal for live preview updates
-                self.pattern_changed.connect(self.wifi_upload_tab.refresh_preview)
-                # Connect WiFi upload signals
-                self.wifi_upload_tab.upload_started.connect(self.on_wifi_upload_started)
-                self.wifi_upload_tab.upload_progress.connect(self.on_wifi_upload_progress)
-                self.wifi_upload_tab.upload_complete.connect(self.on_wifi_upload_complete)
-                self.wifi_upload_tab.brightness_changed.connect(self.on_brightness_changed)
-                self.wifi_upload_tab.schedule_updated.connect(self.on_schedule_updated)
+                if hasattr(self.wifi_upload_tab, 'refresh_preview'):
+                    self.pattern_changed.connect(self.wifi_upload_tab.refresh_preview)
+                # Connect WiFi upload signals (check if they exist as Signal attributes)
+                try:
+                    if hasattr(self.wifi_upload_tab, 'upload_started'):
+                        self.wifi_upload_tab.upload_started.connect(self.on_wifi_upload_started)
+                    if hasattr(self.wifi_upload_tab, 'upload_progress'):
+                        self.wifi_upload_tab.upload_progress.connect(self.on_wifi_upload_progress)
+                    if hasattr(self.wifi_upload_tab, 'upload_complete'):
+                        self.wifi_upload_tab.upload_complete.connect(self.on_wifi_upload_complete)
+                    if hasattr(self.wifi_upload_tab, 'brightness_changed'):
+                        self.wifi_upload_tab.brightness_changed.connect(self.on_brightness_changed)
+                    if hasattr(self.wifi_upload_tab, 'schedule_updated'):
+                        self.wifi_upload_tab.schedule_updated.connect(self.on_schedule_updated)
+                except AttributeError as e:
+                    # Signal connection failed, log but don't crash
+                    logging.getLogger(__name__).warning(f"Failed to connect WiFi upload signals: {e}")
                 self._tabs_initialized['wifi_upload'] = True
                 
             elif tab_name == 'arduino_ide' and self.arduino_ide_tab is None:
@@ -346,9 +371,11 @@ class UploadBridgeMainWindow(QMainWindow):
                 tab = self.arduino_ide_tab
             
             # Load pattern if one is already loaded (avoid recursion by calling load_pattern directly)
-            if self.pattern and tab and hasattr(tab, 'load_pattern'):
+            pattern = self.repository.get_current_pattern()
+            current_file = self.repository.get_current_file()
+            if pattern and tab and hasattr(tab, 'load_pattern'):
                 try:
-                    tab.load_pattern(self.pattern, self.current_file)
+                    tab.load_pattern(pattern, current_file)
                 except Exception:
                     pass  # Tab may not support load_pattern
             
@@ -863,7 +890,8 @@ class UploadBridgeMainWindow(QMainWindow):
             return
         
         # Check if pattern is modified and warn user
-        if self.is_dirty and self.pattern:
+        pattern = self.repository.get_current_pattern()
+        if self.repository.is_dirty() and pattern:
             reply = QMessageBox.question(
                 self,
                 "Unsaved Changes",
@@ -947,13 +975,8 @@ class UploadBridgeMainWindow(QMainWindow):
                 is_valid, message, info = registry.validate_file(file_path)
                 
                 if is_valid:
-                    # Always parse using the registry to also know which parser was used
-                    pattern, format_name = registry.parse_file(file_path)
-                    try:
-                        pattern.metadata.source_format = format_name
-                        pattern.metadata.source_path = file_path
-                    except Exception:
-                        pass
+                    # Use PatternService to load pattern
+                    pattern, format_name = self.pattern_service.load_pattern(file_path)
                     self.status_bar.showMessage(
                         f"Loaded ({format_name}): {pattern.led_count} LEDs, {pattern.frame_count} frames")
                     # Load into ALL tabs
@@ -1011,25 +1034,23 @@ class UploadBridgeMainWindow(QMainWindow):
                 return
             from PySide6.QtWidgets import QInputDialog
             # Pre-fill from current pattern if available
-            cur_w = self.pattern.metadata.width if self.pattern else 72
-            cur_h = self.pattern.metadata.height if self.pattern else 1
-            cur_frames = self.pattern.frame_count if self.pattern else 18
+            pattern = self.repository.get_current_pattern()
+            cur_w = pattern.metadata.width if pattern else 72
+            cur_h = pattern.metadata.height if pattern else 1
+            cur_frames = pattern.frame_count if pattern else 18
             w, ok1 = QInputDialog.getInt(self, "Width", "LEDs wide:", int(cur_w), 1, 10000, 1)
             if not ok1: return
             h, ok2 = QInputDialog.getInt(self, "Height", "LEDs high:", int(cur_h), 1, 10000, 1)
             if not ok2: return
             fcount, ok3 = QInputDialog.getInt(self, "Frames", "Frame count:", int(cur_frames), 1, 100000, 1)
             if not ok3: return
-            # Reload with suggested values
-            from parsers.parser_registry import ParserRegistry
-            registry = ParserRegistry()
+            # Reload with suggested values using PatternService
             leds = int(w) * int(h)
-            pattern, format_name = registry.parse_file(self.current_file, suggested_leds=leds, suggested_frames=int(fcount))
-            try:
-                pattern.metadata.source_format = format_name
-                pattern.metadata.source_path = self.current_file
-            except Exception:
-                pass
+            pattern, format_name = self.pattern_service.load_pattern(
+                self.current_file, 
+                suggested_leds=leds, 
+                suggested_frames=int(fcount)
+            )
             # Ensure metadata matches grid
             try:
                 pattern.metadata.width = int(w)
@@ -1043,24 +1064,25 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def save_project(self):
         """Save current project"""
-        if not self.pattern:
+        pattern = self.repository.get_current_pattern()
+        if not pattern:
             QMessageBox.warning(self, "No Pattern", "No pattern to save!")
             return
         
-        if self.current_file and self.current_file.endswith('.ledproj'):
+        current_file = self.repository.get_current_file()
+        if current_file and current_file.endswith('.ledproj'):
             # Save to existing project file
             try:
-                old_dirty = self.is_dirty
-                self.pattern.save_to_file(self.current_file)
-                self.is_dirty = False  # Clear dirty flag after save
-                self.status_bar.showMessage(f"Saved: {self.current_file}")
+                old_dirty = self.repository.is_dirty()
+                self.pattern_service.save_pattern(pattern, current_file)
+                self.status_bar.showMessage(f"Saved: {current_file}")
                 # Remove * from window title
-                base_name = os.path.basename(self.current_file)
+                base_name = os.path.basename(current_file)
                 self.setWindowTitle(f"Upload Bridge - {base_name}")
                 QMessageBox.information(self, "Saved", "Project saved successfully!")
                 # Emit save state change
-                if old_dirty != self.is_dirty:
-                    self.save_state_changed.emit(self.is_dirty)
+                if old_dirty != self.repository.is_dirty():
+                    self.save_state_changed.emit(self.repository.is_dirty())
             except Exception as e:
                 QMessageBox.critical(self, "Save Error", f"Failed to save:\n\n{str(e)}")
         else:
@@ -1069,7 +1091,8 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def save_project_as(self):
         """Save project as new file"""
-        if not self.pattern:
+        pattern = self.repository.get_current_pattern()
+        if not pattern:
             QMessageBox.warning(self, "No Pattern", "No pattern to save!")
             return
         
@@ -1084,36 +1107,36 @@ class UploadBridgeMainWindow(QMainWindow):
             return
         
         try:
-            old_dirty = self.is_dirty
-            self.pattern.save_to_file(file_path)
-            self.current_file = file_path
-            self.is_dirty = False  # Clear dirty flag after save
+            old_dirty = self.repository.is_dirty()
+            self.pattern_service.save_pattern(pattern, file_path)
             self.status_bar.showMessage(f"Saved: {file_path}")
             # Update window title
             base_name = os.path.basename(file_path)
             self.setWindowTitle(f"Upload Bridge - {base_name}")
             QMessageBox.information(self, "Saved", "Project saved successfully!")
             # Emit save state change
-            if old_dirty != self.is_dirty:
-                self.save_state_changed.emit(self.is_dirty)
+            if old_dirty != self.repository.is_dirty():
+                self.save_state_changed.emit(self.repository.is_dirty())
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save:\n\n{str(e)}")
     
     def on_pattern_modified(self):
         """Pattern was modified in preview"""
-        old_dirty = self.is_dirty
-        self.is_dirty = True
+        old_dirty = self.repository.is_dirty()
+        self.repository.set_dirty(True)
         self.status_bar.showMessage("Pattern modified")
         # Update window title to show unsaved changes
-        if self.current_file:
-            base_name = os.path.basename(self.current_file)
+        current_file = self.repository.get_current_file()
+        if current_file:
+            base_name = os.path.basename(current_file)
             if not self.windowTitle().endswith('*'):
                 self.setWindowTitle(f"Upload Bridge - {base_name} *")
         # Emit signals for cross-tab synchronization
-        if self.pattern:
-            self.pattern_changed.emit(self.pattern)
-        if old_dirty != self.is_dirty:
-            self.save_state_changed.emit(self.is_dirty)
+        pattern = self.repository.get_current_pattern()
+        if pattern:
+            self.pattern_changed.emit(pattern)
+        if old_dirty != self.repository.is_dirty():
+            self.save_state_changed.emit(self.repository.is_dirty())
     
     def on_flash_complete(self, success: bool, message: str):
         """Flash operation completed"""
@@ -1251,9 +1274,10 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def copy_pattern(self):
         """Copy current pattern to clipboard"""
-        if self.pattern:
-            self.clipboard.copy_pattern(self.pattern)
-            self.status_bar.showMessage(f"Pattern '{self.pattern.name}' copied to clipboard")
+        pattern = self.repository.get_current_pattern()
+        if pattern:
+            self.clipboard.copy_pattern(pattern)
+            self.status_bar.showMessage(f"Pattern '{pattern.name}' copied to clipboard")
         else:
             QMessageBox.information(self, "No Pattern", "No pattern loaded to copy.")
     
@@ -1266,7 +1290,8 @@ class UploadBridgeMainWindow(QMainWindow):
         pattern = self.clipboard.paste_pattern()
         if pattern:
             # Ask user if they want to replace current pattern
-            if self.pattern and self.is_dirty:
+            current_pattern = self.repository.get_current_pattern()
+            if current_pattern and self.repository.is_dirty():
                 reply = QMessageBox.question(
                     self,
                     "Replace Pattern?",
@@ -1278,7 +1303,8 @@ class UploadBridgeMainWindow(QMainWindow):
                     return
             
             self.load_pattern_to_all_tabs(pattern, None)
-            self.is_dirty = True
+            self.repository.set_dirty(True)
+            self._sync_legacy_attributes()
             self.status_bar.showMessage(f"Pattern '{pattern.name}' pasted from clipboard")
         else:
             QMessageBox.warning(self, "Paste Failed", "Failed to paste pattern from clipboard.")
@@ -1394,12 +1420,11 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def load_pattern_to_all_tabs(self, pattern: Pattern, file_path: str = None):
         """Load pattern into all relevant tabs with error recovery (lazy initialization)"""
-        # Store pattern first (so it's available even if tabs fail)
-        old_dirty = self.is_dirty
-        self.pattern = pattern
-        if file_path:
-            self.current_file = file_path
-        self.is_dirty = False  # Reset dirty flag on load
+        # Store pattern in repository (single source of truth)
+        old_dirty = self.repository.is_dirty()
+        self.repository.set_current_pattern(pattern, file_path)
+        # Sync legacy attributes for backward compatibility
+        self._sync_legacy_attributes()
         
         # Load into ALL tabs with error recovery (tabs will be initialized on access)
         tabs_loaded = []
@@ -1510,8 +1535,8 @@ class UploadBridgeMainWindow(QMainWindow):
         
         # Emit signals for cross-tab synchronization
         self.pattern_changed.emit(pattern)
-        if old_dirty != self.is_dirty:
-            self.save_state_changed.emit(self.is_dirty)
+        if old_dirty != self.repository.is_dirty():
+            self.save_state_changed.emit(self.repository.is_dirty())
 
     def _on_design_pattern_created(self, pattern: Pattern):
         """Handle pattern exports from design tab."""
@@ -1524,7 +1549,8 @@ class UploadBridgeMainWindow(QMainWindow):
         """Load pattern created from media conversion"""
         # Use the unified loading method
         self.load_pattern_to_all_tabs(pattern, None)
-        self.is_dirty = True  # Media patterns are unsaved
+        self.repository.set_dirty(True)  # Media patterns are unsaved
+        self._sync_legacy_attributes()
         self.status_bar.showMessage(f"Pattern loaded from media: {pattern.name}")
         # Offer to add to library
         self._offer_add_to_library(pattern, "media upload")
@@ -1662,7 +1688,8 @@ class UploadBridgeMainWindow(QMainWindow):
         self._save_all_tab_states()
         
         # Check if pattern modified and ask to save
-        if self.is_dirty and self.pattern:
+        pattern = self.repository.get_current_pattern()
+        if self.repository.is_dirty() and pattern:
             reply = QMessageBox.question(
                 self,
                 "Unsaved Changes",
@@ -1673,9 +1700,9 @@ class UploadBridgeMainWindow(QMainWindow):
             
             if reply == QMessageBox.Save:
                 # Try to save
-                if self.current_file and self.current_file.endswith('.ledproj'):
-                    self.pattern.save_to_file(self.current_file)
-                    self.is_dirty = False
+                current_file = self.repository.get_current_file()
+                if current_file and current_file.endswith('.ledproj'):
+                    self.pattern_service.save_pattern(pattern, current_file)
                 else:
                     # Save as new project
                     file_path, _ = QFileDialog.getSaveFileName(
@@ -1685,9 +1712,7 @@ class UploadBridgeMainWindow(QMainWindow):
                         "LED Project (*.ledproj)"
                     )
                     if file_path:
-                        self.pattern.save_to_file(file_path)
-                        self.current_file = file_path
-                        self.is_dirty = False
+                        self.pattern_service.save_pattern(pattern, file_path)
             elif reply == QMessageBox.Cancel:
                 event.ignore()
                 return
@@ -1728,11 +1753,12 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def _new_workspace_pattern(self):
         """Create a new pattern in workspace"""
-        from core.pattern import Pattern, PatternMetadata
-        
-        # Create empty pattern
-        metadata = PatternMetadata(width=72, height=1)
-        new_pattern = Pattern(name="New Pattern", metadata=metadata, frames=[])
+        # Use PatternService to create new pattern
+        new_pattern = self.pattern_service.create_pattern(
+            name="New Pattern",
+            width=72,
+            height=1
+        )
         
         # Add to workspace
         pattern_name = self.workspace.add_pattern(new_pattern)
@@ -1744,7 +1770,8 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def _duplicate_workspace_pattern(self):
         """Duplicate current pattern in workspace"""
-        if not self.pattern:
+        pattern = self.repository.get_current_pattern()
+        if not pattern:
             QMessageBox.information(self, "No Pattern", "No pattern to duplicate.")
             return
         
@@ -1753,14 +1780,13 @@ class UploadBridgeMainWindow(QMainWindow):
             QMessageBox.information(self, "No Active Pattern", "No active pattern to duplicate.")
             return
         
-        new_name = self.workspace.duplicate_pattern(active_name)
+        # Use PatternService to duplicate
+        duplicated = self.pattern_service.duplicate_pattern(pattern)
+        new_name = self.workspace.add_pattern(duplicated, name=f"{active_name} (Copy)")
         if new_name:
-            # Load the duplicated pattern
-            new_pattern = self.workspace.get_pattern(new_name)
-            if new_pattern:
-                self.workspace.set_active_pattern(new_name)
-                self.load_pattern_to_all_tabs(new_pattern, None)
-                self.status_bar.showMessage(f"Duplicated pattern: {new_name}")
+            self.workspace.set_active_pattern(new_name)
+            self.load_pattern_to_all_tabs(duplicated, None)
+            self.status_bar.showMessage(f"Duplicated pattern: {new_name}")
         else:
             QMessageBox.warning(self, "Duplicate Failed", "Failed to duplicate pattern.")
     
@@ -1868,4 +1894,24 @@ class UploadBridgeMainWindow(QMainWindow):
         """Handle pattern switcher selection change"""
         if pattern_name and pattern_name in self.workspace.list_patterns():
             self.workspace.set_active_pattern(pattern_name)
+    
+    def _sync_legacy_attributes(self):
+        """Sync legacy attributes with repository for backward compatibility"""
+        self.pattern = self.repository.get_current_pattern()
+        self.current_file = self.repository.get_current_file()
+        self.is_dirty = self.repository.is_dirty()
+    
+    def _on_repository_pattern_changed(self, pattern: Pattern):
+        """Handle pattern change from repository"""
+        # Sync legacy attributes
+        self._sync_legacy_attributes()
+        # Emit signal for UI updates
+        self.pattern_changed.emit(pattern)
+    
+    def _on_repository_pattern_cleared(self):
+        """Handle pattern cleared from repository"""
+        # Sync legacy attributes
+        self._sync_legacy_attributes()
+        # Clear window title
+        self.setWindowTitle("Upload Bridge - Universal LED Pattern Flasher")
 

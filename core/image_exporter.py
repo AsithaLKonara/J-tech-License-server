@@ -143,6 +143,89 @@ class ImageExporter:
             raise Exception(f"Failed to export GIF: {e}")
     
     @staticmethod
+    def export_sprite_sheet(
+        pattern: Pattern,
+        filepath: str,
+        orientation: str = "horizontal",
+        spacing: int = 0,
+        scale_factor: int = 1,
+        format: str = "PNG"
+    ) -> bool:
+        """
+        Export pattern frames as a sprite sheet.
+        
+        Args:
+            pattern: Pattern to export
+            filepath: Output file path
+            orientation: "horizontal" or "vertical" layout
+            spacing: Pixels spacing between frames (0 = no spacing)
+            scale_factor: Pixel scaling factor
+            format: Image format ("PNG", "BMP")
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not pattern.frames:
+                raise Exception("Pattern has no frames")
+            
+            width = pattern.metadata.width
+            height = pattern.metadata.height
+            frame_count = len(pattern.frames)
+            
+            img_width_px = width * scale_factor
+            img_height_px = height * scale_factor
+            
+            # Calculate sprite sheet dimensions
+            if orientation.lower() == "horizontal":
+                # Horizontal layout: frames side by side
+                sheet_width = (img_width_px * frame_count) + (spacing * (frame_count - 1))
+                sheet_height = img_height_px
+            else:
+                # Vertical layout: frames stacked
+                sheet_width = img_width_px
+                sheet_height = (img_height_px * frame_count) + (spacing * (frame_count - 1))
+            
+            # Create sprite sheet image
+            sprite_sheet = Image.new("RGB", (sheet_width, sheet_height), (0, 0, 0))
+            
+            # Draw each frame
+            for i, frame in enumerate(pattern.frames):
+                # Create frame image
+                frame_img = Image.new("RGB", (img_width_px, img_height_px), (0, 0, 0))
+                
+                # Draw pixels
+                pixels = frame.pixels
+                for y in range(height):
+                    for x in range(width):
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            r, g, b = pixels[idx]
+                            # Draw scaled pixel
+                            x_start = x * scale_factor
+                            y_start = y * scale_factor
+                            for py in range(scale_factor):
+                                for px in range(scale_factor):
+                                    frame_img.putpixel((x_start + px, y_start + py), (r, g, b))
+                
+                # Paste frame into sprite sheet
+                if orientation.lower() == "horizontal":
+                    x_pos = (img_width_px + spacing) * i
+                    y_pos = 0
+                else:
+                    x_pos = 0
+                    y_pos = (img_height_px + spacing) * i
+                
+                sprite_sheet.paste(frame_img, (x_pos, y_pos))
+            
+            # Save sprite sheet
+            sprite_sheet.save(filepath, format=format)
+            return True
+        
+        except Exception as e:
+            raise Exception(f"Failed to export sprite sheet: {e}")
+
+    @staticmethod
     def get_supported_formats() -> List[str]:
         """Get list of supported export formats."""
         return ["PNG", "BMP", "GIF"]

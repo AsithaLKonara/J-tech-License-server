@@ -10,6 +10,9 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from pathlib import Path
 
+from core.pattern import Frame
+from core.schemas.pattern_converter import PatternConverter
+
 
 @dataclass
 class ProjectSettings:
@@ -69,6 +72,7 @@ class ProjectMetadata:
     thumbnail_path: Optional[str] = None
     settings: ProjectSettings = field(default_factory=ProjectSettings)
     custom_metadata: Dict[str, Any] = field(default_factory=dict)
+    frame_presets: List[Dict[str, Any]] = field(default_factory=list)  # Saved frame presets
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -85,6 +89,7 @@ class ProjectMetadata:
             "thumbnail_path": self.thumbnail_path,
             "settings": self.settings.to_dict(),
             "custom_metadata": self.custom_metadata,
+            "frame_presets": self.frame_presets,
         }
     
     @classmethod
@@ -104,6 +109,7 @@ class ProjectMetadata:
             thumbnail_path=data.get("thumbnail_path"),
             settings=ProjectSettings.from_dict(settings_data),
             custom_metadata=data.get("custom_metadata", {}),
+            frame_presets=data.get("frame_presets", []),
         )
     
     def update_modified_time(self):

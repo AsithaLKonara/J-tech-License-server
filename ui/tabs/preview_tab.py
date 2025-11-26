@@ -16,6 +16,8 @@ import logging
 
 from core.pattern import Pattern, Frame, load_pattern_from_file, auto_detect_pattern_info
 from core.pattern_exporter import PatternExporter
+from core.services.export_service import ExportService
+from core.repositories.pattern_repository import PatternRepository
 from ui.widgets.enhanced_led_simulator import EnhancedLEDSimulatorWidget
 from ui.widgets.fps_controller import FPSController
 from ui.widgets.advanced_brightness_controller import AdvancedBrightnessController
@@ -43,6 +45,11 @@ class PreviewTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        # Initialize services
+        self.export_service = ExportService()
+        self.repository = PatternRepository.instance()
+        
+        # Legacy pattern reference (for backward compatibility)
         self.pattern: Pattern = None
         self._original_file_pattern: Pattern = None  # Original file data (before unwrapping)
         self._syncing_playback = False  # Flag to prevent signal loops
@@ -194,7 +201,11 @@ class PreviewTab(QWidget):
         
         Args:
             pattern: Pattern object to display
+            file_path: Optional file path
         """
+        # Store in repository and sync legacy reference
+        self.repository.set_current_pattern(pattern, file_path)
+        self.pattern = pattern  # Legacy reference for backward compatibility
         # Auto-unwrap serpentine patterns to display in design order (as per previous fix)
         # This ensures preview shows pattern correctly (what designer created)
         from core.pattern_converter import detect_serpentine_pattern, hardware_to_design_order
@@ -499,8 +510,9 @@ class PreviewTab(QWidget):
         if not pattern:
             return
         
-        # Store the updated pattern
-        self.pattern = pattern
+        # Store in repository and sync legacy reference
+        self.repository.set_current_pattern(pattern)
+        self.pattern = pattern  # Legacy reference for backward compatibility
         
         # Rebuild preview pattern if needed
         try:
@@ -992,17 +1004,32 @@ class PreviewTab(QWidget):
     
     def on_export_pattern(self):
         """Export pattern to selected format"""
-        if not self.pattern:
+        # Get pattern from repository or legacy reference
+        pattern = self.repository.get_current_pattern() or self.pattern
+        if not pattern:
             QMessageBox.warning(self, "No Pattern", "No pattern to export!")
             return
         
-        # Get export formats
-        formats = PatternExporter.get_export_formats()
+        # Get available export formats from ExportService
+        formats = self.export_service.get_available_formats()
         
         # Create file filter string
+        format_extensions = {
+            'bin': '*.bin',
+            'hex': '*.hex',
+            'dat': '*.dat',
+            'leds': '*.leds',
+            'json': '*.json',
+            'csv': '*.csv',
+            'txt': '*.txt',
+            'ledproj': '*.ledproj',
+            'h': '*.h'
+        }
+        
         filter_parts = []
-        for name, extension, _ in formats:
-            filter_parts.append(f"{name} ({extension})")
+        for fmt in formats:
+            ext = format_extensions.get(fmt, f"*.{fmt}")
+            filter_parts.append(f"{fmt.upper()} files ({ext})")
         
         filter_string = ";;".join(filter_parts) + ";;All Files (*.*)"
         
@@ -1017,30 +1044,47 @@ class PreviewTab(QWidget):
         if not filepath:
             return
         
-        # Determine export function based on selected filter
-        selected_idx = filter_parts.index(selected_filter) if selected_filter in filter_parts else 0
-        if selected_idx < len(formats):
-            format_name, extension, export_func = formats[selected_idx]
-            
-            # Ensure file extension matches
-            if not filepath.lower().endswith(extension.replace('*', '')):
-                filepath += extension.replace('*', '')
-            
-            try:
-                # Export pattern
-                export_func(self.pattern, filepath)
-                
-                QMessageBox.information(
+        # Determine format from selected filter or file extension
+        format_name = None
+        for fmt in formats:
+            if fmt.upper() in selected_filter or filepath.lower().endswith(f".{fmt}"):
+                format_name = fmt
+                break
+        
+        # Default to bin if format not determined
+        if not format_name:
+            format_name = 'bin'
+        
+        # Ensure file extension matches
+        expected_ext = format_extensions.get(format_name, f".{format_name}")
+        if not filepath.lower().endswith(expected_ext.replace('*', '')):
+            filepath += expected_ext.replace('*', '')
+        
+        try:
+            # Validate export first
+            is_valid, error, preview = self.export_service.validate_export(pattern, format_name)
+            if not is_valid:
+                QMessageBox.warning(
                     self,
-                    "Export Successful",
-                    f"Pattern exported successfully to:\n{filepath}"
+                    "Export Validation Failed",
+                    f"Cannot export pattern in {format_name} format:\n\n{error or 'Unknown error'}"
                 )
-            except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    "Export Error",
-                    f"Failed to export pattern:\n\n{str(e)}"
-                )
+                return
+            
+            # Export pattern using ExportService
+            output_path = self.export_service.export_pattern(pattern, filepath, format_name)
+            
+            QMessageBox.information(
+                self,
+                "Export Successful",
+                f"Pattern exported successfully to:\n{output_path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export pattern:\n\n{str(e)}"
+            )
     
     def on_batch_validate(self):
         """Open batch validation dialog"""

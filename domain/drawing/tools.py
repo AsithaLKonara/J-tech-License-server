@@ -398,39 +398,54 @@ class TextTool(DrawingTool):
             width: Matrix width
             height: Matrix height
             text: Text to render
-            font: BitmapFont object (if None, uses default)
+            font: BitmapFont object (if None, uses default simple font)
             
         Returns:
             Modified frame
         """
         from copy import deepcopy
+        from domain.text.bitmap_font import BitmapFont
+        from domain.text.glyph_provider import GlyphProvider
+        
         new_frame = deepcopy(frame)
         
         x, y = start_pos
         
-        # Basic text rendering (simplified - full implementation would use BitmapFont)
-        # For now, just render a simple pattern
-        # TODO: Integrate with BitmapFontRepository
+        # Use GlyphProvider for font rendering (supports both BitmapFont and built-in 5x7 font)
+        if font is None or not isinstance(font, BitmapFont):
+            # Use built-in 5x7 font via GlyphProvider
+            glyph_provider = GlyphProvider(width=5, height=7)
+        else:
+            # Use provided BitmapFont
+            glyph_provider = GlyphProvider(bitmap_font=font, width=font.width, height=font.height)
         
-        if font is None:
-            # Default: render "A" pattern
-            pattern = [
-                [0, 1, 1, 0],
-                [1, 0, 0, 1],
-                [1, 1, 1, 1],
-                [1, 0, 0, 1],
-                [1, 0, 0, 1],
-            ]
+        # Render each character in the text
+        cursor_x = x
+        char_spacing = 1  # Space between characters
+        char_width = glyph_provider.width
+        char_height = glyph_provider.height
+        
+        for char in text:
+            # Get glyph for this character
+            glyph = glyph_provider.glyph(char)
             
-            for py, row in enumerate(pattern):
-                for px, pixel in enumerate(row):
+            # Render the glyph
+            for gy, row in enumerate(glyph):
+                for gx, pixel in enumerate(row):
                     if pixel:
-                        px_abs = x + px
-                        py_abs = y + py
+                        px_abs = cursor_x + gx
+                        py_abs = y + gy
                         if 0 <= px_abs < width and 0 <= py_abs < height:
                             idx = py_abs * width + px_abs
                             if idx < len(new_frame.pixels):
                                 new_frame.pixels[idx] = color
+            
+            # Move cursor for next character
+            cursor_x += char_width + char_spacing
+            
+            # Stop if we've gone past the matrix width
+            if cursor_x >= width:
+                break
         
         return new_frame
 

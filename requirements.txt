@@ -43,6 +43,9 @@ numpy>=1.24.0
 # License system security
 cryptography>=41.0.0
 
+# System monitoring (for health checks)
+psutil>=5.9.0
+
 # Development tools (optional)
 pytest>=7.0.0
 pytest-qt>=4.0.0

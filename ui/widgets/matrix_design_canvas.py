@@ -14,10 +14,11 @@ import os
 from typing import Dict, List, Tuple, Optional
 from enum import Enum
 from math import cos, sin, pi
+from collections import deque
 import random
 
 from PySide6.QtCore import Qt, QPoint, Signal, QSize, QRectF
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor
 from PySide6.QtWidgets import QWidget
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -33,6 +34,8 @@ class DrawingMode(Enum):
     LINE = "line"
     RANDOM = "random"
     GRADIENT = "gradient"
+    BUCKET_FILL = "bucket_fill"
+    EYEDROPPER = "eyedropper"
 
 
 class PixelShape(Enum):
@@ -65,6 +68,7 @@ class MatrixDesignCanvas(QWidget):
     pixel_updated = Signal(int, int, tuple)  # x, y, (r, g, b)
     hover_changed = Signal(int, int)  # x, y under cursor (or -1, -1)
     painting_finished = Signal()  # Emitted when mouse is released after painting
+    color_picked = Signal(int, int, int)  # r, g, b - Emitted when color is picked with eyedropper
 
     def __init__(
         self,
@@ -105,6 +109,19 @@ class MatrixDesignCanvas(QWidget):
         self._gradient_step_index: int = 0
         self._dirty_regions: List[Tuple[int, int, int, int]] = []  # (x, y, w, h) dirty rectangles
         self._full_repaint_needed = False
+        self._bucket_fill_tolerance: int = 0  # Color tolerance for bucket fill (0-255)
+        
+        # Zoom and pan support
+        self._zoom_level = 1.0
+        self._pan_offset = QPoint(0, 0)
+        self._is_panning = False
+        self._pan_start_pos: Optional[QPoint] = None
+        
+        # Onion skinning data
+        self._onion_skin_prev_frames: List[List[List[RGB]]] = []  # List of previous frame grids
+        self._onion_skin_next_frames: List[List[List[RGB]]] = []  # List of next frame grids
+        self._onion_skin_prev_opacities: List[float] = []
+        self._onion_skin_next_opacities: List[float] = []
 
         self.setMouseTracking(True)
         self.updateGeometry()
@@ -167,6 +184,13 @@ class MatrixDesignCanvas(QWidget):
         self._shape_start = None
         self._shape_end = None
         self._preview_grid = None
+        
+        # Update cursor based on tool
+        if mode == DrawingMode.EYEDROPPER:
+            self.setCursor(Qt.CrossCursor)
+        else:
+            self.setCursor(Qt.ArrowCursor)
+        
         self.update()
 
     def set_shape_filled(self, filled: bool):
@@ -218,6 +242,22 @@ class MatrixDesignCanvas(QWidget):
         self._gradient_steps = max(2, int(steps))
         self._gradient_step_index = 0
 
+    def set_bucket_fill_tolerance(self, tolerance: int) -> None:
+        """Set color tolerance for bucket fill (0-255)."""
+        self._bucket_fill_tolerance = max(0, min(255, int(tolerance)))
+
+    def get_bucket_fill_tolerance(self) -> int:
+        """Get current bucket fill tolerance."""
+        return self._bucket_fill_tolerance
+
+    def set_bucket_fill_tolerance(self, tolerance: int) -> None:
+        """Set color tolerance for bucket fill (0-255)."""
+        self._bucket_fill_tolerance = max(0, min(255, int(tolerance)))
+
+    def get_bucket_fill_tolerance(self) -> int:
+        """Get current bucket fill tolerance."""
+        return self._bucket_fill_tolerance
+
     # ------------------------------------------------------------------
     # Zoom handling
     # ------------------------------------------------------------------
@@ -229,6 +269,7 @@ class MatrixDesignCanvas(QWidget):
         if new_size == self._pixel_size:
             return
         self._pixel_size = new_size
+        self._zoom_level = factor
         self.updateGeometry()
         self.update()
 
@@ -236,6 +277,8 @@ class MatrixDesignCanvas(QWidget):
         """Restore the default pixel size."""
         if self._pixel_size != self._base_pixel_size:
             self._pixel_size = self._base_pixel_size
+            self._zoom_level = 1.0
+            self._pan_offset = QPoint(0, 0)
             self.updateGeometry()
             self.update()
 
@@ -257,6 +300,9 @@ class MatrixDesignCanvas(QWidget):
 
         # Fill background
         painter.fillRect(self.rect(), self._background_color)
+
+        # Apply pan offset translation
+        painter.translate(self._pan_offset)
 
         # Draw pixels (use preview grid if available, otherwise use actual grid)
         display_grid = self._preview_grid if self._preview_grid is not None else self._grid
@@ -312,18 +358,124 @@ class MatrixDesignCanvas(QWidget):
 
         # Geometry overlay preview (after hover so highlight stays crisp)
         self._draw_geometry_overlay(painter)
+        
+        # Onion skinning overlays (after geometry overlay)
+        self._draw_onion_skins(painter)
+
+    # ------------------------------------------------------------------
+    # Bucket fill and eyedropper
+    # ------------------------------------------------------------------
+    def _flood_fill(self, x: int, y: int, target_color: RGB, fill_color: RGB, tolerance: int) -> List[Tuple[int, int, RGB]]:
+        """
+        Flood fill algorithm using BFS.
+        
+        Returns list of (x, y, new_color) tuples for all filled pixels.
+        """
+        if not (0 <= x < self._matrix_width and 0 <= y < self._matrix_height):
+            return []
+        
+        # Check if colors are similar within tolerance
+        def colors_match(c1: RGB, c2: RGB, tol: int) -> bool:
+            if tol == 0:
+                return c1 == c2
+            r1, g1, b1 = c1
+            r2, g2, b2 = c2
+            return (abs(r1 - r2) <= tol and 
+                   abs(g1 - g2) <= tol and 
+                   abs(b1 - b2) <= tol)
+        
+        # If target and fill colors match (within tolerance), nothing to do
+        if colors_match(target_color, fill_color, tolerance):
+            return []
+        
+        filled_pixels: List[Tuple[int, int, RGB]] = []
+        visited = set()
+        queue = deque([(x, y)])
+        
+        while queue:
+            cx, cy = queue.popleft()
+            
+            # Skip if out of bounds
+            if not (0 <= cx < self._matrix_width and 0 <= cy < self._matrix_height):
+                continue
+            
+            # Skip if already visited
+            if (cx, cy) in visited:
+                continue
+            
+            # Skip if color doesn't match target (within tolerance)
+            current_color = self._grid[cy][cx]
+            if not colors_match(current_color, target_color, tolerance):
+                continue
+            
+            # Fill this pixel
+            self._grid[cy][cx] = fill_color
+            filled_pixels.append((cx, cy, fill_color))
+            visited.add((cx, cy))
+            
+            # Add neighbors to queue
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = cx + dx, cy + dy
+                if (nx, ny) not in visited:
+                    queue.append((nx, ny))
+        
+        return filled_pixels
+
+    def _pick_color_at(self, x: int, y: int) -> Optional[RGB]:
+        """
+        Pick color from grid at given coordinates.
+        
+        Returns RGB tuple or None if coordinates are invalid.
+        """
+        if not (0 <= x < self._matrix_width and 0 <= y < self._matrix_height):
+            return None
+        return self._grid[y][x]
 
     # ------------------------------------------------------------------
     # Mouse handling
     # ------------------------------------------------------------------
     def mousePressEvent(self, event):
+        # Middle mouse button for panning
+        if event.button() == Qt.MiddleButton:
+            self._is_panning = True
+            self._pan_start_pos = event.position().toPoint()
+            event.accept()
+            return
+        
         if event.button() in (Qt.LeftButton, Qt.RightButton):
             if event.button() == Qt.LeftButton:
                 self._gradient_step_index = 0
             cell = self._cell_from_point(event.position().toPoint())
             x, y = cell
             if 0 <= x < self._matrix_width and 0 <= y < self._matrix_height:
-                if self._drawing_mode == DrawingMode.PIXEL:
+                if self._drawing_mode == DrawingMode.EYEDROPPER:
+                    # Pick color from canvas
+                    picked_color = self._pick_color_at(x, y)
+                    if picked_color:
+                        self.color_picked.emit(picked_color[0], picked_color[1], picked_color[2])
+                elif self._drawing_mode == DrawingMode.BUCKET_FILL:
+                    # Bucket fill
+                    target_color = self._grid[y][x]
+                    fill_color = self._erase_color if event.button() == Qt.RightButton else self._current_color
+                    tolerance = self._bucket_fill_tolerance
+                    filled_pixels = self._flood_fill(x, y, target_color, fill_color, tolerance)
+                    
+                    # Emit pixel updates for all filled pixels
+                    min_x, min_y = self._matrix_width, self._matrix_height
+                    max_x, max_y = 0, 0
+                    for px, py, color in filled_pixels:
+                        self.pixel_updated.emit(px, py, color)
+                        min_x = min(min_x, px)
+                        min_y = min(min_y, py)
+                        max_x = max(max_x, px)
+                        max_y = max(max_y, py)
+                    
+                    # Mark dirty region
+                    if filled_pixels:
+                        self._dirty_regions.append((min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
+                        self.update()
+                        self.painting_finished.emit()
+                elif self._drawing_mode == DrawingMode.PIXEL:
                     self._is_dragging = True
                     self._handle_paint_event(event.position().toPoint(), event.button())
                 else:
@@ -336,6 +488,16 @@ class MatrixDesignCanvas(QWidget):
 
     def mouseMoveEvent(self, event):
         pos = event.position().toPoint()
+        
+        # Handle panning
+        if self._is_panning and self._pan_start_pos is not None:
+            delta = pos - self._pan_start_pos
+            self._pan_offset += delta
+            self._pan_start_pos = pos
+            self.update()
+            event.accept()
+            return
+        
         cell = self._cell_from_point(pos)
         if cell != self._hover_cell:
             self._hover_cell = cell
@@ -357,6 +519,13 @@ class MatrixDesignCanvas(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        # Handle pan end
+        if event.button() == Qt.MiddleButton:
+            self._is_panning = False
+            self._pan_start_pos = None
+            event.accept()
+            return
+        
         was_dragging = self._is_dragging
         if self._is_dragging and self._drawing_mode != DrawingMode.PIXEL:
             # Commit shape
@@ -379,6 +548,68 @@ class MatrixDesignCanvas(QWidget):
         self.hover_changed.emit(-1, -1)
         self.update()
         super().leaveEvent(event)
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel zoom."""
+        from PySide6.QtCore import Qt
+        delta = event.angleDelta().y()
+        
+        if delta > 0:
+            # Zoom in
+            self._zoom_level = min(5.0, self._zoom_level * 1.1)
+        else:
+            # Zoom out
+            self._zoom_level = max(0.25, self._zoom_level * 0.9)
+        
+        # Adjust pixel size based on zoom
+        self._pixel_size = int(self._base_pixel_size * self._zoom_level)
+        
+        self.updateGeometry()
+        self.update()
+        event.accept()
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts for zoom/pan."""
+        from PySide6.QtCore import Qt
+        if event.modifiers() & Qt.ControlModifier:
+            if event.key() == Qt.Key_0:
+                # Reset zoom
+                self._zoom_level = 1.0
+                self._pan_offset = QPoint(0, 0)
+                self._pixel_size = self._base_pixel_size
+                self.updateGeometry()
+                self.update()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_1:
+                # Fit to window
+                self._fit_to_window()
+                event.accept()
+                return
+        super().keyPressEvent(event)
+    
+    def _fit_to_window(self):
+        """Fit canvas to window."""
+        widget_width = self.width()
+        widget_height = self.height()
+        
+        matrix_width_px = self._matrix_width * self._base_pixel_size
+        matrix_height_px = self._matrix_height * self._base_pixel_size
+        
+        if matrix_width_px == 0 or matrix_height_px == 0:
+            return
+        
+        zoom_x = (widget_width - 40) / matrix_width_px if matrix_width_px > 0 else 1.0
+        zoom_y = (widget_height - 40) / matrix_height_px if matrix_height_px > 0 else 1.0
+        
+        self._zoom_level = min(zoom_x, zoom_y, 5.0)  # Cap at 5x
+        self._zoom_level = max(0.25, self._zoom_level)  # Floor at 0.25x
+        
+        self._pixel_size = int(self._base_pixel_size * self._zoom_level)
+        self._pan_offset = QPoint(0, 0)
+        
+        self.updateGeometry()
+        self.update()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -562,8 +793,11 @@ class MatrixDesignCanvas(QWidget):
                 y += sy
 
     def _cell_from_point(self, point: QPoint) -> Tuple[int, int]:
-        x = point.x() // self._pixel_size
-        y = point.y() // self._pixel_size
+        # Account for pan offset
+        adjusted_x = point.x() - self._pan_offset.x()
+        adjusted_y = point.y() - self._pan_offset.y()
+        x = adjusted_x // self._pixel_size
+        y = adjusted_y // self._pixel_size
         return x, y
 
     @staticmethod
@@ -627,6 +861,84 @@ class MatrixDesignCanvas(QWidget):
                 y = center.y() - radius * sin(angle)
                 painter.drawLine(center, QPoint(int(x), int(y)))
 
+        painter.restore()
+
+    def set_onion_skin_frames(
+        self,
+        prev_frames: List[List[List[RGB]]],
+        next_frames: List[List[List[RGB]]],
+        prev_opacities: List[float],
+        next_opacities: List[float]
+    ) -> None:
+        """
+        Set onion skin frames to display as overlays.
+        
+        Args:
+            prev_frames: List of previous frame grids (2D arrays)
+            next_frames: List of next frame grids (2D arrays)
+            prev_opacities: Opacity for each previous frame (0.0-1.0)
+            next_opacities: Opacity for each next frame (0.0-1.0)
+        """
+        self._onion_skin_prev_frames = prev_frames
+        self._onion_skin_next_frames = next_frames
+        self._onion_skin_prev_opacities = prev_opacities
+        self._onion_skin_next_opacities = next_opacities
+        self.update()
+
+    def _draw_onion_skins(self, painter: QPainter):
+        """Draw onion skin overlays for previous and next frames."""
+        if not self._onion_skin_prev_frames and not self._onion_skin_next_frames:
+            return
+        
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        
+        # Draw previous frames (behind current, but we draw after so they appear ghosted)
+        for i, (prev_grid, opacity) in enumerate(zip(self._onion_skin_prev_frames, self._onion_skin_prev_opacities)):
+            if opacity <= 0.0 or not prev_grid:
+                continue
+            for y in range(min(len(prev_grid), self._matrix_height)):
+                row = prev_grid[y] if prev_grid[y] else []
+                for x in range(min(len(row), self._matrix_width)):
+                    color = row[x]
+                    if not color:
+                        continue
+                    rect_x = x * self._pixel_size + 1
+                    rect_y = y * self._pixel_size + 1
+                    rect_w = self._pixel_size - 2
+                    rect_h = self._pixel_size - 2
+                    
+                    # Draw with reduced opacity
+                    r, g, b = color if isinstance(color, tuple) else (color[0], color[1], color[2])
+                    qcolor = QColor(r, g, b)
+                    qcolor.setAlphaF(opacity)
+                    painter.setBrush(QBrush(qcolor))
+                    painter.setPen(Qt.NoPen)
+                    self._draw_pixel_tile(painter, rect_x, rect_y, rect_w, rect_h, (r, g, b))
+        
+        # Draw next frames (on top, but still semi-transparent)
+        for i, (next_grid, opacity) in enumerate(zip(self._onion_skin_next_frames, self._onion_skin_next_opacities)):
+            if opacity <= 0.0 or not next_grid:
+                continue
+            for y in range(min(len(next_grid), self._matrix_height)):
+                row = next_grid[y] if next_grid[y] else []
+                for x in range(min(len(row), self._matrix_width)):
+                    color = row[x]
+                    if not color:
+                        continue
+                    rect_x = x * self._pixel_size + 1
+                    rect_y = y * self._pixel_size + 1
+                    rect_w = self._pixel_size - 2
+                    rect_h = self._pixel_size - 2
+                    
+                    # Draw with reduced opacity
+                    r, g, b = color if isinstance(color, tuple) else (color[0], color[1], color[2])
+                    qcolor = QColor(r, g, b)
+                    qcolor.setAlphaF(opacity)
+                    painter.setBrush(QBrush(qcolor))
+                    painter.setPen(Qt.NoPen)
+                    self._draw_pixel_tile(painter, rect_x, rect_y, rect_w, rect_h, (r, g, b))
+        
         painter.restore()
 
     def _next_gradient_color(self) -> RGB:

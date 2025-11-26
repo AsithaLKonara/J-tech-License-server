@@ -77,6 +77,9 @@ from core.export import (
     ExportValidationError,
     ExportPreview,
 )  # noqa: E402
+from core.services.export_service import ExportService
+from core.services.pattern_service import PatternService
+from core.repositories.pattern_repository import PatternRepository
 from core.export_templates import available_templates, render_template  # noqa: E402
 from core.io import (
     LMSFormatError,
@@ -110,11 +113,14 @@ from domain.history import HistoryManager, FrameStateCommand  # noqa: E402
 from domain.automation.presets import PresetRepository  # noqa: E402
 from domain.effects import EffectDefinition, EffectLibrary, apply_effect_to_frames  # noqa: E402
 from domain.text.bitmap_font import BitmapFontRepository, BitmapFont  # noqa: E402
+from domain.text.glyph_provider import GlyphProvider  # noqa: E402
+from domain.text.text_renderer import TextRenderer, TextRenderOptions, TextScrollOptions  # noqa: E402
 from ui.icons import get_icon
 from ui.widgets.effects_library_widget import EffectsLibraryWidget
 from ui.dialogs.detached_preview_dialog import DetachedPreviewDialog
 from ui.dialogs.font_designer_dialog import FontDesignerDialog
 from ui.dialogs.automation_wizard_dialog import AutomationWizardDialog
+from ui.dialogs.ai_generate_dialog import AIGenerateDialog
 
 
 class DesignToolsTab(QWidget):
@@ -364,12 +370,32 @@ class DesignToolsTab(QWidget):
         self._theme = self._resolve_initial_theme()
         self._current_ui_palette: Dict[str, str] = self.THEME_DEFINITIONS[self._theme]["ui"]
         self._pattern: Optional[Pattern] = None
+        
+        # Initialize services
+        self.export_service = ExportService()
+        self.pattern_service = PatternService()
+        self.repository = PatternRepository.instance()
+        
+        # Pattern versioning
+        from core.pattern_versioning import PatternVersionManager, AutoVersionManager
+        self._version_manager = PatternVersionManager(max_versions=50)
+        self._auto_version_manager = AutoVersionManager(self._version_manager, auto_save_interval_seconds=300)
+        
+        # Connect pattern modified signal to auto-versioning
+        self.pattern_modified.connect(self._on_pattern_modified_for_versioning)
         self._current_frame_index: int = 0
         self._frame_duration_ms: int = 50
         self._current_color: Tuple[int, int, int] = (255, 255, 255)
+        # Onion skinning state
+        self._onion_skin_enabled: bool = False
+        self._onion_skin_prev_count: int = 1
+        self._onion_skin_next_count: int = 1
+        self._onion_skin_prev_opacity: float = 0.5
+        self._onion_skin_next_opacity: float = 0.3
         self._start_gradient_color: Tuple[int, int, int] = (255, 0, 0)
         self._end_gradient_color: Tuple[int, int, int] = (0, 0, 255)
         self._has_unsaved_changes: bool = False
+        self._current_file: Optional[str] = None  # Track current file path
         self._suspend_timeline_refresh: bool = False
         self._single_color_mode: bool = False  # Single color mode (white only)
         self.state = PatternState()
@@ -385,10 +411,14 @@ class DesignToolsTab(QWidget):
         self.history_manager = HistoryManager(max_history=50)
         self._current_action_index = -1
         self._pending_paint_state: Optional[List[Tuple[int, int, int]]] = None  # Track state before paint operations
+        self._pending_broadcast_states: Optional[Dict[int, List[Tuple[int, int, int]]]] = None  # Track states for all frames in broadcast mode
         self._preview_cache: Dict[str, Pattern] = {}  # Cache for preview patterns
         self._preview_cache_key: Optional[str] = None  # Current cache key
         self._lms_sequence = PatternInstructionSequence()
         self._lms_preview_snapshot: Optional[Pattern] = None
+        self._brush_broadcast_warning_shown = False  # Track if user has seen broadcast warning
+        self._brush_broadcast_banner: Optional[QWidget] = None  # Warning banner widget
+        self._hidden_layer_banner: Optional[QWidget] = None  # Hidden layer warning banner
         self.lms_source_combo: Optional[QComboBox] = None
         self.lms_layer2_combo: Optional[QComboBox] = None
         self.lms_mask_combo: Optional[QComboBox] = None
@@ -409,6 +439,8 @@ class DesignToolsTab(QWidget):
         self.effects_widget: Optional[EffectsLibraryWidget] = None
         self._effects_info_default: str = ""
         self.font_repo = BitmapFontRepository(Path("Res/fonts"))
+        self.text_renderer = TextRenderer()
+        self._glyph_provider = GlyphProvider()
         self._active_bitmap_font: Optional[BitmapFont] = None
         self._scratchpad_status_labels: Dict[int, QLabel] = {}
         self._scratchpad_paste_buttons: Dict[int, QPushButton] = {}
@@ -436,6 +468,8 @@ class DesignToolsTab(QWidget):
         self._import_metadata_snapshot: Optional[Dict[str, object]] = None
         self._syncing_playback = False  # Flag to prevent signal loops
         self._syncing_frame = False  # Flag to prevent frame sync loops
+        self.led_color_panel: Optional[object] = None  # LED Color Panel widget
+        self._selected_frames: List[int] = []  # Multi-frame selection
 
         self._setup_ui()
         self._create_default_pattern()
@@ -493,11 +527,123 @@ class DesignToolsTab(QWidget):
         new_button.setToolTip("Create a new pattern")
         new_button.clicked.connect(self._on_new_pattern_clicked)
         layout.addWidget(new_button)
+        
+        # Prominent Create Animation button
+        create_anim_button = QPushButton("✨ Create Animation")
+        create_anim_button.setToolTip("Create animation from templates or automation")
+        create_anim_button.setStyleSheet("""
+            QPushButton {
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px 16px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
+        create_anim_button.clicked.connect(self._on_create_animation_clicked)
+        layout.addWidget(create_anim_button)
+        
+        # AI Generate button
+        ai_generate_button = QPushButton("🤖 AI Generate")
+        ai_generate_button.setToolTip("Generate pattern from text prompt using AI")
+        ai_generate_button.clicked.connect(self._on_ai_generate_clicked)
+        layout.addWidget(ai_generate_button)
+        
+        # Templates button
+        templates_button = QPushButton("📋 Templates")
+        templates_button.setToolTip("Browse and apply pattern templates")
+        templates_button.clicked.connect(self._on_templates_clicked)
+        layout.addWidget(templates_button)
 
         open_button = QPushButton("Open")
         open_button.setToolTip("Open an existing pattern file")
         open_button.clicked.connect(self._on_open_pattern_clicked)
         layout.addWidget(open_button)
+        
+        # Version History button
+        version_history_btn = QPushButton("📜 Versions")
+        version_history_btn.setToolTip("View pattern version history")
+        version_history_btn.clicked.connect(self._on_version_history_clicked)
+        layout.addWidget(version_history_btn)
+
+        layout.addSpacing(8)
+
+        # Quick Matrix Size Buttons
+        quick_matrix_label = QLabel("Quick Size:")
+        quick_matrix_label.setObjectName("designToolsQuickMatrix")
+        layout.addWidget(quick_matrix_label)
+        
+        quick_matrix_layout = QHBoxLayout()
+        quick_matrix_layout.setSpacing(4)
+        quick_matrix_layout.setContentsMargins(0, 0, 0, 0)
+        
+        for width, height in [(8, 8), (16, 16), (32, 32), (64, 32)]:
+            btn = QPushButton(f"{width}×{height}")
+            btn.setToolTip(f"Set matrix size to {width}×{height}")
+            btn.clicked.connect(lambda checked, w=width, h=height: self._on_quick_matrix_clicked(w, h))
+            quick_matrix_layout.addWidget(btn)
+        
+        custom_btn = QPushButton("Custom...")
+        custom_btn.setToolTip("Open matrix configuration dialog")
+        custom_btn.clicked.connect(self._on_custom_matrix_clicked)
+        quick_matrix_layout.addWidget(custom_btn)
+        
+        quick_matrix_widget = QWidget()
+        quick_matrix_widget.setLayout(quick_matrix_layout)
+        layout.addWidget(quick_matrix_widget)
+
+        layout.addSpacing(8)
+
+        # Quick Actions Toolbar
+        quick_actions_label = QLabel("Quick Actions:")
+        quick_actions_label.setObjectName("designToolsQuickActions")
+        layout.addWidget(quick_actions_label)
+        
+        quick_actions_layout = QHBoxLayout()
+        quick_actions_layout.setSpacing(4)
+        quick_actions_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Clear Frame button
+        clear_btn = QPushButton("Clear")
+        clear_btn.setToolTip("Clear current frame (Delete)")
+        clear_btn.clicked.connect(self._on_clear_frame)
+        quick_actions_layout.addWidget(clear_btn)
+        
+        # Invert button
+        invert_btn = QPushButton("Invert")
+        invert_btn.setToolTip("Invert colors (Ctrl+I)")
+        invert_btn.clicked.connect(self._on_invert_frame)
+        quick_actions_layout.addWidget(invert_btn)
+        
+        # Flip H button
+        flip_h_btn = QPushButton("Flip H")
+        flip_h_btn.setToolTip("Flip horizontal (Ctrl+H)")
+        flip_h_btn.clicked.connect(self._on_flip_horizontal)
+        quick_actions_layout.addWidget(flip_h_btn)
+        
+        # Flip V button
+        flip_v_btn = QPushButton("Flip V")
+        flip_v_btn.setToolTip("Flip vertical (Ctrl+V)")
+        flip_v_btn.clicked.connect(self._on_flip_vertical)
+        quick_actions_layout.addWidget(flip_v_btn)
+        
+        # Rotate 90° button
+        rotate_btn = QPushButton("Rotate 90°")
+        rotate_btn.setToolTip("Rotate 90 degrees clockwise")
+        rotate_btn.clicked.connect(self._on_rotate_90)
+        quick_actions_layout.addWidget(rotate_btn)
+        
+        quick_actions_widget = QWidget()
+        quick_actions_widget.setLayout(quick_actions_layout)
+        layout.addWidget(quick_actions_widget)
 
         layout.addSpacing(8)
 
@@ -521,6 +667,7 @@ class DesignToolsTab(QWidget):
 
         self.memory_status_label = QLabel("Memory: –")
         self.memory_status_label.setObjectName("designToolsMemory")
+        self.memory_status_label.setToolTip("Pattern memory usage (bytes)")
         layout.addWidget(self.memory_status_label)
 
         layout.addStretch(1)
@@ -599,6 +746,16 @@ class DesignToolsTab(QWidget):
         hud_row.addWidget(self.canvas_redo_btn)
 
         layout.addLayout(hud_row)
+        
+        # Broadcast mode warning banner (initially hidden)
+        self._brush_broadcast_banner = self._create_broadcast_warning_banner()
+        layout.addWidget(self._brush_broadcast_banner)
+        self._brush_broadcast_banner.setVisible(False)
+        
+        # Hidden layer warning banner (initially hidden)
+        self._hidden_layer_banner = self._create_hidden_layer_warning_banner()
+        layout.addWidget(self._hidden_layer_banner)
+        self._hidden_layer_banner.setVisible(False)
 
         canvas_group = self._create_canvas_group()
         canvas_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -620,6 +777,8 @@ class DesignToolsTab(QWidget):
     def _create_toolbox_column(self) -> QWidget:
         panels: List[Tuple[str, str, QWidget]] = [
             ("Brushes", "brush", self._create_brushes_tab()),
+            ("LED Colors", "colors", self._create_led_colors_tab()),
+            ("Pixel Mapping", "mapping", self._create_pixel_mapping_tab()),
             ("Scratchpads", "layers", self._create_scratchpad_tab()),
             ("Layers", "layers", self._create_layers_tab()),
             ("Effects", "effects", self._create_effects_tab()),
@@ -653,12 +812,33 @@ class DesignToolsTab(QWidget):
 
         self.timeline = TimelineWidget()
         self.timeline.frameSelected.connect(self._on_frame_selected)
+        self.timeline.framesSelected.connect(self._on_frames_selected)  # Multi-select
         self.timeline.playheadDragged.connect(self._on_timeline_playhead_dragged)
         self.timeline.contextMenuRequested.connect(self._on_timeline_context_menu)
         self.timeline.overlayActivated.connect(self._on_timeline_overlay_activated)
         self.timeline.overlayContextMenuRequested.connect(self._on_timeline_overlay_context_menu)
         self.timeline.layerTrackSelected.connect(self._on_timeline_layer_selected)
+        
+        # Enable CapCut-style grid mode
+        self.timeline.enable_grid_mode(True)
+        
+        # Connect to managers for drag-and-drop
+        self.timeline.set_frame_manager(self.frame_manager)
+        self.timeline.set_layer_manager(self.layer_manager)
+        
+        # Connect layer visibility toggle
+        self.timeline.layerVisibilityToggled.connect(self._on_timeline_layer_visibility_toggled)
+        
         layout.addWidget(self.timeline, 1)
+
+        # Simple timeline mode toggle
+        simple_mode_label = QLabel("Simple Mode:")
+        layout.addWidget(simple_mode_label)
+        
+        self.simple_timeline_checkbox = QCheckBox("Hide layers (simple animations)")
+        self.simple_timeline_checkbox.setToolTip("Hide layer tracks for simpler timeline view")
+        self.simple_timeline_checkbox.toggled.connect(self._on_simple_timeline_toggled)
+        layout.addWidget(self.simple_timeline_checkbox)
 
         controls = QHBoxLayout()
         controls.setContentsMargins(0, 0, 0, 0)
@@ -760,6 +940,110 @@ class DesignToolsTab(QWidget):
             "Global editor preferences will be available here in a future update.",
         )
 
+    def _on_ai_generate_clicked(self) -> None:
+        """Handle AI Generate button click - show AI generation dialog."""
+        if not self._confirm_discard_changes():
+            return
+        
+        from ui.dialogs.ai_generate_dialog import AIGenerateDialog
+        
+        current_width = self.width_spin.value() if hasattr(self, "width_spin") else 16
+        current_height = self.height_spin.value() if hasattr(self, "height_spin") else 16
+        
+        dialog = AIGenerateDialog(self, current_width, current_height)
+        dialog.pattern_generated.connect(self._on_ai_pattern_generated)
+        dialog.exec()
+    
+    def _on_ai_pattern_generated(self, pattern: Pattern) -> None:
+        """Handle AI-generated pattern - load it into the editor."""
+        self.load_pattern(pattern)
+        self.pattern_created.emit(pattern)
+        QMessageBox.information(
+            self,
+            "Pattern Loaded",
+            f"AI-generated pattern loaded successfully!\n\n"
+            f"Name: {pattern.name}\n"
+            f"Size: {pattern.metadata.width}×{pattern.metadata.height}\n"
+            f"Frames: {len(pattern.frames)}\n\n"
+            f"You can now edit, export, or further customize this pattern."
+        )
+
+    def _on_templates_clicked(self) -> None:
+        """Handle Templates button click - show template dialog."""
+        if not self._confirm_discard_changes():
+            return
+        
+        from ui.dialogs.pattern_template_dialog import PatternTemplateDialog
+        
+        current_width = self.width_spin.value() if hasattr(self, "width_spin") else 16
+        current_height = self.height_spin.value() if hasattr(self, "height_spin") else 16
+        
+        dialog = PatternTemplateDialog(self, current_width, current_height)
+        dialog.pattern_generated.connect(self._on_template_pattern_generated)
+        dialog.exec()
+    
+    def _on_template_pattern_generated(self, pattern: Pattern) -> None:
+        """Handle template-generated pattern - load it into the editor."""
+        # Use PatternService to set the pattern
+        self.pattern_service.set_current_pattern(pattern, None)
+        self.load_pattern(pattern)
+        self.pattern_created.emit(pattern)
+        self.pattern_modified.emit()
+    
+    def _on_create_animation_clicked(self) -> None:
+        """Handle Create Animation button click - show animation creation dialog."""
+        if not self._confirm_discard_changes():
+            return
+        
+        from ui.dialogs.create_animation_dialog import CreateAnimationDialog
+        
+        current_width = self.width_spin.value() if hasattr(self, "width_spin") else 16
+        current_height = self.height_spin.value() if hasattr(self, "height_spin") else 16
+        
+        dialog = CreateAnimationDialog(self, current_width, current_height)
+        dialog.pattern_generated.connect(self._on_template_pattern_generated)
+        dialog.exec()
+    
+    def _on_version_history_clicked(self) -> None:
+        """Handle Version History button click - show version history dialog."""
+        from ui.dialogs.version_history_dialog import VersionHistoryDialog
+        
+        dialog = VersionHistoryDialog(self._version_manager, self)
+        dialog.version_restored.connect(self._on_version_restored)
+        dialog.exec()
+    
+    def _on_version_restored(self, pattern: Pattern) -> None:
+        """Handle version restoration - load restored pattern."""
+        self.load_pattern(pattern)
+        self.pattern_created.emit(pattern)
+        
+        # Verify metadata was preserved
+        meta_info = []
+        if hasattr(pattern.metadata, 'dimension_source') and pattern.metadata.dimension_source != 'unknown':
+            meta_info.append(f"Dimension source: {pattern.metadata.dimension_source}")
+        if hasattr(pattern.metadata, 'dimension_confidence'):
+            meta_info.append(f"Confidence: {pattern.metadata.dimension_confidence:.1%}")
+        
+        message = "Pattern version restored successfully!"
+        if meta_info:
+            message += f"\n\nMetadata preserved:\n" + "\n".join(meta_info)
+        
+        QMessageBox.information(
+            self,
+            "Version Restored",
+            message
+        )
+    
+    def _on_pattern_modified_for_versioning(self) -> None:
+        """Handle pattern modification - trigger auto-versioning if needed."""
+        if self._pattern and hasattr(self, "_auto_version_manager"):
+            # Check if auto-save is needed
+            if self._auto_version_manager.should_auto_save(self._pattern):
+                version_id = self._auto_version_manager.auto_save(self._pattern)
+                if version_id:
+                    # Optionally show a subtle notification
+                    pass
+    
     def _on_new_pattern_clicked(self) -> None:
         """Handle New button click - show new pattern dialog."""
         if not self._confirm_discard_changes():
@@ -825,18 +1109,156 @@ class DesignToolsTab(QWidget):
         if file_path:
             if not self._confirm_discard_changes():
                 return
+            
+            # Validate file before parsing
+            import os
+            from pathlib import Path
+            
+            # Check file exists
+            if not os.path.exists(file_path):
+                QMessageBox.critical(
+                    self,
+                    "File Not Found",
+                    f"The file does not exist:\n{file_path}\n\nPlease check the file path and try again."
+                )
+                return
+            
+            # Check file is readable
+            if not os.access(file_path, os.R_OK):
+                QMessageBox.critical(
+                    self,
+                    "Permission Denied",
+                    f"Cannot read file:\n{file_path}\n\nPlease check file permissions."
+                )
+                return
+            
+            # Check file size
+            try:
+                file_size = os.path.getsize(file_path)
+                if file_size == 0:
+                    QMessageBox.critical(
+                        self,
+                        "Empty File",
+                        f"The file is empty:\n{file_path}\n\nPlease select a valid pattern file."
+                    )
+                    return
+                
+                # Warn if file is very large (>100MB)
+                if file_size > 100 * 1024 * 1024:
+                    reply = QMessageBox.question(
+                        self,
+                        "Large File Warning",
+                        f"This file is very large ({file_size / (1024*1024):.1f} MB).\n\n"
+                        "Loading may take a long time and use significant memory.\n\n"
+                        "Do you want to continue?",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    if reply == QMessageBox.No:
+                        return
+            except OSError as e:
+                QMessageBox.critical(
+                    self,
+                    "File Access Error",
+                    f"Cannot access file:\n{file_path}\n\nError: {str(e)}"
+                )
+                return
+            
+            # Parse file with comprehensive error handling
             try:
                 from parsers.parser_registry import ParserRegistry
                 registry = ParserRegistry()
-                pattern = registry.parse_file(file_path)
-                if pattern:
-                    self.load_pattern(pattern, file_path)
+                pattern, format_name = registry.parse_file(file_path)
+                
+                if not pattern:
+                    QMessageBox.critical(
+                        self,
+                        "Parse Failed",
+                        f"Failed to parse pattern file:\n{file_path}\n\n"
+                        "The file format may be invalid or corrupted."
+                    )
+                    return
+                
+                # Validate pattern before loading
+                if not isinstance(pattern, Pattern):
+                    QMessageBox.critical(
+                        self,
+                        "Invalid Pattern",
+                        f"Parsed file did not produce a valid pattern:\n{file_path}\n\n"
+                        "The file may be in an unsupported format."
+                    )
+                    return
+                
+                # Validate pattern has frames
+                if not hasattr(pattern, 'frames') or not pattern.frames:
+                    QMessageBox.warning(
+                        self,
+                        "Empty Pattern",
+                        f"Pattern file contains no frames:\n{file_path}\n\n"
+                        "The file may be incomplete or invalid."
+                    )
+                    return
+                
+                # Validate dimensions
+                if hasattr(pattern, 'metadata') and pattern.metadata:
+                    width = getattr(pattern.metadata, 'width', 0)
+                    height = getattr(pattern.metadata, 'height', 0)
+                    if width <= 0 or height <= 0:
+                        QMessageBox.warning(
+                            self,
+                            "Invalid Dimensions",
+                            f"Pattern has invalid dimensions ({width}x{height}):\n{file_path}\n\n"
+                            "The pattern may need manual dimension specification."
+                        )
+                        # Still allow loading, user can fix dimensions later
+                
+                # Load pattern
+                self.load_pattern(pattern, file_path)
+                
+            except FileNotFoundError as e:
+                QMessageBox.critical(
+                    self,
+                    "File Not Found",
+                    f"File not found:\n{str(e)}\n\nPlease check the file path and try again."
+                )
+            except PermissionError as e:
+                QMessageBox.critical(
+                    self,
+                    "Permission Denied",
+                    f"Cannot access file:\n{str(e)}\n\nPlease check file permissions."
+                )
+            except ValueError as e:
+                error_msg = str(e)
+                if "empty" in error_msg.lower():
+                    QMessageBox.critical(
+                        self,
+                        "Empty File",
+                        f"The file is empty:\n{file_path}\n\nPlease select a valid pattern file."
+                    )
+                elif "unknown format" in error_msg.lower() or "cannot be parsed" in error_msg.lower():
+                    QMessageBox.critical(
+                        self,
+                        "Unsupported Format",
+                        f"Cannot parse file format:\n{file_path}\n\n{error_msg}\n\n"
+                        "Try specifying LED count and frame count manually using Tools > Force Dimensions."
+                    )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Parse Error",
+                        f"Failed to parse pattern file:\n{file_path}\n\n{error_msg}\n\n"
+                        "The file may be corrupted or in an unsupported format."
+                    )
             except Exception as e:
                 QMessageBox.critical(
                     self,
-                    "Open Failed",
-                    f"Failed to open pattern file:\n{str(e)}"
+                    "Unexpected Error",
+                    f"An unexpected error occurred while opening the file:\n{file_path}\n\n"
+                    f"Error: {str(e)}\n\n"
+                    "Please try again or report this issue if it persists."
                 )
+                import logging
+                logging.getLogger(__name__).error("Unexpected error opening pattern file", exc_info=True)
 
     def _apply_button_icon(
         self,
@@ -903,6 +1325,7 @@ class DesignToolsTab(QWidget):
         self.canvas = MatrixDesignCanvas(width=12, height=6, pixel_size=28)
         self.canvas.pixel_updated.connect(self._on_canvas_pixel_updated)
         self.canvas.painting_finished.connect(self._commit_paint_operation)
+        self.canvas.color_picked.connect(self._on_color_picked)
         self.canvas.set_random_palette(self.DEFAULT_COLORS)
         self.canvas.set_gradient_brush(self._start_gradient_color, self._end_gradient_color, 32)
         layout.addWidget(self.canvas, 1)
@@ -930,6 +1353,54 @@ class DesignToolsTab(QWidget):
         self._apply_button_icon(reset_btn, "target", tooltip="Reset canvas zoom", icon_only=True)
         zoom_row.addWidget(reset_btn)
         layout.addLayout(zoom_row)
+
+        # Onion skinning controls
+        onion_skin_group = QGroupBox("Onion Skinning")
+        onion_layout = QVBoxLayout()
+        
+        self.onion_skin_checkbox = QCheckBox("Enable Onion Skin")
+        self.onion_skin_checkbox.setChecked(False)
+        self.onion_skin_checkbox.toggled.connect(self._on_onion_skin_toggled)
+        onion_layout.addWidget(self.onion_skin_checkbox)
+        
+        onion_config_row = QHBoxLayout()
+        onion_config_row.addWidget(QLabel("Previous:"))
+        self.onion_skin_prev_count_spin = QSpinBox()
+        self.onion_skin_prev_count_spin.setRange(0, 5)
+        self.onion_skin_prev_count_spin.setValue(1)
+        self.onion_skin_prev_count_spin.setEnabled(False)
+        self.onion_skin_prev_count_spin.valueChanged.connect(self._on_onion_skin_settings_changed)
+        onion_config_row.addWidget(self.onion_skin_prev_count_spin)
+        
+        onion_config_row.addWidget(QLabel("Opacity:"))
+        self.onion_skin_prev_opacity_slider = QSlider(Qt.Horizontal)
+        self.onion_skin_prev_opacity_slider.setRange(0, 100)
+        self.onion_skin_prev_opacity_slider.setValue(50)
+        self.onion_skin_prev_opacity_slider.setEnabled(False)
+        self.onion_skin_prev_opacity_slider.valueChanged.connect(self._on_onion_skin_settings_changed)
+        onion_config_row.addWidget(self.onion_skin_prev_opacity_slider)
+        onion_layout.addLayout(onion_config_row)
+        
+        onion_config_row2 = QHBoxLayout()
+        onion_config_row2.addWidget(QLabel("Next:"))
+        self.onion_skin_next_count_spin = QSpinBox()
+        self.onion_skin_next_count_spin.setRange(0, 5)
+        self.onion_skin_next_count_spin.setValue(1)
+        self.onion_skin_next_count_spin.setEnabled(False)
+        self.onion_skin_next_count_spin.valueChanged.connect(self._on_onion_skin_settings_changed)
+        onion_config_row2.addWidget(self.onion_skin_next_count_spin)
+        
+        onion_config_row2.addWidget(QLabel("Opacity:"))
+        self.onion_skin_next_opacity_slider = QSlider(Qt.Horizontal)
+        self.onion_skin_next_opacity_slider.setRange(0, 100)
+        self.onion_skin_next_opacity_slider.setValue(30)
+        self.onion_skin_next_opacity_slider.setEnabled(False)
+        self.onion_skin_next_opacity_slider.valueChanged.connect(self._on_onion_skin_settings_changed)
+        onion_config_row2.addWidget(self.onion_skin_next_opacity_slider)
+        onion_layout.addLayout(onion_config_row2)
+        
+        onion_skin_group.setLayout(onion_layout)
+        layout.addWidget(onion_skin_group)
 
         geometry_row = QHBoxLayout()
         geometry_row.addWidget(QLabel("Geometry Overlay:"))
@@ -975,6 +1446,50 @@ class DesignToolsTab(QWidget):
         layout.addWidget(self._create_palette_group(), stretch=1)
         layout.addWidget(self._create_text_animation_group())
         layout.addStretch()
+        return tab
+
+    def _create_led_colors_tab(self) -> QWidget:
+        """Create LED Colors tab with LED Color Panel."""
+        from ui.widgets.led_color_panel import LEDColorPanel
+        
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        # Create LED Color Panel
+        self.led_color_panel = LEDColorPanel(self)
+        
+        # Connect signals
+        self.led_color_panel.brightness_changed.connect(self._on_led_brightness_changed)
+        self.led_color_panel.gamma_changed.connect(self._on_led_gamma_changed)
+        self.led_color_panel.color_selected.connect(self._on_led_palette_color_selected)
+        self.led_color_panel.color_temperature_changed.connect(self._on_led_temp_changed)
+        self.led_color_panel.preview_mode_changed.connect(self._on_led_preview_mode_changed)
+        
+        layout.addWidget(self.led_color_panel)
+        layout.addStretch()
+        
+        return tab
+    
+    def _create_pixel_mapping_tab(self) -> QWidget:
+        """Create Pixel Mapping tab with wiring configuration."""
+        from ui.widgets.pixel_mapping_widget import PixelMappingWidget
+        
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        # Create Pixel Mapping Widget
+        self.pixel_mapping_widget = PixelMappingWidget(self)
+        
+        # Connect signals
+        self.pixel_mapping_widget.mapping_changed.connect(self._on_pixel_mapping_changed)
+        
+        layout.addWidget(self.pixel_mapping_widget)
+        layout.addStretch()
+        
         return tab
 
     def _create_scratchpad_tab(self) -> QWidget:
@@ -1087,6 +1602,13 @@ class DesignToolsTab(QWidget):
             paste_btn = self._scratchpad_paste_buttons.get(s)
             if paste_btn:
                 paste_btn.setEnabled(filled)
+                # Add tooltip to indicate slot state
+                if filled:
+                    paste_btn.setToolTip("Paste scratchpad contents into the active frame.")
+                    paste_btn.setStyleSheet("")
+                else:
+                    paste_btn.setToolTip("Slot empty - nothing to paste. Copy a frame first.")
+                    paste_btn.setStyleSheet("color: #888; background-color: #2a2a2a;")
 
     def _set_canvas_status(self, message: str) -> None:
         label = getattr(self, "canvas_status_label", None)
@@ -1100,16 +1622,50 @@ class DesignToolsTab(QWidget):
         self._has_unsaved_changes = False
 
     def _confirm_discard_changes(self) -> bool:
+        """Confirm discard changes, offering save option."""
         if not self._has_unsaved_changes:
             return True
-        response = QMessageBox.question(
+        
+        # Create custom dialog with three options
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Unsaved Changes")
+        msg.setText("You have unsaved changes. What would you like to do?")
+        msg.setIcon(QMessageBox.Question)
+        
+        save_btn = msg.addButton("Save and Continue", QMessageBox.AcceptRole)
+        discard_btn = msg.addButton("Discard and Continue", QMessageBox.DestructiveRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+        msg.setDefaultButton(cancel_btn)
+        
+        msg.exec()
+        
+        if msg.clickedButton() == save_btn:
+            # Show export/save dialog
+            try:
+                # Store original unsaved state
+                was_unsaved = self._has_unsaved_changes
+                self._on_open_export_dialog()
+                # Check if save was successful (unsaved flag cleared)
+                if not self._has_unsaved_changes:
+                    return True
+                else:
+                    # User cancelled save dialog or save failed
+                    if was_unsaved:
+                        # Still unsaved, user may have cancelled
+                        return False
+                    return True
+            except Exception as e:
+                QMessageBox.critical(
             self,
-            "Discard Unsaved Changes?",
-            "Changes in the current design are unsaved. Do you want to discard them?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
-        )
-        return response == QMessageBox.Yes
+                    "Save Failed",
+                    f"Failed to save pattern:\n{str(e)}"
+                )
+                return False
+        elif msg.clickedButton() == discard_btn:
+            return True
+        else:
+            # Cancel
+            return False
 
     def _create_layers_tab(self) -> QWidget:
         """Create the Layers tab with layer panel widget."""
@@ -1299,6 +1855,25 @@ class DesignToolsTab(QWidget):
         self._load_current_frame_into_canvas()
         self._update_status_labels()
 
+    def _on_timeline_layer_visibility_toggled(self, layer_index: int):
+        """Handle layer visibility toggle from timeline eye icon."""
+        if not self._pattern:
+            return
+        
+        # Get current frame
+        current_frame = self._current_frame_index
+        
+        # Get layer visibility state
+        layers = self.layer_manager.get_layers(current_frame)
+        if layer_index < len(layers):
+            layer = layers[layer_index]
+            new_visible = not layer.visible
+            self.layer_manager.set_layer_visible(current_frame, layer_index, new_visible)
+            # Refresh timeline to update eye icon
+            self._refresh_timeline()
+            # Update canvas
+            self._load_current_frame_into_canvas()
+    
     def _on_timeline_layer_selected(self, layer_index: int):
         """Handle layer row selection from timeline."""
         if not hasattr(self, "layer_panel") or not self.layer_panel:
@@ -1390,6 +1965,20 @@ class DesignToolsTab(QWidget):
         self.tool_button_group.addButton(gradient_btn, 5)
         tool_layout.addWidget(gradient_btn, 2, 1)
 
+        # Bucket fill tool
+        bucket_btn = QPushButton("Bucket Fill")
+        bucket_btn.setCheckable(True)
+        bucket_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.BUCKET_FILL))
+        self.tool_button_group.addButton(bucket_btn, 6)
+        tool_layout.addWidget(bucket_btn, 2, 2)
+
+        # Eyedropper tool
+        eyedropper_btn = QPushButton("Eyedropper")
+        eyedropper_btn.setCheckable(True)
+        eyedropper_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.EYEDROPPER))
+        self.tool_button_group.addButton(eyedropper_btn, 7)
+        tool_layout.addWidget(eyedropper_btn, 3, 0)
+
         layout.addLayout(tool_layout)
 
         # Shape fill option
@@ -1398,6 +1987,19 @@ class DesignToolsTab(QWidget):
         self.shape_filled_checkbox.setEnabled(False)  # Enabled when shape tool selected
         self.shape_filled_checkbox.toggled.connect(self._on_shape_filled_changed)
         layout.addWidget(self.shape_filled_checkbox)
+
+        # Bucket fill tolerance control
+        tolerance_row = QHBoxLayout()
+        tolerance_row.addWidget(QLabel("Fill Tolerance:"))
+        self.bucket_fill_tolerance_spin = QSpinBox()
+        self.bucket_fill_tolerance_spin.setRange(0, 255)
+        self.bucket_fill_tolerance_spin.setValue(0)
+        self.bucket_fill_tolerance_spin.setToolTip("Color matching tolerance for bucket fill (0=exact match, 255=all colors)")
+        self.bucket_fill_tolerance_spin.setEnabled(False)  # Enabled when bucket fill selected
+        self.bucket_fill_tolerance_spin.valueChanged.connect(self._on_bucket_fill_tolerance_changed)
+        tolerance_row.addWidget(self.bucket_fill_tolerance_spin)
+        tolerance_row.addStretch()
+        layout.addLayout(tolerance_row)
 
         # Brush size selector
         brush_layout = QHBoxLayout()
@@ -1419,7 +2021,14 @@ class DesignToolsTab(QWidget):
         brush_layout.addStretch()
         layout.addLayout(brush_layout)
 
-        self.brush_broadcast_checkbox = QCheckBox("Apply brush strokes to all frames")
+        self.brush_broadcast_checkbox = QCheckBox("⚠️ Apply brush strokes to all frames")
+        self.brush_broadcast_checkbox.setToolTip(
+            "Warning: When enabled, all brush strokes will be applied to ALL frames in the pattern. "
+            "This is a destructive operation that affects the entire pattern."
+        )
+        self.brush_broadcast_checkbox.stateChanged.connect(self._on_brush_broadcast_changed)
+        # Update styling when state changes
+        self._update_broadcast_checkbox_style()
         layout.addWidget(self.brush_broadcast_checkbox)
 
         group.setLayout(layout)
@@ -1430,7 +2039,10 @@ class DesignToolsTab(QWidget):
         if self.canvas:
             self.canvas.set_drawing_mode(mode)
             # Enable/disable filled checkbox based on tool
-            self.shape_filled_checkbox.setEnabled(mode != DrawingMode.PIXEL and mode != DrawingMode.LINE)
+            self.shape_filled_checkbox.setEnabled(mode != DrawingMode.PIXEL and mode != DrawingMode.LINE and mode != DrawingMode.BUCKET_FILL and mode != DrawingMode.EYEDROPPER)
+            # Enable/disable tolerance control based on tool
+            if hasattr(self, 'bucket_fill_tolerance_spin'):
+                self.bucket_fill_tolerance_spin.setEnabled(mode == DrawingMode.BUCKET_FILL)
 
     def _on_shape_filled_changed(self, checked: bool):
         """Handle shape filled toggle."""
@@ -1445,6 +2057,133 @@ class DesignToolsTab(QWidget):
     def _on_brush_preset_selected(self, size: int):
         """Handle brush preset selection."""
         self.brush_size_spin.setValue(size)
+    
+    def _create_broadcast_warning_banner(self) -> QWidget:
+        """Create warning banner for broadcast mode."""
+        banner = QFrame()
+        banner.setObjectName("broadcastWarningBanner")
+        banner.setStyleSheet("""
+            QFrame#broadcastWarningBanner {
+                background-color: #ff4444;
+                border: 2px solid #cc0000;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        warning_icon = QLabel("⚠️")
+        warning_icon.setStyleSheet("font-size: 18px; font-weight: bold;")
+        layout.addWidget(warning_icon)
+        
+        warning_text = QLabel("Broadcast Mode Active - Changes apply to ALL frames")
+        warning_text.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        layout.addWidget(warning_text)
+        
+        layout.addStretch()
+        
+        disable_btn = QPushButton("Disable Broadcast")
+        disable_btn.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: #cc0000;
+                border: 1px solid white;
+                border-radius: 3px;
+                padding: 4px 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #ffeeee;
+            }
+        """)
+        disable_btn.clicked.connect(lambda: self.brush_broadcast_checkbox.setChecked(False))
+        layout.addWidget(disable_btn)
+        
+        return banner
+    
+    def _create_hidden_layer_warning_banner(self) -> QWidget:
+        """Create warning banner for hidden layer painting."""
+        banner = QFrame()
+        banner.setObjectName("hiddenLayerWarningBanner")
+        banner.setStyleSheet("""
+            QFrame#hiddenLayerWarningBanner {
+                background-color: #ff8800;
+                border: 2px solid #cc6600;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        warning_icon = QLabel("👁️‍🗨️")
+        warning_icon.setStyleSheet("font-size: 18px; font-weight: bold;")
+        layout.addWidget(warning_icon)
+        
+        self._hidden_layer_warning_label = QLabel("Painting on hidden layer - changes won't be visible")
+        self._hidden_layer_warning_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        layout.addWidget(self._hidden_layer_warning_label)
+        
+        layout.addStretch()
+        
+        return banner
+    
+    def _update_broadcast_checkbox_style(self):
+        """Update checkbox styling based on state."""
+        if not hasattr(self, 'brush_broadcast_checkbox') or not self.brush_broadcast_checkbox:
+            return
+        
+        if self.brush_broadcast_checkbox.isChecked():
+            self.brush_broadcast_checkbox.setStyleSheet("""
+                QCheckBox {
+                    color: #ff4444;
+                    font-weight: bold;
+                }
+                QCheckBox::indicator {
+                    border: 2px solid #ff4444;
+                    background-color: #ffeeee;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #ff4444;
+                }
+            """)
+        else:
+            self.brush_broadcast_checkbox.setStyleSheet("")
+    
+    def _on_brush_broadcast_changed(self, state: int):
+        """Handle brush broadcast checkbox state change."""
+        is_checked = (state == Qt.Checked)
+        
+        # Show confirmation dialog on first enable
+        if is_checked and not self._brush_broadcast_warning_shown:
+            reply = QMessageBox.question(
+                self,
+                "Enable Broadcast Mode?",
+                "⚠️ WARNING: Broadcast Mode will apply ALL brush strokes to EVERY frame in your pattern.\n\n"
+                "This is a destructive operation that affects the entire pattern.\n\n"
+                "Do you want to enable Broadcast Mode?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.No:
+                # User cancelled, uncheck the checkbox
+                self.brush_broadcast_checkbox.blockSignals(True)
+                self.brush_broadcast_checkbox.setChecked(False)
+                self.brush_broadcast_checkbox.blockSignals(False)
+                return
+            
+            self._brush_broadcast_warning_shown = True
+        
+        # Update visual indicators
+        self._update_broadcast_checkbox_style()
+        
+        # Show/hide warning banner
+        if hasattr(self, '_brush_broadcast_banner') and self._brush_broadcast_banner:
+            self._brush_broadcast_banner.setVisible(is_checked)
 
     def _create_palette_group(self) -> QGroupBox:
         group = QGroupBox("Palette & Brushes")
@@ -1575,16 +2314,31 @@ class DesignToolsTab(QWidget):
 
     def _create_text_animation_group(self) -> QGroupBox:
         """Create the text animation group for typed and animated text generation."""
+        from ui.widgets.enhanced_text_tool import EnhancedTextToolWidget
+        
         group = QGroupBox("Text Animation")
         layout = QVBoxLayout()
         layout.setSpacing(8)
 
-        # Text input
+        # Use enhanced text tool widget
+        self.enhanced_text_tool = EnhancedTextToolWidget(
+            self,
+            self.font_repo,
+            dimension_provider=lambda: (self.width_spin.value(), self.height_spin.value()),
+        )
+        self.enhanced_text_tool.set_font_designer_callback(self._open_font_designer)
+        self.enhanced_text_tool.set_primary_color(self._current_color)
+        self.enhanced_text_tool.generate_requested.connect(self._on_generate_text_animation)
+        self.enhanced_text_tool.text_changed.connect(self._on_enhanced_text_changed)
+        layout.addWidget(self.enhanced_text_tool)
+        
+        # Keep legacy text input for backward compatibility (hidden by default)
         text_input_row = QHBoxLayout()
         text_input_row.addWidget(QLabel("Text:"))
         self.text_input = QLineEdit()
         self.text_input.setPlaceholderText("Enter text to animate...")
         self.text_input.textChanged.connect(self._on_text_input_changed)
+        self.text_input.setVisible(False)  # Hide legacy input
         text_input_row.addWidget(self.text_input)
         layout.addLayout(text_input_row)
 
@@ -1703,10 +2457,22 @@ class DesignToolsTab(QWidget):
             self._current_color = (color.red(), color.green(), color.blue())
             self.text_color_btn.setStyleSheet(f"background-color: rgb{self._current_color};")
             self._sync_channel_controls(self._current_color)
+            if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
+                self.enhanced_text_tool.set_primary_color(self._current_color)
+
+    def _on_enhanced_text_changed(self, text: str):
+        """Handle enhanced text tool text change - update legacy input for compatibility."""
+        if hasattr(self, "text_input"):
+            self.text_input.setText(text)
 
     def _on_generate_text_animation(self):
         """Generate animated text frames based on current settings."""
-        text = self.text_input.text().strip()
+        # Use enhanced text tool if available, otherwise fall back to legacy
+        if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
+            text = self.enhanced_text_tool.get_text().strip()
+        else:
+            text = self.text_input.text().strip() if hasattr(self, "text_input") else ""
+        
         if not text:
             QMessageBox.warning(self, "No Text", "Please enter text to animate.")
             return
@@ -1714,12 +2480,12 @@ class DesignToolsTab(QWidget):
         if not self._pattern:
             self._create_default_pattern()
 
-        anim_type = self.text_animation_type_combo.currentText()
-        frames_per_char = self.text_frames_per_char_spin.value()
-        font_size = self.text_font_size_spin.value()
+        anim_type = self.text_animation_type_combo.currentText() if hasattr(self, "text_animation_type_combo") else "Typed (Character by Character)"
+        frames_per_char = self.text_frames_per_char_spin.value() if hasattr(self, "text_frames_per_char_spin") else 2
+        font_size = self.text_font_size_spin.value() if hasattr(self, "text_font_size_spin") else 8
         text_color = self._current_color
 
-        frames = self._generate_text_frames(text, anim_type, frames_per_char, font_size, text_color)
+        frames = self._generate_text_frames(text, anim_type, frames_per_char, text_color)
         
         if frames:
             # Clear existing frames or append based on user preference
@@ -1747,49 +2513,53 @@ class DesignToolsTab(QWidget):
             self.pattern_modified.emit()
             QMessageBox.information(self, "Success", f"Generated {len(frames)} text animation frames.")
 
-    def _generate_text_frames(self, text: str, anim_type: str, frames_per_char: int, font_size: int, text_color: Tuple[int, int, int]) -> List[Frame]:
-        """Generate frames for text animation."""
+    def _build_text_render_options(
+        self,
+        width: int,
+        height: int,
+        text_color: Tuple[int, int, int],
+    ) -> TextRenderOptions:
+        if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
+            return self.enhanced_text_tool.build_render_options(width, height, text_color)
+        return TextRenderOptions(
+            width=width,
+            height=height,
+            color=text_color,
+            background=(0, 0, 0),
+            alignment="center",
+            spacing=0,
+            line_spacing=1,
+            multiline=True,
+            font_size=self._current_font_metrics()[1],
+        )
+
+    def _build_text_scroll_options(self, direction: str) -> TextScrollOptions:
+        if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
+            return self.enhanced_text_tool.get_scroll_options(direction)
+        return TextScrollOptions(direction=direction)
+
+    def _generate_text_frames(
+        self,
+        text: str,
+        anim_type: str,
+        frames_per_char: int,
+        text_color: Tuple[int, int, int],
+    ) -> List[Frame]:
+        """Generate frames for text animation using the shared text renderer."""
         width = self.width_spin.value() if hasattr(self, "width_spin") else self._pattern.metadata.width
         height = self.height_spin.value() if hasattr(self, "height_spin") else self._pattern.metadata.height
-        
-        frames: List[Frame] = []
-        
-        if "Typed" in anim_type:
-            # Character-by-character typing effect
-            for i in range(len(text) + 1):
-                for _ in range(frames_per_char):
-                    frame = Frame(duration_ms=self._frame_duration_ms, pixels=[])
-                    frame.pixels = self._render_text_to_frame(text[:i], width, height, font_size, text_color)
-                    frames.append(frame)
-        elif "Scrolling" in anim_type:
-            # Scrolling text animation
+        render_opts = self._build_text_render_options(width, height, text_color)
+
+        if "Scrolling" in anim_type:
             direction = anim_type.split()[-1].lower()
-            char_width = font_size // 2 + 1
-            total_width = len(text) * char_width + width  # Extra width for scrolling
-            
-            if direction in ["left", "right"]:
-                num_frames = total_width
-                for frame_idx in range(num_frames):
-                    frame = Frame(duration_ms=self._frame_duration_ms, pixels=[])
-                    offset = frame_idx if direction == "left" else total_width - frame_idx - 1
-                    frame.pixels = self._render_scrolling_text(text, width, height, font_size, text_color, offset, direction == "left")
-                    frames.append(frame)
-            else:  # up or down
-                char_height = font_size + 2
-                total_height = len(text) * char_height + height
-                num_frames = total_height
-                for frame_idx in range(num_frames):
-                    frame = Frame(duration_ms=self._frame_duration_ms, pixels=[])
-                    offset = frame_idx if direction == "down" else total_height - frame_idx - 1
-                    frame.pixels = self._render_scrolling_text_vertical(text, width, height, font_size, text_color, offset, direction == "down")
-                    frames.append(frame)
+            scroll_opts = self._build_text_scroll_options(direction)
+            pixel_frames = self.text_renderer.render_scroll_frames(text, render_opts, scroll_opts)
         else:
-            # Default: simple typing
-            for i in range(len(text) + 1):
-                frame = Frame(duration_ms=self._frame_duration_ms, pixels=[])
-                frame.pixels = self._render_text_to_frame(text[:i], width, height, font_size, text_color)
-                frames.append(frame)
-        
+            pixel_frames = self.text_renderer.render_typing_frames(text, render_opts, frames_per_char, self._frame_duration_ms)
+
+        frames: List[Frame] = []
+        for pixels in pixel_frames:
+            frames.append(Frame(duration_ms=self._frame_duration_ms, pixels=list(pixels)))
         return frames
 
     def _render_text_to_frame(self, text: str, width: int, height: int, font_size: int, color: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
@@ -1880,8 +2650,14 @@ class DesignToolsTab(QWidget):
 
     def _get_char_pattern(self, char: str) -> List[List[bool]]:
         """Get bitmap pattern for a character (5x7 grid). Extended ASCII support."""
+        width, height = self._current_font_metrics()
+        provider = self._glyph_provider
         if getattr(self, "_active_bitmap_font", None):
-            return self._active_bitmap_font.glyph(char)
+            provider = GlyphProvider(bitmap_font=self._active_bitmap_font)
+        return provider.with_size(width, height).glyph(char)
+        # Legacy fallback maintained below for reference and to preserve historical
+        # glyph definitions. Execution never reaches this path because we return
+        # early using the shared GlyphProvider.
         char_upper = char.upper()
         
         # Extended 5x7 bitmap font patterns
@@ -2666,10 +3442,6 @@ class DesignToolsTab(QWidget):
         preview_btn.clicked.connect(self._on_lms_preview_sequence)
         preview_controls.addWidget(preview_btn)
 
-        exit_btn = QPushButton("Exit Preview")
-        exit_btn.clicked.connect(self._on_lms_exit_preview)
-        preview_controls.addWidget(exit_btn)
-
         preview_controls.addWidget(QLabel("Max frames:"))
         self.lms_preview_limit_spin = QSpinBox()
         self.lms_preview_limit_spin.setRange(1, 240)
@@ -2677,6 +3449,70 @@ class DesignToolsTab(QWidget):
         preview_controls.addWidget(self.lms_preview_limit_spin)
         preview_controls.addStretch()
         preview_layout.addLayout(preview_controls)
+
+        # Preview mode banner (initially hidden)
+        self.lms_preview_banner = QFrame()
+        self.lms_preview_banner.setObjectName("lmsPreviewBanner")
+        self.lms_preview_banner.setStyleSheet("""
+            QFrame#lmsPreviewBanner {
+                background-color: #4444ff;
+                border: 2px solid #0000cc;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        banner_layout = QHBoxLayout(self.lms_preview_banner)
+        banner_layout.setContentsMargins(8, 8, 8, 8)
+        banner_layout.setSpacing(8)
+        
+        preview_icon = QLabel("👁️")
+        preview_icon.setStyleSheet("font-size: 18px; font-weight: bold;")
+        banner_layout.addWidget(preview_icon)
+        
+        preview_mode_text = QLabel("PREVIEW MODE")
+        preview_mode_text.setStyleSheet("color: white; font-weight: bold; font-size: 14px;")
+        banner_layout.addWidget(preview_mode_text)
+        
+        banner_layout.addStretch()
+        
+        # Apply Preview button
+        self.lms_apply_preview_btn = QPushButton("Apply Preview Changes")
+        self.lms_apply_preview_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00cc00;
+                color: white;
+                border: 1px solid white;
+                border-radius: 3px;
+                padding: 6px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #00ee00;
+            }
+        """)
+        self.lms_apply_preview_btn.clicked.connect(self._on_lms_apply_preview)
+        banner_layout.addWidget(self.lms_apply_preview_btn)
+        
+        # Restore Original button
+        self.lms_restore_original_btn = QPushButton("Restore Original (Ctrl+R)")
+        self.lms_restore_original_btn.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: #0000cc;
+                border: 1px solid white;
+                border-radius: 3px;
+                padding: 6px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #eeeeff;
+            }
+        """)
+        self.lms_restore_original_btn.clicked.connect(self._on_lms_exit_preview)
+        banner_layout.addWidget(self.lms_restore_original_btn)
+        
+        self.lms_preview_banner.setVisible(False)
+        preview_layout.addWidget(self.lms_preview_banner)
 
         self.lms_preview_status_label = QLabel("Preview uses the current pattern as a source and never overwrites frames.")
         self.lms_preview_status_label.setWordWrap(True)
@@ -2980,12 +3816,26 @@ class DesignToolsTab(QWidget):
         self._current_frame_index = 0
         self._load_current_frame_into_canvas()
         self._refresh_timeline()
+        
+        # Show preview banner and update status
+        if hasattr(self, 'lms_preview_banner') and self.lms_preview_banner:
+            self.lms_preview_banner.setVisible(True)
         if self.lms_preview_status_label:
             self.lms_preview_status_label.setText(
-                f"Previewing {len(preview_frames)} frame(s). Click 'Exit Preview' to restore the original pattern."
+                f"⚠️ PREVIEW MODE: Previewing {len(preview_frames)} frame(s). "
+                "Use 'Apply Preview Changes' to keep the preview, or 'Restore Original' to discard it."
             )
+            self.lms_preview_status_label.setStyleSheet("""
+                color: #ff4444;
+                font-weight: bold;
+                background-color: #ffeeee;
+                padding: 8px;
+                border: 1px solid #ffaaaa;
+                border-radius: 4px;
+            """)
 
     def _on_lms_exit_preview(self):
+        """Restore original pattern from preview."""
         if not self._lms_preview_snapshot:
             if self.lms_preview_status_label:
                 self.lms_preview_status_label.setText("No preview is active.")
@@ -2998,8 +3848,40 @@ class DesignToolsTab(QWidget):
         self._current_frame_index = min(self._current_frame_index, len(self._pattern.frames) - 1)
         self._load_current_frame_into_canvas()
         self._refresh_timeline()
+        
+        # Hide preview banner and reset status
+        if hasattr(self, 'lms_preview_banner') and self.lms_preview_banner:
+            self.lms_preview_banner.setVisible(False)
         if self.lms_preview_status_label:
             self.lms_preview_status_label.setText("Preview closed. Restored original pattern frames.")
+            self.lms_preview_status_label.setStyleSheet("color: #888;")
+    
+    def _on_lms_apply_preview(self):
+        """Apply preview changes to pattern permanently."""
+        if not self._lms_preview_snapshot:
+            QMessageBox.information(self, "No Preview", "No preview is active.")
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Apply Preview Changes?",
+            "This will replace the original pattern with the preview.\n\n"
+            "The original pattern will be lost. Are you sure you want to continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            # Keep the preview pattern, discard the snapshot
+            self._lms_preview_snapshot = None
+            self.pattern_modified.emit()
+            
+            # Hide preview banner and reset status
+            if hasattr(self, 'lms_preview_banner') and self.lms_preview_banner:
+                self.lms_preview_banner.setVisible(False)
+            if self.lms_preview_status_label:
+                self.lms_preview_status_label.setText("Preview applied. Original pattern has been replaced.")
+                self.lms_preview_status_label.setStyleSheet("color: #008800; font-weight: bold;")
 
     def _on_lms_import_leds(self):
         filepath, _ = QFileDialog.getOpenFileName(
@@ -3142,8 +4024,46 @@ class DesignToolsTab(QWidget):
             self.frame_end_spin.setValue(1)
             self.frame_end_spin.valueChanged.connect(lambda _: self._refresh_timeline())
         range_row.addWidget(self.frame_end_spin)
+        
+        # Select Range button
+        select_range_btn = QPushButton("Select Range")
+        select_range_btn.setToolTip("Select frames in the specified range on timeline")
+        select_range_btn.clicked.connect(self._on_select_range_clicked)
+        range_row.addWidget(select_range_btn)
+        
+        # Select All button
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.setToolTip("Select all frames")
+        select_all_btn.clicked.connect(self._on_select_all_frames_clicked)
+        range_row.addWidget(select_all_btn)
+        
         range_row.addStretch()
         layout.addLayout(range_row)
+        
+        # Range operations
+        range_ops_row = QHBoxLayout()
+        range_ops_row.addWidget(QLabel("Range Operations:"))
+        
+        # Clear range button
+        clear_range_btn = QPushButton("Clear Range")
+        clear_range_btn.setToolTip("Clear all pixels in selected range")
+        clear_range_btn.clicked.connect(self._on_clear_range_clicked)
+        range_ops_row.addWidget(clear_range_btn)
+        
+        # Invert range button
+        invert_range_btn = QPushButton("Invert Range")
+        invert_range_btn.setToolTip("Invert colors in selected range")
+        invert_range_btn.clicked.connect(self._on_invert_range_clicked)
+        range_ops_row.addWidget(invert_range_btn)
+        
+        # Delete range button
+        delete_range_btn = QPushButton("Delete Range")
+        delete_range_btn.setToolTip("Delete frames in selected range")
+        delete_range_btn.clicked.connect(self._on_delete_range_clicked)
+        range_ops_row.addWidget(delete_range_btn)
+        
+        range_ops_row.addStretch()
+        layout.addLayout(range_ops_row)
 
         # Frame generation options
         gen_row = QHBoxLayout()
@@ -3305,12 +4225,18 @@ class DesignToolsTab(QWidget):
         self.effect_preview_status.hide()
         layout.addWidget(self.effect_preview_status)
 
-        # Apply and Finalize buttons
+        # Apply, Cancel, and Finalize buttons
         apply_row = QHBoxLayout()
         self.apply_effect_btn = QPushButton("✓ Apply Effect")
         self.apply_effect_btn.setEnabled(False)
         self.apply_effect_btn.clicked.connect(self._on_apply_effect)
         apply_row.addWidget(self.apply_effect_btn)
+        
+        self.cancel_effect_btn = QPushButton("✗ Cancel Preview")
+        self.cancel_effect_btn.setEnabled(False)
+        self.cancel_effect_btn.setToolTip("Discard preview and return to original pattern")
+        self.cancel_effect_btn.clicked.connect(self._on_cancel_effect_preview)
+        apply_row.addWidget(self.cancel_effect_btn)
         
         self.finalize_automation_btn = QPushButton("✓ Finalize Automation")
         self.finalize_automation_btn.setToolTip("Convert automation actions to LMS pattern instructions for MCU export")
@@ -3334,7 +4260,36 @@ class DesignToolsTab(QWidget):
         """Handle effect type selection change."""
         self._update_effect_description()
         self.apply_effect_btn.setEnabled(False)
+        self.cancel_effect_btn.setEnabled(False)
         self.effect_preview_status.hide()
+    
+    def _on_cancel_effect_preview(self):
+        """Cancel effect preview and restore original pattern."""
+        effect_type = self.effect_type_combo.currentText()
+        
+        # Restore pattern from backup if available
+        if hasattr(self, "_effects_preview_backup"):
+            if isinstance(self._effects_preview_backup, Pattern):
+                self._pattern = self._effects_preview_backup
+                self._current_frame_index = 0
+                self._load_current_frame_into_canvas()
+                self._refresh_timeline()
+                self._update_status_labels()
+                # Clean up backup
+                delattr(self, "_effects_preview_backup")
+        
+        # Clean up pending custom effect
+        if hasattr(self, '_pending_custom_effect'):
+            delattr(self, '_pending_custom_effect')
+        
+        # Hide preview status and disable buttons
+        self.effect_preview_status.hide()
+        self.apply_effect_btn.setEnabled(False)
+        self.cancel_effect_btn.setEnabled(False)
+        
+        # Update status message
+        if hasattr(self, "_set_canvas_status"):
+            self._set_canvas_status("Preview cancelled. Original pattern restored.")
 
     def _update_effect_description(self):
         """Update the effect description label based on current selection."""
@@ -3431,6 +4386,7 @@ class DesignToolsTab(QWidget):
             )
             self.effect_preview_status.show()
             self.apply_effect_btn.setEnabled(True)
+            self.cancel_effect_btn.setEnabled(True)
             self.finalize_automation_btn.setEnabled(True)
             
         elif effect_type == "Animated Text":
@@ -3442,6 +4398,7 @@ class DesignToolsTab(QWidget):
             self.effect_preview_status.setText(f"Preview: Will generate animated text frames for '{text}'. Click 'Apply Effect' to generate.")
             self.effect_preview_status.show()
             self.apply_effect_btn.setEnabled(True)
+            self.cancel_effect_btn.setEnabled(True)
         elif effect_type == "Custom Effect":
             # Custom effects dialog
             from PySide6.QtWidgets import QDialog, QDialogButtonBox, QComboBox as QCombo
@@ -3481,11 +4438,15 @@ class DesignToolsTab(QWidget):
             if custom_dialog.exec() == QDialog.Accepted:
                 effect_name = effect_combo.currentText()
                 intensity = intensity_spin.value()
+                # Create backup before preview
+                if not hasattr(self, "_effects_preview_backup"):
+                    self._effects_preview_backup = copy.deepcopy(self._pattern)
                 self._preview_custom_effect(effect_name, intensity)
                 self._pending_custom_effect = (effect_name, intensity)
                 self.effect_preview_status.setText(f"Preview: Custom effect '{effect_name}' (intensity: {intensity}%). Click 'Apply Effect' to commit.")
                 self.effect_preview_status.show()
                 self.apply_effect_btn.setEnabled(True)
+                self.cancel_effect_btn.setEnabled(True)
 
     def _on_apply_effect(self):
         """Apply the effect to the pattern."""
@@ -3495,10 +4456,12 @@ class DesignToolsTab(QWidget):
             self._apply_actions_to_frames(finalize=False)
             self.effect_preview_status.hide()
             self.apply_effect_btn.setEnabled(False)
+            self.cancel_effect_btn.setEnabled(False)
         elif effect_type == "Animated Text":
             self._on_generate_text_animation()
             self.effect_preview_status.hide()
             self.apply_effect_btn.setEnabled(False)
+            self.cancel_effect_btn.setEnabled(False)
         elif effect_type == "Custom Effect":
             # Apply custom effect that was previewed
             if hasattr(self, '_pending_custom_effect'):
@@ -3507,6 +4470,7 @@ class DesignToolsTab(QWidget):
                 delattr(self, '_pending_custom_effect')
                 self.effect_preview_status.hide()
                 self.apply_effect_btn.setEnabled(False)
+                self.cancel_effect_btn.setEnabled(False)
                 self.pattern_modified.emit()
                 self._load_current_frame_into_canvas()
                 self._update_status_labels()
@@ -3849,6 +4813,73 @@ class DesignToolsTab(QWidget):
         if not filepath:
             return
 
+        # Validate file before processing
+        import os
+        from pathlib import Path
+        
+        # Check file exists
+        if not os.path.exists(filepath):
+            QMessageBox.critical(
+                self,
+                "File Not Found",
+                f"The file does not exist:\n{filepath}\n\nPlease check the file path and try again."
+            )
+            return
+        
+        # Check file is readable
+        if not os.access(filepath, os.R_OK):
+            QMessageBox.critical(
+                self,
+                "Permission Denied",
+                f"Cannot read file:\n{filepath}\n\nPlease check file permissions."
+            )
+            return
+        
+        # Check file size
+        try:
+            file_size = os.path.getsize(filepath)
+            if file_size == 0:
+                QMessageBox.critical(
+                    self,
+                    "Empty File",
+                    f"The file is empty:\n{filepath}\n\nPlease select a valid image file."
+                )
+                return
+            
+            # Warn if file is very large (>100MB)
+            if file_size > 100 * 1024 * 1024:
+                reply = QMessageBox.question(
+                    self,
+                    "Large File Warning",
+                    f"This file is very large ({file_size / (1024*1024):.1f} MB).\n\n"
+                    "Importing may take a long time and use significant memory.\n\n"
+                    "Do you want to continue?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                if reply == QMessageBox.No:
+                    return
+        except OSError as e:
+            QMessageBox.critical(
+                self,
+                "File Access Error",
+                f"Cannot access file:\n{filepath}\n\nError: {str(e)}"
+            )
+            return
+        
+        # Validate file format
+        file_ext = Path(filepath).suffix.lower()
+        supported_formats = [f".{fmt.lower()}" for fmt in ImageImporter.get_supported_formats()]
+        if file_ext not in supported_formats:
+            QMessageBox.critical(
+                self,
+                "Unsupported Format",
+                f"Unsupported file format: {file_ext}\n\n"
+                f"Supported formats: {', '.join([fmt.replace('.', '').upper() for fmt in supported_formats])}\n\n"
+                "Please select a supported image file."
+            )
+            return
+
         try:
             width = self._pattern.metadata.width
             height = self._pattern.metadata.height
@@ -3943,12 +4974,81 @@ class DesignToolsTab(QWidget):
             self._maybe_autosync_preview()
             self.pattern_modified.emit()
             
-        except Exception as e:
+        except FileNotFoundError:
             QMessageBox.critical(
                 self,
-                "Import Error",
-                f"Failed to import image:\n\n{str(e)}"
+                "File Not Found",
+                f"The image file was not found:\n{filepath}\n\nPlease check the file path and try again."
             )
+        except PermissionError:
+            QMessageBox.critical(
+                self,
+                "Permission Denied",
+                f"Cannot read the image file:\n{filepath}\n\nPlease check file permissions."
+            )
+        except OSError as e:
+            error_msg = str(e).lower()
+            if "cannot identify" in error_msg or "not a valid" in error_msg:
+                QMessageBox.critical(
+                    self,
+                    "Invalid File Format",
+                    f"The file is not a valid image:\n{filepath}\n\n"
+                    "The file may be corrupted or in an unsupported format.\n\n"
+                    "Supported formats: PNG, JPG, JPEG, BMP, GIF"
+                )
+            elif "truncated" in error_msg or "corrupt" in error_msg:
+                QMessageBox.critical(
+                    self,
+                    "Corrupted File",
+                    f"The image file appears to be corrupted:\n{filepath}\n\n"
+                    "The file may be incomplete or damaged. Please try a different file."
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "File Error",
+                    f"Failed to read the image file:\n{filepath}\n\nError: {str(e)}\n\n"
+                    "Please check that the file is a valid image and try again."
+                )
+        except ValueError as e:
+            error_msg = str(e).lower()
+            if "too large" in error_msg or "dimensions" in error_msg:
+                QMessageBox.critical(
+                    self,
+                    "Image Too Large",
+                    f"The image dimensions are too large:\n{filepath}\n\n"
+                    f"Error: {str(e)}\n\n"
+                    "Please use a smaller image or reduce the target matrix size."
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Invalid Image Data",
+                    f"The image file contains invalid data:\n{filepath}\n\n"
+                    f"Error: {str(e)}\n\n"
+                    "The file may be corrupted or in an unsupported format."
+                )
+        except Exception as e:
+            error_msg = str(e)
+            if "Failed to import" in error_msg:
+                # Extract the underlying error from ImageImporter
+                underlying_error = error_msg.replace("Failed to import image: ", "")
+                QMessageBox.critical(
+                    self,
+                    "Import Error",
+                    f"Failed to import image:\n{filepath}\n\n{underlying_error}\n\n"
+                    "The file may be corrupted, in an unsupported format, or too large."
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Unexpected Error",
+                    f"An unexpected error occurred while importing the image:\n{filepath}\n\n"
+                    f"Error: {error_msg}\n\n"
+                    "Please try again or report this issue if it persists."
+                )
+                import logging
+                logging.getLogger(__name__).error("Unexpected error importing image", exc_info=True)
 
     def _create_matrix_configuration_group(self) -> QGroupBox:
         group = QGroupBox("Matrix & Colour Configuration")
@@ -4091,14 +5191,34 @@ class DesignToolsTab(QWidget):
         autosave_dir.mkdir(parents=True, exist_ok=True)
         slug = (self._pattern.name or "pattern").replace(" ", "_")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        time_display = datetime.now().strftime("%I:%M %p")
         target = autosave_dir / f"{slug}_{timestamp}.json"
         try:
             self._pattern.save_to_file(str(target))
+            # Update memory status label
             if hasattr(self, "memory_status_label"):
-                self.memory_status_label.setText(f"Autosaved {timestamp}")
+                self.memory_status_label.setText(f"Autosaved at {time_display}")
+                self.memory_status_label.setStyleSheet("color: #4CAF50;")
+            # Show subtle status bar notification
+            if hasattr(self, "_set_canvas_status"):
+                self._set_canvas_status(f"Autosaved at {time_display} → {target.name}")
+            # Clear the success message after 3 seconds
+            if hasattr(self, "memory_status_label"):
+                QTimer.singleShot(3000, lambda: self.memory_status_label.setStyleSheet(""))
         except Exception as exc:
+            # Show error notification
             if hasattr(self, "memory_status_label"):
                 self.memory_status_label.setText(f"Autosave failed: {exc}")
+                self.memory_status_label.setStyleSheet("color: #f44336;")
+            if hasattr(self, "_set_canvas_status"):
+                self._set_canvas_status(f"Autosave failed: {str(exc)}")
+            # Show error message box for autosave failures
+            QMessageBox.warning(
+                self,
+                "Autosave Failed",
+                f"Autosave failed at {time_display}:\n\n{str(exc)}\n\n"
+                f"Your work is not automatically saved. Please save manually."
+            )
 
     def _on_preview_mode_changed(self, mode: str) -> None:
         preview_widget = getattr(self, "preview_widget", None)
@@ -4115,8 +5235,14 @@ class DesignToolsTab(QWidget):
             return
         width = getattr(self, "width_spin", None)
         height = getattr(self, "height_spin", None)
-        width_value = width.value() if width else (self._pattern.metadata.width if self._pattern else 0)
-        height_value = height.value() if height else (self._pattern.metadata.height if self._pattern else 0)
+        # Safely get widget values - handle case where widget might be deleted
+        try:
+            width_value = width.value() if width and hasattr(width, 'value') else (self._pattern.metadata.width if self._pattern else 0)
+            height_value = height.value() if height and hasattr(height, 'value') else (self._pattern.metadata.height if self._pattern else 0)
+        except (RuntimeError, AttributeError):
+            # Widget was deleted (e.g., during test cleanup)
+            width_value = self._pattern.metadata.width if self._pattern else 0
+            height_value = self._pattern.metadata.height if self._pattern else 0
         colour_mode = getattr(self, "color_mode_combo", None)
         colour_text = colour_mode.currentText() if colour_mode else "RGB"
         self.matrix_status_label.setText(f"Matrix: {width_value} × {height_value} ({colour_text})")
@@ -4124,6 +5250,46 @@ class DesignToolsTab(QWidget):
         total_frames = len(self._pattern.frames) if self._pattern and self._pattern.frames else 0
         current_index = self.frame_manager.current_index() if hasattr(self.frame_manager, "current_index") else 0
         frame_text = f"Frame: {current_index + 1}/{max(1, total_frames)} • {self._frame_duration_ms} ms"
+        
+        # Calculate and display memory usage
+        if self._pattern:
+            memory_bytes = self._calculate_pattern_size()
+            memory_kb = memory_bytes / 1024.0
+            memory_mb = memory_kb / 1024.0
+            
+            if memory_mb >= 1.0:
+                memory_text = f"Memory: {memory_mb:.2f} MB"
+            elif memory_kb >= 1.0:
+                memory_text = f"Memory: {memory_kb:.2f} KB"
+            else:
+                memory_text = f"Memory: {memory_bytes} B"
+            
+            # Add warning if approaching limits
+            if memory_bytes > 24576:  # >24KB (80% of 32KB)
+                memory_text += " ⚠"
+                self.memory_status_label.setStyleSheet("color: #ff4444;")
+            elif memory_bytes > 16384:  # >16KB (50% of 32KB)
+                memory_text += " ⚡"
+                self.memory_status_label.setStyleSheet("color: #ffaa00;")
+            else:
+                self.memory_status_label.setStyleSheet("")
+            
+            self.memory_status_label.setText(memory_text)
+            self.memory_status_label.setToolTip(
+                f"Pattern size: {memory_bytes} bytes ({memory_kb:.2f} KB)\n"
+                f"Per frame: ~{memory_bytes // max(1, total_frames)} bytes\n"
+                f"Total frames: {total_frames}"
+            )
+        else:
+            self.memory_status_label.setText("Memory: –")
+            self.memory_status_label.setToolTip("No pattern loaded")
+        
+        # Update delete frame button state
+        self._update_delete_frame_button_state()
+        
+        # Update undo/redo button states
+        self._update_undo_redo_states()
+        
         mismatches = self._validate_frame_dimensions()
         if mismatches:
             frame_text += " ⚠ size mismatch"
@@ -4232,13 +5398,41 @@ class DesignToolsTab(QWidget):
                     "Resolve geometry or frame-size mismatches before exporting."
                 )
 
+    def _validate_before_export(self) -> tuple[bool, str]:
+        """Validate pattern before export. Returns (is_valid, error_message)."""
+        if not self._pattern:
+            return False, "No pattern to export. Create or load a pattern first."
+        
+        if not hasattr(self._pattern, 'frames') or not self._pattern.frames:
+            return False, "Pattern has no frames. Add frames before exporting."
+        
+        # Check frames have pixels
+        has_pixels = False
+        for frame in self._pattern.frames:
+            if hasattr(frame, 'pixels') and frame.pixels and len(frame.pixels) > 0:
+                has_pixels = True
+                break
+        
+        if not has_pixels:
+            return False, "All frames are empty. Add some content before exporting."
+        
+        # Validate dimensions
+        if hasattr(self._pattern, 'metadata') and self._pattern.metadata:
+            width = getattr(self._pattern.metadata, 'width', 0)
+            height = getattr(self._pattern.metadata, 'height', 0)
+            if width <= 0 or height <= 0:
+                return False, f"Invalid pattern dimensions ({width}x{height}). Fix dimensions before exporting."
+        
+        return True, ""
+
     def _on_open_export_dialog(self) -> None:
         """Open enhanced export dialog with format selection and metadata options."""
-        if not self._pattern:
-            QMessageBox.warning(self, "No Pattern", "No pattern to export. Create or load a pattern first.")
+        # Validate before showing dialog
+        is_valid, error_msg = self._validate_before_export()
+        if not is_valid:
+            QMessageBox.warning(self, "Cannot Export", error_msg)
             return
         
-        from core.pattern_exporter import PatternExporter
         from core.export_options import ExportOptions
         from PySide6.QtWidgets import QDialog, QDialogButtonBox
         
@@ -4251,9 +5445,22 @@ class DesignToolsTab(QWidget):
         format_group = QGroupBox("Export Format")
         format_layout = QVBoxLayout()
         self.export_format_combo = QComboBox()
-        formats = PatternExporter.get_export_formats()
-        for name, ext, _ in formats:
-            self.export_format_combo.addItem(f"{name} ({ext})")
+        # Get formats from ExportService
+        formats = self.export_service.get_available_formats()
+        format_extensions = {
+            'bin': '*.bin',
+            'hex': '*.hex',
+            'dat': '*.dat',
+            'leds': '*.leds',
+            'json': '*.json',
+            'csv': '*.csv',
+            'txt': '*.txt',
+            'ledproj': '*.ledproj',
+            'h': '*.h'
+        }
+        for fmt in formats:
+            ext = format_extensions.get(fmt, f"*.{fmt}")
+            self.export_format_combo.addItem(f"{fmt.upper()} ({ext})")
         format_layout.addWidget(self.export_format_combo)
         format_group.setLayout(format_layout)
         layout.addWidget(format_group)
@@ -4312,7 +5519,7 @@ class DesignToolsTab(QWidget):
         rgb_layout = QHBoxLayout()
         rgb_layout.addWidget(QLabel("RGB Order:"))
         self.export_rgb_order_combo = QComboBox()
-        self.export_rgb_order_combo.addItems(["RGB", "BGR", "GRB"])
+        self.export_rgb_order_combo.addItems(["RGB", "BGR", "GRB", "BRG", "RBG", "GBR"])
         rgb_layout.addWidget(self.export_rgb_order_combo)
         rgb_layout.addStretch()
         advanced_layout.addLayout(rgb_layout)
@@ -4370,6 +5577,23 @@ class DesignToolsTab(QWidget):
         preview_layout.addWidget(preview_label)
         preview_group.setLayout(preview_layout)
         layout.addWidget(preview_group)
+        
+        # Hardware Preview
+        hardware_preview_group = QGroupBox("Hardware Preview")
+        hardware_preview_layout = QVBoxLayout()
+        hardware_preview_label = QLabel("This is how your pattern will look on hardware:")
+        hardware_preview_layout.addWidget(hardware_preview_label)
+        
+        # Add LED simulator widget
+        from ui.widgets.led_simulator import LEDSimulatorWidget
+        self.export_hardware_preview = LEDSimulatorWidget()
+        self.export_hardware_preview.setMinimumHeight(200)
+        if self._pattern:
+            self.export_hardware_preview.load_pattern(self._pattern)
+        hardware_preview_layout.addWidget(self.export_hardware_preview)
+        
+        hardware_preview_group.setLayout(hardware_preview_layout)
+        layout.addWidget(hardware_preview_group)
 
         # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -4472,6 +5696,15 @@ class DesignToolsTab(QWidget):
         self.export_serpentine_checkbox.stateChanged.connect(_update_preview)
         self.export_rgb_order_combo.currentTextChanged.connect(_update_preview)
         self.export_color_space_combo.currentTextChanged.connect(_update_preview)
+        
+        # Update hardware preview when options change
+        def _update_hardware_preview():
+            if hasattr(self, "export_hardware_preview") and self._pattern:
+                self.export_hardware_preview.load_pattern(self._pattern)
+        
+        self.export_format_combo.currentIndexChanged.connect(_update_hardware_preview)
+        self.export_rgb_order_combo.currentTextChanged.connect(_update_hardware_preview)
+        self.export_color_space_combo.currentTextChanged.connect(_update_hardware_preview)
         self.export_bytes_per_line_spin.valueChanged.connect(lambda _value: _update_preview())
         self.export_number_format_combo.currentTextChanged.connect(_update_preview)
 
@@ -4480,10 +5713,11 @@ class DesignToolsTab(QWidget):
         if dialog.exec() == QDialog.Accepted:
             selected_idx = self.export_format_combo.currentIndex()
             if selected_idx < len(formats):
-                format_name, extension, export_func = formats[selected_idx]
+                format_name = formats[selected_idx]
+                extension = format_extensions.get(format_name, f"*.{format_name}")
                 
                 # Open save dialog
-                filter_string = f"{format_name} ({extension})"
+                filter_string = f"{format_name.upper()} ({extension})"
                 filepath, _ = QFileDialog.getSaveFileName(
                     self,
                     "Export Pattern",
@@ -4510,26 +5744,44 @@ class DesignToolsTab(QWidget):
                             number_format=self.export_number_format_combo.currentText()
                         )
                         
-                        # Export with metadata if requested
-                        if self.include_metadata_checkbox.isChecked():
-                            # Enhanced export with metadata
-                            export_func(self._pattern, filepath, options)
-                            if self.include_timestamp_checkbox.isChecked():
-                                # Add timestamp comment if format supports it
-                                import os
-                                import datetime
-                                timestamp = datetime.datetime.now().isoformat()
-                                # For text formats, append comment
-                                if extension in ['*.leds', '*.json']:
-                                    with open(filepath, 'a', encoding='utf-8') as f:
-                                        f.write(f"\n# Exported: {timestamp}\n")
-                        else:
-                            export_func(self._pattern, filepath, options)
+                        # Update ExportService with options
+                        self.export_service.set_export_options(options)
+                        
+                        # Validate export first
+                        is_valid, error, preview = self.export_service.validate_export(self._pattern, format_name)
+                        if not is_valid:
+                            QMessageBox.warning(
+                                self,
+                                "Export Validation Failed",
+                                f"Cannot export pattern in {format_name} format:\n\n{error or 'Unknown error'}"
+                            )
+                            return
+                        
+                        # Export using ExportService
+                        output_path = self.export_service.export_pattern(
+                            self._pattern,
+                            filepath,
+                            format_name,
+                            generate_manifest=self.include_metadata_checkbox.isChecked()
+                        )
+                        
+                        # Add timestamp if requested
+                        if self.include_timestamp_checkbox.isChecked():
+                            import datetime
+                            timestamp = datetime.datetime.now().isoformat()
+                            # For text formats, append comment
+                            if format_name in ['leds', 'json', 'txt']:
+                                with open(output_path, 'a', encoding='utf-8') as f:
+                                    f.write(f"\n# Exported: {timestamp}\n")
+                        
+                        # Track file path and mark as saved
+                        self._current_file = str(output_path)
+                        self._mark_clean()
                         
                         QMessageBox.information(
                             self,
                             "Export Successful",
-                            f"Pattern exported successfully to:\n{filepath}"
+                            f"Pattern exported successfully to:\n{output_path}"
                         )
                     except Exception as e:
                         QMessageBox.critical(
@@ -4566,6 +5818,7 @@ class DesignToolsTab(QWidget):
 
         self.canvas = MatrixDesignCanvas(width=12, height=6, pixel_size=28)
         self.canvas.pixel_updated.connect(self._on_canvas_pixel_updated)
+        self.canvas.color_picked.connect(self._on_color_picked)
         canvas_layout.addWidget(self.canvas, stretch=1)
 
         canvas_status = QLabel("Click to paint. Right-click to erase.")
@@ -5292,8 +6545,16 @@ class DesignToolsTab(QWidget):
                 height = 6  # Default height
             blank_frame = self._create_blank_frame(width, height)
             metadata = PatternMetadata(width=width, height=height)
-            pattern = Pattern(name="New Design", metadata=metadata, frames=[blank_frame])
-            self._pattern = pattern
+            # Use PatternService to create pattern
+            pattern = self.pattern_service.create_pattern(
+                name="New Design",
+                width=width,
+                height=height
+            )
+            # Store in repository and sync legacy reference
+            self.repository.set_current_pattern(pattern)
+            self._pattern = pattern  # Legacy reference for backward compatibility
+            
             self.frame_manager.set_pattern(pattern)
             self.layer_manager.set_pattern(pattern)
             self.automation_manager.clear()
@@ -5437,7 +6698,35 @@ class DesignToolsTab(QWidget):
         """Load external pattern into design tab."""
         # Validate input pattern
         if not isinstance(pattern, Pattern):
-            raise TypeError(f"load_pattern expects Pattern object, got {type(pattern).__name__}")
+            error_msg = f"load_pattern expects Pattern object, got {type(pattern).__name__}"
+            QMessageBox.critical(
+                self,
+                "Invalid Pattern",
+                f"Invalid pattern object provided:\n{error_msg}"
+            )
+            return
+        
+        # Validate pattern has frames
+        if not hasattr(pattern, 'frames') or not pattern.frames:
+            QMessageBox.warning(
+                self,
+                "Empty Pattern",
+                "Pattern has no frames. Cannot load empty pattern."
+            )
+            return
+        
+        # Validate dimensions
+        if hasattr(pattern, 'metadata') and pattern.metadata:
+            width = getattr(pattern.metadata, 'width', 0)
+            height = getattr(pattern.metadata, 'height', 0)
+            if width <= 0 or height <= 0:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Dimensions",
+                    f"Pattern has invalid dimensions ({width}x{height}).\n\n"
+                    "The pattern may not display correctly. You can fix dimensions using Tools > Force Dimensions."
+                )
+                # Still allow loading, user can fix dimensions later
         
         self._suspend_timeline_refresh = True
         try:
@@ -5450,7 +6739,10 @@ class DesignToolsTab(QWidget):
             if not isinstance(pattern_copy, Pattern):
                 raise TypeError(f"Pattern copy is not a Pattern object, got {type(pattern_copy).__name__}")
             
-            self._pattern = pattern_copy
+            # Store in repository and sync legacy reference
+            self.repository.set_current_pattern(pattern_copy, file_path)
+            self._pattern = pattern_copy  # Legacy reference for backward compatibility
+            
             self.frame_manager.set_pattern(pattern_copy)
             self.layer_manager.set_pattern(pattern_copy)
             self.automation_manager.clear()
@@ -5467,6 +6759,20 @@ class DesignToolsTab(QWidget):
 
             width = pattern_copy.metadata.width
             height = pattern_copy.metadata.height
+            
+            # Update pixel mapping widget if it exists
+            if hasattr(self, "pixel_mapping_widget") and self.pixel_mapping_widget:
+                self.pixel_mapping_widget.set_matrix_size(width, height)
+                # Restore pixel mapping config from pattern metadata if available
+                if hasattr(pattern_copy.metadata, 'wiring_mode'):
+                    config = {
+                        "wiring_mode": getattr(pattern_copy.metadata, 'wiring_mode', 'Row-major'),
+                        "data_in_corner": getattr(pattern_copy.metadata, 'data_in_corner', 'LT'),
+                        "flip_x": getattr(pattern_copy.metadata, 'flip_x', False),
+                        "flip_y": getattr(pattern_copy.metadata, 'flip_y', False),
+                    }
+                    self.pixel_mapping_widget.set_config(config)
+            
             # Only update spinboxes if they exist (might not exist during initialization)
             if hasattr(self, "width_spin") and self.width_spin is not None:
                 self.width_spin.blockSignals(True)
@@ -5514,10 +6820,13 @@ class DesignToolsTab(QWidget):
             self._update_transport_controls()
             self._update_dimension_source_label()
             self._sync_lms_sequence_from_pattern()
+            # Update history manager current frame
+            self.history_manager.set_current_frame(self._current_frame_index)
         finally:
             self._suspend_timeline_refresh = False
         self._mark_clean()
         self._update_single_color_ui_state()
+        self._update_undo_redo_states()  # Update undo/redo states after loading pattern
         self._refresh_timeline()
     
     def update_pattern(self, pattern: Pattern):
@@ -5539,10 +6848,22 @@ class DesignToolsTab(QWidget):
         if not self._pattern or not self._pattern.frames:
             return
         
+        # Check if broadcast mode is active
+        is_broadcast = getattr(self, "brush_broadcast_checkbox", None) and self.brush_broadcast_checkbox.isChecked()
+        
         # Save state before first pixel change in a paint operation
-        if self._pending_paint_state is None:
-            frame = self._pattern.frames[self._current_frame_index]
-            self._pending_paint_state = list(frame.pixels)
+        if is_broadcast:
+            # For broadcast mode, save state of all frames
+            if self._pending_broadcast_states is None:
+                self._pending_broadcast_states = {}
+                for idx in range(len(self._pattern.frames)):
+                    frame = self._pattern.frames[idx]
+                    self._pending_broadcast_states[idx] = list(frame.pixels)
+        else:
+            # For single frame mode, save state of current frame only
+            if self._pending_paint_state is None:
+                frame = self._pattern.frames[self._current_frame_index]
+                self._pending_paint_state = list(frame.pixels)
         
         width = self.state.width()
         height = self.state.height()
@@ -5559,19 +6880,34 @@ class DesignToolsTab(QWidget):
                 layer_name = layer.name
                 layer_visible = layer.visible
                 
-                # Warn if painting on hidden layer (only once per session)
-                if not layer_visible and not hasattr(self, "_hidden_layer_warning_shown"):
-                    from ui.utils.user_feedback import UserFeedback
-                    UserFeedback.warning(
-                        self,
-                        "Painting on Hidden Layer",
-                        f"⚠️ You are painting on layer '{layer_name}' which is currently hidden.\n\n"
-                        "The changes will not be visible until you make the layer visible."
-                    )
-                    self._hidden_layer_warning_shown = True
+                # Show persistent warning banner if painting on hidden layer
+                if not layer_visible:
+                    # Show persistent warning banner
+                    if hasattr(self, '_hidden_layer_banner') and self._hidden_layer_banner:
+                        if hasattr(self, '_hidden_layer_warning_label') and self._hidden_layer_warning_label:
+                            self._hidden_layer_warning_label.setText(
+                                f"⚠️ Painting on hidden layer '{layer_name}' - changes won't be visible until layer is shown"
+                            )
+                        self._hidden_layer_banner.setVisible(True)
+                    
+                    # Show one-time warning dialog only on first paint
+                    if not hasattr(self, "_hidden_layer_warning_shown"):
+                        from ui.utils.user_feedback import UserFeedback
+                        UserFeedback.warning(
+                            self,
+                            "Painting on Hidden Layer",
+                            f"⚠️ You are painting on layer '{layer_name}' which is currently hidden.\n\n"
+                                "The changes will not be visible until you make the layer visible.\n\n"
+                                "A persistent warning banner will remind you of this while painting."
+                        )
+                        self._hidden_layer_warning_shown = True
+                else:
+                    # Hide banner if painting on visible layer
+                    if hasattr(self, '_hidden_layer_banner') and self._hidden_layer_banner:
+                        self._hidden_layer_banner.setVisible(False)
         
         target_frames = [self._current_frame_index]
-        if getattr(self, "brush_broadcast_checkbox", None) and self.brush_broadcast_checkbox.isChecked():
+        if is_broadcast:
             target_frames = list(range(len(self._pattern.frames)))
 
         for frame_index in target_frames:
@@ -5588,12 +6924,53 @@ class DesignToolsTab(QWidget):
 
     def _commit_paint_operation(self):
         """Commit a paint operation to history."""
-        if self._pending_paint_state is None:
-            return
-        
         if not self._pattern or not self._pattern.frames:
             self._pending_paint_state = None
+            self._pending_broadcast_states = None
             return
+        
+        # Check if this was a broadcast operation
+        is_broadcast = (self._pending_broadcast_states is not None)
+        
+        if is_broadcast:
+            # Commit broadcast operation - save state for all affected frames
+            if not self._pending_broadcast_states:
+                self._pending_broadcast_states = None
+                return
+            
+            # Check if any frames actually changed
+            frames_changed = False
+            for frame_index, old_pixels in self._pending_broadcast_states.items():
+                if frame_index < len(self._pattern.frames):
+                    frame = self._pattern.frames[frame_index]
+                    new_pixels = list(frame.pixels)
+                    if new_pixels != old_pixels:
+                        frames_changed = True
+                        # Create undo command for this frame
+                        command = FrameStateCommand(
+                            frame_index,
+                            old_pixels,
+                            new_pixels,
+                            f"Paint pixels (broadcast to frame {frame_index + 1})"
+                        )
+                        self.history_manager.push_command(command, frame_index)
+            
+            # Update undo/redo states after broadcast operation
+            if frames_changed:
+                self._update_undo_redo_states()
+            
+            if frames_changed:
+                # Show notification that broadcast undo is available
+                if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
+                    self.canvas_status_label.setText("Broadcast paint applied to all frames. Use Undo to revert.")
+                    # Reset after 3 seconds
+                    QTimer.singleShot(3000, lambda: self._update_status_labels())
+            
+            self._pending_broadcast_states = None
+        else:
+            # Commit single frame operation
+            if self._pending_paint_state is None:
+                return
         
         frame = self._pattern.frames[self._current_frame_index]
         new_pixels = list(frame.pixels)
@@ -5607,12 +6984,54 @@ class DesignToolsTab(QWidget):
                 "Paint pixels"
             )
             self.history_manager.push_command(command, self._current_frame_index)
+            self._update_undo_redo_states()  # Update button states after paint operation
         
         self._pending_paint_state = None
+
+    def _update_undo_redo_states(self):
+        """Update undo/redo button states based on history availability."""
+        if not self._pattern or not self._pattern.frames:
+            # Disable buttons if no pattern
+            if hasattr(self, 'canvas_undo_btn') and self.canvas_undo_btn:
+                self.canvas_undo_btn.setEnabled(False)
+                self.canvas_undo_btn.setToolTip("Nothing to undo")
+            if hasattr(self, 'canvas_redo_btn') and self.canvas_redo_btn:
+                self.canvas_redo_btn.setEnabled(False)
+                self.canvas_redo_btn.setToolTip("Nothing to redo")
+            return
+        
+        # Check undo availability
+        can_undo = self.history_manager.can_undo(self._current_frame_index)
+        if hasattr(self, 'canvas_undo_btn') and self.canvas_undo_btn:
+            self.canvas_undo_btn.setEnabled(can_undo)
+            if can_undo:
+                # Get history depth for tooltip
+                undo_count = len(self.history_manager._history[self._current_frame_index]) if self._current_frame_index < len(self.history_manager._history) else 0
+                self.canvas_undo_btn.setToolTip(f"Undo (Ctrl+Z) - {undo_count} action(s) available")
+            else:
+                self.canvas_undo_btn.setToolTip("Nothing to undo")
+        
+        # Check redo availability
+        can_redo = self.history_manager.can_redo(self._current_frame_index)
+        if hasattr(self, 'canvas_redo_btn') and self.canvas_redo_btn:
+            self.canvas_redo_btn.setEnabled(can_redo)
+            if can_redo:
+                # Get redo depth for tooltip
+                redo_count = len(self.history_manager._redo_stacks[self._current_frame_index]) if self._current_frame_index < len(self.history_manager._redo_stacks) else 0
+                self.canvas_redo_btn.setToolTip(f"Redo (Ctrl+Y) - {redo_count} action(s) available")
+            else:
+                self.canvas_redo_btn.setToolTip("Nothing to redo")
 
     def _on_undo(self):
         """Handle undo action."""
         if not self._pattern or not self._pattern.frames:
+            return
+        
+        if not self.history_manager.can_undo(self._current_frame_index):
+            # Show feedback when nothing to undo
+            if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
+                self.canvas_status_label.setText("Nothing to undo")
+                QTimer.singleShot(2000, lambda: self._update_status_labels())
             return
         
         command = self.history_manager.undo(self._current_frame_index)
@@ -5620,13 +7039,25 @@ class DesignToolsTab(QWidget):
             frame = self._pattern.frames[self._current_frame_index]
             frame.pixels = command.undo()
             self._load_current_frame_into_canvas()
-            self.pattern_modified.emit()
+            # Don't emit pattern_modified for undo/redo - these are restoring previous states,
+            # not creating new modifications. This prevents marking pattern as dirty when
+            # user is just exploring history.
+            # UI updates still happen via _load_current_frame_into_canvas and other refresh methods
             self._maybe_autosync_preview()
+            self._sync_detached_preview()  # Sync detached preview without marking as dirty
             self._update_status_labels()
+            self._update_undo_redo_states()  # Update button states after undo
 
     def _on_redo(self):
         """Handle redo action."""
         if not self._pattern or not self._pattern.frames:
+            return
+        
+        if not self.history_manager.can_redo(self._current_frame_index):
+            # Show feedback when nothing to redo
+            if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
+                self.canvas_status_label.setText("Nothing to redo")
+                QTimer.singleShot(2000, lambda: self._update_status_labels())
             return
         
         command = self.history_manager.redo(self._current_frame_index)
@@ -5634,12 +7065,81 @@ class DesignToolsTab(QWidget):
             frame = self._pattern.frames[self._current_frame_index]
             frame.pixels = command.execute()
             self._load_current_frame_into_canvas()
-            self.pattern_modified.emit()
+            # Don't emit pattern_modified for undo/redo - these are restoring previous states,
+            # not creating new modifications. This prevents marking pattern as dirty when
+            # user is just exploring history.
+            # UI updates still happen via _load_current_frame_into_canvas and other refresh methods
             self._maybe_autosync_preview()
+            self._sync_detached_preview()  # Sync detached preview without marking as dirty
             self._update_status_labels()
+            self._update_undo_redo_states()  # Update button states after redo
 
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts."""
+        # Quick action shortcuts
+        if event.modifiers() & Qt.ControlModifier:
+            if event.key() == Qt.Key_D:  # Ctrl+D: Duplicate frame
+                self._on_duplicate_frame()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_I:  # Ctrl+I: Eyedropper tool
+                if hasattr(self, 'tool_button_group'):
+                    # Find eyedropper button and activate it
+                    for btn in self.tool_button_group.buttons():
+                        if hasattr(btn, 'text') and btn.text() == "Eyedropper":
+                            btn.setChecked(True)
+                            btn.clicked.emit()
+                            break
+                event.accept()
+                return
+            elif event.key() == Qt.Key_N:  # Ctrl+N: Invert colors (moved from Ctrl+I)
+                self._on_invert_frame()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_H:  # Ctrl+H: Flip horizontal
+                self._on_flip_horizontal()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_V:  # Ctrl+V: Flip vertical
+                self._on_flip_vertical()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_0:  # Ctrl+0: Reset zoom (handled by canvas)
+                if hasattr(self, "canvas"):
+                    # Canvas will handle this
+                    pass
+            elif event.key() == Qt.Key_1:  # Ctrl+1: Fit to window (handled by canvas)
+                if hasattr(self, "canvas"):
+                    # Canvas will handle this
+                    pass
+        
+        # Delete key: Clear selected pixels or frame
+        if event.key() == Qt.Key_Delete:
+            # Check if canvas has selection, otherwise clear frame
+            self._on_clear_frame()
+            event.accept()
+            return
+        
+        # E key: Eyedropper tool (if not in text input)
+        if event.key() == Qt.Key_E and not (event.modifiers() & Qt.ControlModifier):
+            if hasattr(self, 'tool_button_group'):
+                # Find eyedropper button and activate it
+                for btn in self.tool_button_group.buttons():
+                    if hasattr(btn, 'text') and btn.text() == "Eyedropper":
+                        btn.setChecked(True)
+                        btn.clicked.emit()
+                        break
+            event.accept()
+            return
+        
+        # Space: Play/pause
+        if event.key() == Qt.Key_Space:
+            if hasattr(self, "_playback_timer") and self._playback_timer.isActive():
+                self._on_transport_pause()
+            else:
+                self._on_transport_play()
+            event.accept()
+            return
         if event.modifiers() == Qt.ControlModifier:
             if event.key() == Qt.Key_Z:
                 self._on_undo()
@@ -5647,6 +7147,12 @@ class DesignToolsTab(QWidget):
                 return
             elif event.key() == Qt.Key_Y:
                 self._on_redo()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_R:
+                # Handle Ctrl+R to restore LMS preview
+                if self._lms_preview_snapshot is not None:
+                    self._on_lms_exit_preview()
                 event.accept()
                 return
         super().keyPressEvent(event)
@@ -5738,6 +7244,88 @@ class DesignToolsTab(QWidget):
         self.matrix_preset_combo.blockSignals(False)
         self._on_matrix_dimension_changed()
 
+    def _on_quick_matrix_clicked(self, width: int, height: int):
+        """Handle quick matrix size button click."""
+        if not hasattr(self, "width_spin") or not hasattr(self, "height_spin"):
+            # If spinboxes don't exist yet, create a new pattern with the specified size
+            if not self._confirm_discard_changes():
+                return
+            blank_frame = self._create_blank_frame(width, height)
+            metadata = PatternMetadata(width=width, height=height)
+            pattern = Pattern(name="New Design", metadata=metadata, frames=[blank_frame])
+            self.load_pattern(pattern)
+            return
+        
+        # Update existing spinboxes
+        self.width_spin.blockSignals(True)
+        self.height_spin.blockSignals(True)
+        self.width_spin.setValue(width)
+        self.height_spin.setValue(height)
+        self.width_spin.blockSignals(False)
+        self.height_spin.blockSignals(False)
+        
+        # Reset preset combo to "Custom"
+        if hasattr(self, "matrix_preset_combo"):
+            self.matrix_preset_combo.blockSignals(True)
+            self.matrix_preset_combo.setCurrentIndex(0)
+            self.matrix_preset_combo.blockSignals(False)
+        
+        self._on_matrix_dimension_changed()
+
+    def _on_custom_matrix_clicked(self):
+        """Open matrix configuration dialog or scroll to matrix config panel."""
+        # Scroll to matrix configuration group if it exists in toolbox
+        if hasattr(self, "toolbox_container"):
+            # Try to find and show the matrix configuration group
+            # This is a simple implementation - could be enhanced to scroll to the panel
+            QMessageBox.information(
+                self,
+                "Matrix Configuration",
+                "Use the Matrix & Colour Configuration panel in the toolbox to set custom dimensions."
+            )
+
+    def _on_pixel_mapping_changed(self):
+        """Handle pixel mapping configuration change."""
+        if hasattr(self, "pixel_mapping_widget") and self._pattern:
+            # Update pattern metadata with mapping configuration
+            config = self.pixel_mapping_widget.get_config()
+            if hasattr(self._pattern.metadata, "wiring_mode"):
+                self._pattern.metadata.wiring_mode = config.get("wiring_mode", "Row-major")
+            if hasattr(self._pattern.metadata, "data_in_corner"):
+                self._pattern.metadata.data_in_corner = config.get("data_in_corner", "LT")
+            if hasattr(self._pattern.metadata, "flip_x"):
+                self._pattern.metadata.flip_x = config.get("flip_x", False)
+            if hasattr(self._pattern.metadata, "flip_y"):
+                self._pattern.metadata.flip_y = config.get("flip_y", False)
+            
+            self.pattern_modified.emit()
+    
+    def _on_led_brightness_changed(self, value: int):
+        """Handle LED brightness change - refresh canvas if preview mode is on."""
+        if hasattr(self, "led_color_panel") and self.led_color_panel and self.led_color_panel.is_preview_mode():
+            self._load_current_frame_into_canvas()
+
+    def _on_led_gamma_changed(self, gamma: float):
+        """Handle LED gamma change - refresh canvas if preview mode is on."""
+        if hasattr(self, "led_color_panel") and self.led_color_panel and self.led_color_panel.is_preview_mode():
+            self._load_current_frame_into_canvas()
+
+    def _on_led_palette_color_selected(self, color: Tuple[int, int, int]):
+        """Handle LED-safe palette color selection - set as current color."""
+        self._current_color = color
+        self._sync_channel_controls(self._current_color)
+        if hasattr(self, "canvas"):
+            self.canvas.set_current_color(self._current_color)
+
+    def _on_led_temp_changed(self, temp: float):
+        """Handle LED color temperature change - refresh canvas if preview mode is on."""
+        if hasattr(self, "led_color_panel") and self.led_color_panel and self.led_color_panel.is_preview_mode():
+            self._load_current_frame_into_canvas()
+
+    def _on_led_preview_mode_changed(self, enabled: bool):
+        """Handle LED preview mode toggle - refresh canvas to show/hide LED transforms."""
+        self._load_current_frame_into_canvas()
+
     def _on_matrix_dimension_changed(self):
         """Handle matrix dimension changes with validation."""
         if not self._pattern:
@@ -5769,6 +7357,11 @@ class DesignToolsTab(QWidget):
         metadata = self._pattern.metadata
         metadata.width = width
         metadata.height = height
+        
+        # Update pixel mapping widget if it exists
+        if hasattr(self, "pixel_mapping_widget") and self.pixel_mapping_widget:
+            self.pixel_mapping_widget.set_matrix_size(width, height)
+        metadata.height = height
         self.canvas.set_matrix_size(width, height)
         self._update_canvas_group_height()
 
@@ -5794,6 +7387,7 @@ class DesignToolsTab(QWidget):
             self.layer_panel.set_frame_index(index)
         
         self._update_status_labels()
+        self._update_undo_redo_states()  # Update undo/redo states when frame changes
 
     def _on_add_frame(self):
         """Add a new blank frame after the current frame."""
@@ -5814,6 +7408,7 @@ class DesignToolsTab(QWidget):
         self.frame_manager.add_blank_after_current(self._frame_duration_ms)
         self.pattern_modified.emit()
         self._update_status_labels()
+        self._update_delete_frame_button_state()  # Update button state after adding frame
         self._maybe_autosync_preview()
 
     def _on_duplicate_frame(self):
@@ -5832,10 +7427,39 @@ class DesignToolsTab(QWidget):
             )
             return
         
+        # Show progress feedback for large patterns
+        total_pixels = self._pattern.metadata.width * self._pattern.metadata.height
+        if total_pixels > 500:  # Large pattern threshold
+            # Show status message
+            if hasattr(self, "_set_canvas_status"):
+                self._set_canvas_status("Duplicating frame...")
+            # Use QApplication.processEvents to update UI
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
+        
         self.frame_manager.duplicate()
         self.pattern_modified.emit()
         self._update_status_labels()
+        self._update_delete_frame_button_state()  # Update button state after duplicating frame
         self._maybe_autosync_preview()
+        
+        # Show success message for large patterns
+        if total_pixels > 500:
+            if hasattr(self, "_set_canvas_status"):
+                self._set_canvas_status(f"Frame duplicated successfully. Frame {self._current_frame_index + 1} of {len(self._pattern.frames)}")
+
+    def _update_delete_frame_button_state(self):
+        """Update delete frame button state based on frame count."""
+        if not hasattr(self, 'delete_frame_btn') or not self.delete_frame_btn:
+            return
+        
+        can_delete = (self._pattern is not None and self.state.frame_count() > 1)
+        self.delete_frame_btn.setEnabled(can_delete)
+        
+        if can_delete:
+            self.delete_frame_btn.setToolTip("Delete selected frame (Del)")
+        else:
+            self.delete_frame_btn.setToolTip("Cannot delete - at least one frame required. Add more frames first, then you can delete this one.")
 
     def _on_delete_frame(self):
         """Delete the current frame."""
@@ -5843,14 +7467,16 @@ class DesignToolsTab(QWidget):
             QMessageBox.warning(
                 self,
                 "Cannot Delete Frame",
-                "At least one frame is required. Create a new pattern or add frames before deleting."
+                "At least one frame is required.\n\n"
+                "Add more frames first, then you can delete this one.\n\n"
+                "Use 'Add Frame' or 'Duplicate Frame' to create additional frames."
             )
             return
         
         reply = QMessageBox.question(
             self,
             "Delete Frame",
-            f"Delete frame {self._current_frame_index + 1}?\n\nThis action cannot be undone.",
+            f"Delete frame {self._current_frame_index + 1} of {self.state.frame_count()}?\n\nThis action cannot be undone.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -5859,7 +7485,406 @@ class DesignToolsTab(QWidget):
             self.frame_manager.delete()
             self.pattern_modified.emit()
             self._update_status_labels()
+            self._update_delete_frame_button_state()  # Update button state after deletion
             self._maybe_autosync_preview()
+
+    def _calculate_pattern_size(self) -> int:
+        """Calculate total pattern size in bytes."""
+        if not self._pattern:
+            return 0
+        
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        bytes_per_pixel = 3  # RGB
+        bytes_per_frame = width * height * bytes_per_pixel
+        
+        total_frames = len(self._pattern.frames)
+        total_bytes = bytes_per_frame * total_frames
+        
+        # Add metadata overhead (rough estimate)
+        metadata_bytes = 100  # Pattern name, metadata, etc.
+        
+        return total_bytes + metadata_bytes
+
+    def _on_simple_timeline_toggled(self, enabled: bool):
+        """Handle simple timeline mode toggle."""
+        if hasattr(self, "timeline"):
+            # Simple mode: hide layer tracks if enabled
+            if enabled:
+                # Temporarily clear layer tracks
+                self.timeline.set_layer_tracks([])
+            else:
+                # Restore layer tracks
+                self._refresh_timeline()
+
+    def _on_frames_selected(self, frame_indices: List[int]):
+        """Handle multi-frame selection from timeline."""
+        self._selected_frames = frame_indices
+        # If only one frame selected, make it current
+        if len(frame_indices) == 1:
+            self.frame_manager.select(frame_indices[0])
+        # Update frame range spinboxes to match selection
+        if frame_indices:
+            if hasattr(self, "frame_start_spin"):
+                self.frame_start_spin.setValue(min(frame_indices) + 1)  # 1-indexed
+            if hasattr(self, "frame_end_spin"):
+                self.frame_end_spin.setValue(max(frame_indices) + 1)  # 1-indexed
+
+    def _on_clear_frame(self):
+        """Clear current frame - set all pixels to black."""
+        # Use selected frames if available, otherwise current frame
+        frames_to_clear = self._selected_frames if self._selected_frames else [self._current_frame_index]
+        
+        if not self._pattern:
+            return
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Clear selected frames
+        self.frame_manager.clear_selected_frames(frames_to_clear)
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        total_pixels = width * height
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Clear all pixels
+        frame.pixels = [(0, 0, 0)] * total_pixels
+        
+        # Update layers if using layer manager
+        if hasattr(self, "layer_manager"):
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            for layer in layers:
+                layer.pixels = [(0, 0, 0)] * total_pixels
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+
+    def _on_invert_frame(self):
+        """Invert colors of selected frames."""
+        # Use selected frames if available, otherwise current frame
+        frames_to_invert = self._selected_frames if self._selected_frames else [self._current_frame_index]
+        
+        if not self._pattern:
+            return
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Invert selected frames
+        self.frame_manager.invert_selected_frames(frames_to_invert)
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+        
+        # Update layers if using layer manager
+        if hasattr(self, "layer_manager"):
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            for layer in layers:
+                layer_inverted = []
+                for pixel in layer.pixels:
+                    if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                        r, g, b = pixel[0], pixel[1], pixel[2]
+                        layer_inverted.append((255 - r, 255 - g, 255 - b))
+                    else:
+                        layer_inverted.append((255, 255, 255))
+                layer.pixels = layer_inverted
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+
+    def _on_select_range_clicked(self):
+        """Select frames in the specified range."""
+        if not self._pattern or not hasattr(self, "frame_start_spin") or not hasattr(self, "frame_end_spin"):
+            return
+        
+        start = self.frame_start_spin.value() - 1  # Convert to 0-indexed
+        end = self.frame_end_spin.value() - 1  # Convert to 0-indexed
+        
+        if start < 0 or end < 0 or start >= len(self._pattern.frames) or end >= len(self._pattern.frames):
+            QMessageBox.warning(self, "Invalid Range", f"Frame range {start+1}-{end+1} is out of bounds (1-{len(self._pattern.frames)}).")
+            return
+        
+        if start > end:
+            start, end = end, start
+        
+        # Select range on timeline
+        frame_indices = list(range(start, end + 1))
+        self._selected_frames = frame_indices
+        
+        # Update timeline selection
+        if hasattr(self, "timeline") and hasattr(self.timeline, "_selected_indices"):
+            self.timeline._selected_indices = set(frame_indices)
+            self.timeline.framesSelected.emit(frame_indices)
+            self.timeline.update()
+        
+        self._refresh_timeline()
+    
+    def _on_select_all_frames_clicked(self):
+        """Select all frames."""
+        if not self._pattern:
+            return
+        
+        frame_indices = list(range(len(self._pattern.frames)))
+        self._selected_frames = frame_indices
+        
+        # Update spinboxes
+        if hasattr(self, "frame_start_spin"):
+            self.frame_start_spin.setValue(1)
+        if hasattr(self, "frame_end_spin"):
+            self.frame_end_spin.setValue(len(self._pattern.frames))
+        
+        # Update timeline selection
+        if hasattr(self, "timeline") and hasattr(self.timeline, "_selected_indices"):
+            self.timeline._selected_indices = set(frame_indices)
+            self.timeline.framesSelected.emit(frame_indices)
+            self.timeline.update()
+        
+        self._refresh_timeline()
+    
+    def _on_clear_range_clicked(self):
+        """Clear all pixels in the selected frame range."""
+        if not self._pattern or not hasattr(self, "frame_start_spin") or not hasattr(self, "frame_end_spin"):
+            return
+        
+        start = self.frame_start_spin.value() - 1  # Convert to 0-indexed
+        end = self.frame_end_spin.value() - 1  # Convert to 0-indexed
+        
+        if start < 0 or end < 0 or start >= len(self._pattern.frames) or end >= len(self._pattern.frames):
+            QMessageBox.warning(self, "Invalid Range", f"Frame range {start+1}-{end+1} is out of bounds.")
+            return
+        
+        if start > end:
+            start, end = end, start
+        
+        frames_to_clear = list(range(start, end + 1))
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Clear frames
+        self.frame_manager.clear_selected_frames(frames_to_clear)
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+    
+    def _on_invert_range_clicked(self):
+        """Invert colors in the selected frame range."""
+        if not self._pattern or not hasattr(self, "frame_start_spin") or not hasattr(self, "frame_end_spin"):
+            return
+        
+        start = self.frame_start_spin.value() - 1  # Convert to 0-indexed
+        end = self.frame_end_spin.value() - 1  # Convert to 0-indexed
+        
+        if start < 0 or end < 0 or start >= len(self._pattern.frames) or end >= len(self._pattern.frames):
+            QMessageBox.warning(self, "Invalid Range", f"Frame range {start+1}-{end+1} is out of bounds.")
+            return
+        
+        if start > end:
+            start, end = end, start
+        
+        frames_to_invert = list(range(start, end + 1))
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Invert frames
+        self.frame_manager.invert_selected_frames(frames_to_invert)
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+    
+    def _on_delete_range_clicked(self):
+        """Delete frames in the selected range."""
+        if not self._pattern or not hasattr(self, "frame_start_spin") or not hasattr(self, "frame_end_spin"):
+            return
+        
+        start = self.frame_start_spin.value() - 1  # Convert to 0-indexed
+        end = self.frame_end_spin.value() - 1  # Convert to 0-indexed
+        
+        if start < 0 or end < 0 or start >= len(self._pattern.frames) or end >= len(self._pattern.frames):
+            QMessageBox.warning(self, "Invalid Range", f"Frame range {start+1}-{end+1} is out of bounds.")
+            return
+        
+        if start > end:
+            start, end = end, start
+        
+        # Confirm deletion
+        count = end - start + 1
+        reply = QMessageBox.question(
+            self,
+            "Delete Frames",
+            f"Delete {count} frame(s) ({start+1}-{end+1})? This cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        frames_to_delete = list(range(start, end + 1))
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Delete frames
+        self.frame_manager.delete_selected_frames(frames_to_delete)
+        
+        # Clear selection
+        self._selected_frames = []
+        
+        # Update current frame index
+        if self._current_frame_index >= len(self._pattern.frames):
+            self._current_frame_index = len(self._pattern.frames) - 1
+        if self._current_frame_index < 0:
+            self._current_frame_index = 0
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+    
+    def _on_flip_horizontal(self):
+        """Flip current frame horizontally."""
+        if not self._pattern or self._current_frame_index >= len(self._pattern.frames):
+            return
+        
+        frame = self._pattern.frames[self._current_frame_index]
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Flip horizontally
+        flipped_pixels = []
+        for y in range(height):
+            for x in range(width):
+                # Flip x coordinate
+                flipped_x = width - 1 - x
+                idx = y * width + flipped_x
+                if idx < len(frame.pixels):
+                    flipped_pixels.append(frame.pixels[idx])
+        
+        frame.pixels = flipped_pixels
+        
+        # Update layers if using layer manager
+        if hasattr(self, "layer_manager"):
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            for layer in layers:
+                layer_flipped = []
+                for y in range(height):
+                    for x in range(width):
+                        flipped_x = width - 1 - x
+                        idx = y * width + flipped_x
+                        if idx < len(layer.pixels):
+                            layer_flipped.append(layer.pixels[idx])
+                layer.pixels = layer_flipped
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+
+    def _on_flip_vertical(self):
+        """Flip current frame vertically."""
+        if not self._pattern or self._current_frame_index >= len(self._pattern.frames):
+            return
+        
+        frame = self._pattern.frames[self._current_frame_index]
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Flip vertically
+        flipped_pixels = []
+        for y in range(height):
+            flipped_y = height - 1 - y
+            for x in range(width):
+                idx = flipped_y * width + x
+                if idx < len(frame.pixels):
+                    flipped_pixels.append(frame.pixels[idx])
+        
+        frame.pixels = flipped_pixels
+        
+        # Update layers if using layer manager
+        if hasattr(self, "layer_manager"):
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            for layer in layers:
+                layer_flipped = []
+                for y in range(height):
+                    flipped_y = height - 1 - y
+                    for x in range(width):
+                        idx = flipped_y * width + x
+                        if idx < len(layer.pixels):
+                            layer_flipped.append(layer.pixels[idx])
+                layer.pixels = layer_flipped
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
+
+    def _on_rotate_90(self):
+        """Rotate current frame 90 degrees clockwise."""
+        if not self._pattern or self._current_frame_index >= len(self._pattern.frames):
+            return
+        
+        frame = self._pattern.frames[self._current_frame_index]
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        
+        # Save state for undo
+        if hasattr(self, "history_manager"):
+            self.history_manager.save_state()
+        
+        # Rotate 90 degrees clockwise (transpose and reverse rows)
+        rotated_pixels = []
+        for x in range(width):
+            for y in range(height - 1, -1, -1):  # Reverse y order
+                idx = y * width + x
+                if idx < len(frame.pixels):
+                    rotated_pixels.append(frame.pixels[idx])
+        
+        frame.pixels = rotated_pixels
+        
+        # Swap width and height in metadata (if square, no change needed)
+        # Note: For non-square matrices, rotation changes dimensions
+        # For simplicity, we'll keep the same dimensions and rotate in place
+        
+        # Update layers if using layer manager
+        if hasattr(self, "layer_manager"):
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            for layer in layers:
+                layer_rotated = []
+                for x in range(width):
+                    for y in range(height - 1, -1, -1):
+                        idx = y * width + x
+                        if idx < len(layer.pixels):
+                            layer_rotated.append(layer.pixels[idx])
+                layer.pixels = layer_rotated
+        
+        self._load_current_frame_into_canvas()
+        self.pattern_modified.emit()
+        self._refresh_timeline()
 
     def _on_move_frame(self, delta: int):
         if not self._pattern:
@@ -6872,14 +8897,23 @@ class DesignToolsTab(QWidget):
             self.timeline.set_markers([])
             self.timeline.set_overlays([])
             self.timeline.set_layer_tracks([])
+            self.timeline.set_frame_durations([])
             return
 
         frames_data: List[Tuple[str, Optional[QPixmap]]] = []
+        frame_durations: List[int] = []
+        
         for idx, frame in enumerate(self._pattern.frames):
             pixel_count = len(frame.pixels) if frame.pixels else 0
             display = f"Frame {idx + 1:02d}  •  {frame.duration_ms} ms  •  {pixel_count} px"
-            frames_data.append((display, self._make_frame_thumbnail(frame)))
+            
+            # Generate composite thumbnail from layers
+            composite_thumbnail = self._make_composite_frame_thumbnail(idx)
+            frames_data.append((display, composite_thumbnail))
+            frame_durations.append(frame.duration_ms)
+        
         self.timeline.set_frames(frames_data)
+        self.timeline.set_frame_durations(frame_durations)
         self.timeline.set_playhead(self._current_frame_index)
 
         total_frames = len(self._pattern.frames)
@@ -6905,6 +8939,48 @@ class DesignToolsTab(QWidget):
             self.timeline.set_selected_layer(self.layer_panel.get_active_layer_index())
         self._update_transport_controls()
         self._update_status_labels()
+    
+    def _make_composite_frame_thumbnail(self, frame_idx: int) -> Optional[QPixmap]:
+        """Generate composite thumbnail from all visible layers for a frame."""
+        if not self._pattern or frame_idx >= len(self._pattern.frames):
+            return None
+        
+        # Get composite pixels from layer manager
+        composite_pixels = self.layer_manager.get_composite_pixels(frame_idx)
+        
+        if not composite_pixels:
+            # Fallback to frame pixels
+            frame = self._pattern.frames[frame_idx]
+            composite_pixels = frame.pixels if frame.pixels else []
+        
+        if not composite_pixels:
+            return None
+        
+        # Create thumbnail image
+        if self._pattern and self._pattern.metadata:
+            width = max(1, self._pattern.metadata.width)
+            height = max(1, self._pattern.metadata.height)
+        else:
+            width = max(1, int(len(composite_pixels) ** 0.5))
+            height = max(1, len(composite_pixels) // width)
+        
+        image = QImage(width, height, QImage.Format_RGB32)
+        image.fill(QColor(0, 0, 0))
+        limit = width * height
+        
+        for idx, pixel in enumerate(composite_pixels[:limit]):
+            if pixel is None:
+                continue
+            x = idx % width
+            y = idx // width
+            r, g, b = pixel[:3] if isinstance(pixel, (list, tuple)) and len(pixel) >= 3 else (0, 0, 0)
+            image.setPixel(x, y, QColor(r, g, b).rgb())
+        
+        # Convert to pixmap and scale to thumbnail size
+        pixmap = QPixmap.fromImage(image)
+        thumbnail_size = self._thumbnail_size
+        scaled = pixmap.scaled(thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        return scaled
 
     def _on_layers_structure_updated(self, *args):
         if self._suspend_timeline_refresh:
@@ -6930,12 +9006,103 @@ class DesignToolsTab(QWidget):
         # Get composite pixels from layers
         if hasattr(self, "layer_panel"):
             composite = self.layer_manager.get_composite_pixels(self._current_frame_index)
-            self.canvas.set_frame_pixels(composite)
         else:
             # Fallback to direct frame loading
-            self.canvas_controller.render_frame(self._current_frame_index)
+            frame = self._pattern.frames[self._current_frame_index] if self._current_frame_index < len(self._pattern.frames) else None
+            if frame:
+                composite = frame.pixels
+            else:
+                composite = []
+        
+        # Apply LED transforms if preview mode is enabled
+        if hasattr(self, "led_color_panel") and self.led_color_panel and self.led_color_panel.is_preview_mode():
+            transformed_pixels = []
+            for pixel in composite:
+                if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                    r, g, b = pixel[0], pixel[1], pixel[2]
+                    transformed = self.led_color_panel.apply_led_transform(r, g, b)
+                    transformed_pixels.append(transformed)
+                else:
+                    transformed_pixels.append(pixel)
+            composite = transformed_pixels
+        
+        self.canvas.set_frame_pixels(composite)
+        
+        # Update onion skins if enabled
+        if self._onion_skin_enabled:
+            self._update_onion_skins()
         
         self._update_status_labels()
+
+    def _update_onion_skins(self):
+        """Update onion skin overlays for canvas."""
+        if not self._pattern or not self.canvas:
+            return
+        
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        total_frames = len(self._pattern.frames)
+        
+        # Get previous frames
+        prev_frames = []
+        prev_opacities = []
+        for i in range(1, self._onion_skin_prev_count + 1):
+            frame_idx = self._current_frame_index - i
+            if 0 <= frame_idx < total_frames:
+                # Get composite pixels for previous frame
+                if hasattr(self, "layer_panel"):
+                    pixels = self.layer_manager.get_composite_pixels(frame_idx)
+                else:
+                    frame = self._pattern.frames[frame_idx]
+                    pixels = frame.pixels
+                
+                # Convert linear pixels to 2D grid
+                grid = []
+                for y in range(height):
+                    row = []
+                    for x in range(width):
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            row.append(pixels[idx] if isinstance(pixels[idx], tuple) else tuple(pixels[idx][:3]))
+                        else:
+                            row.append((0, 0, 0))
+                    grid.append(row)
+                prev_frames.append(grid)
+                # Opacity decreases for older frames
+                opacity = self._onion_skin_prev_opacity * (1.0 - (i - 1) * 0.2)
+                prev_opacities.append(max(0.1, opacity))
+        
+        # Get next frames
+        next_frames = []
+        next_opacities = []
+        for i in range(1, self._onion_skin_next_count + 1):
+            frame_idx = self._current_frame_index + i
+            if 0 <= frame_idx < total_frames:
+                # Get composite pixels for next frame
+                if hasattr(self, "layer_panel"):
+                    pixels = self.layer_manager.get_composite_pixels(frame_idx)
+                else:
+                    frame = self._pattern.frames[frame_idx]
+                    pixels = frame.pixels
+                
+                # Convert linear pixels to 2D grid
+                grid = []
+                for y in range(height):
+                    row = []
+                    for x in range(width):
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            row.append(pixels[idx] if isinstance(pixels[idx], tuple) else tuple(pixels[idx][:3]))
+                        else:
+                            row.append((0, 0, 0))
+                    grid.append(row)
+                next_frames.append(grid)
+                # Opacity decreases for further frames
+                opacity = self._onion_skin_next_opacity * (1.0 - (i - 1) * 0.2)
+                next_opacities.append(max(0.1, opacity))
+        
+        # Set onion skins in canvas
+        self.canvas.set_onion_skin_frames(prev_frames, next_frames, prev_opacities, next_opacities)
 
     def _make_frame_thumbnail(self, frame: Frame) -> Optional[QPixmap]:
         if not frame.pixels:
@@ -7110,6 +9277,9 @@ class DesignToolsTab(QWidget):
             self.duration_spin.blockSignals(True)
             self.duration_spin.setValue(duration)
             self.duration_spin.blockSignals(False)
+        # Update timeline durations
+        if self._pattern and index < len(self._pattern.frames):
+            self._pattern.frames[index].duration_ms = duration
         self._refresh_timeline()
 
     def _on_manager_queue_changed(self, actions: list):
@@ -8074,7 +10244,50 @@ class DesignToolsTab(QWidget):
             rgb = (color.red(), color.green(), color.blue())
             self._current_color = rgb
             self._sync_channel_controls(rgb)
-            self.canvas.set_current_color(rgb)
+
+    def _on_color_picked(self, r: int, g: int, b: int):
+        """Handle color picked from canvas with eyedropper tool."""
+        if self._single_color_mode:
+            # In single color mode, only white is allowed
+            self._current_color = (255, 255, 255)
+        else:
+            self._current_color = (r, g, b)
+        self._sync_channel_controls(self._current_color)
+        if self.canvas:
+            self.canvas.set_current_color(self._current_color)
+
+    def _on_bucket_fill_tolerance_changed(self, value: int):
+        """Handle bucket fill tolerance change."""
+        if self.canvas:
+            self.canvas.set_bucket_fill_tolerance(value)
+
+    def _on_onion_skin_toggled(self, enabled: bool):
+        """Handle onion skin enable/disable."""
+        self._onion_skin_enabled = enabled
+        if hasattr(self, 'onion_skin_prev_count_spin'):
+            self.onion_skin_prev_count_spin.setEnabled(enabled)
+            self.onion_skin_next_count_spin.setEnabled(enabled)
+            self.onion_skin_prev_opacity_slider.setEnabled(enabled)
+            self.onion_skin_next_opacity_slider.setEnabled(enabled)
+        if enabled:
+            self._update_onion_skins()
+        else:
+            # Clear onion skins
+            if self.canvas:
+                self.canvas.set_onion_skin_frames([], [], [], [])
+
+    def _on_onion_skin_settings_changed(self):
+        """Handle onion skin settings change."""
+        if not self._onion_skin_enabled:
+            return
+        
+        if hasattr(self, 'onion_skin_prev_count_spin'):
+            self._onion_skin_prev_count = self.onion_skin_prev_count_spin.value()
+            self._onion_skin_next_count = self.onion_skin_next_count_spin.value()
+            self._onion_skin_prev_opacity = self.onion_skin_prev_opacity_slider.value() / 100.0
+            self._onion_skin_next_opacity = self.onion_skin_next_opacity_slider.value() / 100.0
+        
+        self._update_onion_skins()
 
     def _choose_gradient_colour(self, target: str):
         # Enforce single color mode for gradients too

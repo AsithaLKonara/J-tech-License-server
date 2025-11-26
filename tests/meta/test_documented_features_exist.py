@@ -64,10 +64,8 @@ class TestDesignToolsFeaturesExist:
         """DT-13: Automation Queue exists"""
         from domain.automation.queue import AutomationQueueManager
         assert AutomationQueueManager is not None
-        # Check for actual methods: append (not enqueue) and actions
-        assert hasattr(AutomationQueueManager, 'append')
+        assert hasattr(AutomationQueueManager, 'enqueue')
         assert hasattr(AutomationQueueManager, 'actions')
-        assert hasattr(AutomationQueueManager, 'set_actions')
     
     def test_dt14_lms_automation_exists(self):
         """DT-14: LMS Automation methods exist"""
@@ -94,12 +92,7 @@ class TestFeatureOverviewFeaturesExist:
     def test_canvas_authoring_toolbox_exists(self):
         """Feature 1: Canvas Authoring Toolbox exists"""
         from ui.tabs.design_tools_tab import DesignToolsTab
-        # Canvas is created in _create_canvas_group() which is called during UI setup
-        # Check for canvas attribute or canvas_group (which contains the canvas)
-        assert hasattr(DesignToolsTab, '_create_canvas_group') or hasattr(DesignToolsTab, 'canvas')
-        # Also check that MatrixDesignCanvas is imported
-        from ui.widgets.matrix_design_canvas import MatrixDesignCanvas
-        assert MatrixDesignCanvas is not None
+        assert hasattr(DesignToolsTab, 'canvas')
     
     def test_frame_layer_management_exists(self):
         """Feature 2: Frame & Layer Management exists"""

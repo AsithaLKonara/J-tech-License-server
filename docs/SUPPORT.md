@@ -1,365 +1,334 @@
-# Support Guide - Upload Bridge
+# Support Guide
 
+**Project**: Upload Bridge  
 **Version**: 1.0.0  
-**Last Updated**: 2024-11-XX
+**Last Updated**: 2024
 
 ---
 
-## Getting Help
+## 📞 Getting Help
 
 ### Documentation
-- **User Manual**: `docs/USER_MANUAL.md` - Comprehensive guide
-- **Quick Start**: `docs/QUICKSTART.md` - Get started quickly
-- **Installation**: `docs/INSTALLATION.md` - Installation instructions
-- **FAQ**: See [Frequently Asked Questions](#frequently-asked-questions) below
+- **[User Manual](USER_MANUAL.md)** - Complete feature guide
+- **[Quick Start Guide](QUICK_START.md)** - Step-by-step tutorials
+- **[Installation Guide](INSTALLATION.md)** - Setup instructions
+- **[FAQ](#faq)** - Common questions and answers
 
 ### Community Support
-- **Issue Tracker**: [GitHub Issues URL]
-- **Discussions**: [GitHub Discussions URL]
-- **Wiki**: [Project Wiki URL]
+- **GitHub Discussions**: [Link to Discussions]
+- **GitHub Issues**: [Link to Issues]
+- **Discord/Slack**: [Link if available]
 
 ---
 
-## Troubleshooting
-
-### Common Issues
-
-#### Application Won't Start
-
-**Symptoms**:
-- Application doesn't launch
-- Error message on startup
-- Blank window appears
-
-**Solutions**:
-1. **Check Python Version**:
-   ```bash
-   python --version
-   ```
-   Should be 3.10 or higher.
-
-2. **Check Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Check Logs**:
-   - Look for error messages in console
-   - Check log files in application directory
-
-4. **Reinstall**:
-   - Uninstall current version
-   - Download fresh installer
-   - Reinstall
-
----
-
-#### Pattern Not Displaying Correctly
-
-**Symptoms**:
-- Pattern appears wrong on hardware
-- Colors are incorrect
-- Pattern is flipped or rotated
-
-**Solutions**:
-1. **Check Wiring Configuration**:
-   - Verify wiring mode (Serpentine, Row-major, etc.)
-   - Check data-in corner position
-   - Use auto-detection if available
-
-2. **Check Color Order**:
-   - Verify RGB/GRB/BGR order matches your LEDs
-   - Test different color orders
-
-3. **Check Brightness**:
-   - Adjust brightness settings
-   - Check gamma correction
-
-4. **Check Hardware**:
-   - Verify LED connections
-   - Check power supply
-   - Test with known-good pattern
-
----
-
-#### Firmware Flashing Fails
-
-**Symptoms**:
-- Flash operation fails
-- Device not detected
-- Upload timeout
-
-**Solutions**:
-1. **Check Device Connection**:
-   - Verify USB cable is connected
-   - Try different USB port
-   - Check cable quality
-
-2. **Check Drivers**:
-   - Install device drivers
-   - Update drivers if needed
-   - Check Device Manager (Windows)
-
-3. **Check COM Port**:
-   - Verify correct COM port selected
-   - Check if port is in use by another application
-   - Try different port
-
-4. **Check Chip Selection**:
-   - Verify correct chip type selected
-   - Check chip compatibility
-
-5. **Check Boot Mode**:
-   - Some chips require boot mode entry
-   - Follow chip-specific instructions
-
----
-
-#### Performance Issues
-
-**Symptoms**:
-- Application is slow
-- Canvas rendering is laggy
-- Export takes too long
-
-**Solutions**:
-1. **Check System Resources**:
-   - Close other applications
-   - Check available RAM
-   - Check CPU usage
-
-2. **Reduce Pattern Size**:
-   - Use smaller matrix dimensions
-   - Reduce frame count
-   - Lower preview FPS
-
-3. **Update Graphics Drivers**:
-   - Update GPU drivers
-   - Check hardware acceleration
-
-4. **Check System Requirements**:
-   - Verify system meets minimum requirements
-   - Consider upgrading hardware
-
----
-
-#### Media Import Issues
-
-**Symptoms**:
-- Media file won't import
-- Conversion fails
-- Colors are wrong
-
-**Solutions**:
-1. **Check File Format**:
-   - Verify file format is supported
-   - Check file is not corrupted
-   - Try different file
-
-2. **Check File Size**:
-   - Large files may take time
-   - Check available memory
-   - Try smaller file
-
-3. **Check Settings**:
-   - Adjust conversion settings
-   - Try different dimensions
-   - Adjust brightness/color
-
----
-
-### Error Messages
-
-#### "Pattern metadata missing width/height"
-
-**Cause**: Pattern file is corrupted or invalid.
-
-**Solution**:
-- Try opening a different pattern file
-- Recreate the pattern
-- Check file integrity
-
----
-
-#### "Device not found"
-
-**Cause**: Microcontroller not connected or not detected.
-
-**Solution**:
-- Check USB connection
-- Install device drivers
-- Select correct COM port
-- Try different USB port
-
----
-
-#### "Firmware compilation failed"
-
-**Cause**: Build tools not installed or configured.
-
-**Solution**:
-- Install required build tools (Arduino IDE, etc.)
-- Check tool paths in settings
-- Verify chip support
-
----
-
-## Frequently Asked Questions
-
-### General
-
-**Q: What is Upload Bridge?**  
-A: Upload Bridge is a desktop application for creating, editing, and uploading LED animation patterns to microcontroller boards.
-
-**Q: Which platforms are supported?**  
-A: Windows 10+, macOS 10.14+, and Linux (Ubuntu 20.04+).
-
-**Q: Is Upload Bridge free?**  
-A: [License information]
-
----
-
-### Features
-
-**Q: Which microcontrollers are supported?**  
-A: ESP32 (4 variants), ATmega2560, ATtiny85, STM32F407, PIC18F4550, Nuvoton M051.
-
-**Q: Can I import images/videos?**  
-A: Yes! Upload Bridge supports PNG, JPG, BMP, GIF, MP4, AVI, MOV, MKV, WebM.
-
-**Q: Can I save my work?**  
-A: Yes! Projects are saved in `.ledproj` format with all pattern data, metadata, and presets.
-
-**Q: Can I use multiple layers?**  
-A: Yes! Upload Bridge supports multiple layers with blend modes and opacity control.
-
----
-
-### Technical
-
-**Q: What Python version is required?**  
-A: Python 3.10 or higher.
-
-**Q: Do I need Arduino IDE?**  
-A: For some chips (ESP32, ATmega), Arduino IDE or build tools may be required. See installation guide.
-
-**Q: How do I update Upload Bridge?**  
-A: Download the latest installer and run it. Your projects will be preserved.
-
-**Q: Can I use Upload Bridge offline?**  
-A: Yes! Upload Bridge works completely offline. Internet is only needed for updates.
-
----
-
-### Hardware
-
-**Q: Which LED types are supported?**  
-A: WS2812B, SK6812, APA102, and other addressable RGB LEDs.
-
-**Q: What matrix sizes are supported?**  
-A: Any size! Upload Bridge can handle matrices from 8x8 to 128x128+.
-
-**Q: Do I need special drivers?**  
-A: Some microcontrollers require drivers (e.g., CH340 for ESP32). See installation guide.
-
-**Q: Can I flash multiple devices?**  
-A: Currently, flashing is done one device at a time. Batch flashing is planned for future releases.
-
----
-
-## Reporting Issues
+## 🐛 Reporting Bugs
 
 ### Before Reporting
+1. **Check Documentation**: Your issue might be covered in the docs
+2. **Search Existing Issues**: Check if the bug has already been reported
+3. **Try to Reproduce**: Make sure you can consistently reproduce the issue
 
-1. **Check Documentation**: Review relevant documentation
-2. **Search Issues**: Check if issue already reported
-3. **Try Troubleshooting**: Follow troubleshooting steps above
+### Bug Report Template
 
-### When Reporting
+When reporting a bug, please use this template:
 
-Include the following information:
+```markdown
+**Bug Description**
+[Clear description of the bug]
 
-1. **Description**: Clear description of the problem
-2. **Steps to Reproduce**: Detailed steps to reproduce
-3. **Expected Behavior**: What should happen
-4. **Actual Behavior**: What actually happens
-5. **System Information**:
-   - OS and version
-   - Python version
-   - Upload Bridge version
-   - Hardware (if applicable)
-6. **Error Messages**: Full error messages/logs
-7. **Screenshots**: If applicable
-
-### Issue Template
-
-```
-**Description**:
-[Clear description of the issue]
-
-**Steps to Reproduce**:
+**Steps to Reproduce**
 1. [Step 1]
 2. [Step 2]
 3. [Step 3]
 
-**Expected Behavior**:
+**Expected Behavior**
 [What should happen]
 
-**Actual Behavior**:
+**Actual Behavior**
 [What actually happens]
 
-**System Information**:
-- OS: [OS and version]
-- Python: [Version]
-- Upload Bridge: [Version]
-- Hardware: [If applicable]
+**Environment**
+- OS: [Windows 10/11, macOS, Linux]
+- Upload Bridge Version: [e.g., 1.0.0]
+- Python Version: [if applicable]
+- Hardware: [if relevant]
 
-**Error Messages**:
-[Error messages/logs]
+**Screenshots/Logs**
+[Attach screenshots or error logs if available]
 
-**Screenshots**:
-[If applicable]
+**Additional Context**
+[Any other relevant information]
 ```
 
----
-
-## Feature Requests
-
-Have an idea for a new feature? We'd love to hear it!
-
-1. **Check Existing Requests**: Search for similar requests
-2. **Create Feature Request**: Use issue tracker with "Feature Request" label
-3. **Provide Details**: Describe the feature and use case
+### Where to Report
+- **GitHub Issues**: [Link] (preferred)
+- **Email**: [Support email if available]
 
 ---
 
-## Contributing
+## 💡 Feature Requests
 
-Interested in contributing? See `CONTRIBUTING.md` for guidelines.
+### Before Requesting
+1. **Check Roadmap**: Feature might already be planned
+2. **Search Existing Requests**: Check if it's already been requested
+3. **Consider Alternatives**: Current features might meet your needs
+
+### Feature Request Template
+
+```markdown
+**Feature Description**
+[Clear description of the requested feature]
+
+**Use Case**
+[Why is this feature needed? What problem does it solve?]
+
+**Proposed Solution**
+[How should this feature work?]
+
+**Alternatives Considered**
+[Other solutions you've considered]
+
+**Additional Context**
+[Any other relevant information]
+```
+
+### Where to Request
+- **GitHub Discussions**: [Link] (preferred)
+- **GitHub Issues**: [Link] (use "Feature Request" label)
 
 ---
 
-## Contact
+## ❓ Frequently Asked Questions (FAQ)
 
-- **Issues**: [GitHub Issues URL]
-- **Discussions**: [GitHub Discussions URL]
-- **Email**: [Support Email]
+### Installation
+
+**Q: Installation fails on Windows**  
+A: Make sure you have:
+- Python 3.8+ installed
+- Required system dependencies
+- Administrator privileges (if needed)
+See [Installation Guide](INSTALLATION.md) for details.
+
+**Q: PDF import doesn't work**  
+A: PDF import requires additional libraries. Install one of:
+- `pip install pdf2image` (requires poppler)
+- `pip install PyMuPDF`
+See [Installation Guide](INSTALLATION.md) for details.
+
+**Q: Video export doesn't work**  
+A: Video export requires:
+- `pip install opencv-python` OR
+- `pip install imageio`
+See [Installation Guide](INSTALLATION.md) for details.
+
+### Usage
+
+**Q: How do I create an animation?**  
+A: 
+1. Create a pattern
+2. Click "Add Frame" to add more frames
+3. Draw different content on each frame
+4. Click "Play" to preview
+See [User Manual](USER_MANUAL.md) for details.
+
+**Q: How do I use layers?**  
+A:
+1. Open the Layer Panel
+2. Click "Add Layer" to create new layers
+3. Draw on different layers
+4. Toggle visibility, adjust opacity, reorder as needed
+See [User Manual](USER_MANUAL.md) for details.
+
+**Q: Can I import my existing patterns?**  
+A: Yes! Upload Bridge supports:
+- Image files (PNG, BMP, JPEG)
+- Animated GIFs
+- SVG files
+- PDF files
+- Project files (.ledproj)
+
+**Q: How do I upload to my device?**  
+A:
+1. Build firmware (Firmware tab)
+2. Connect your device
+3. Select COM port
+4. Click "Upload"
+See [User Manual](USER_MANUAL.md) for details.
+
+### Troubleshooting
+
+**Q: Application crashes on startup**  
+A: 
+- Check system requirements
+- Verify Python version (3.8+)
+- Check error logs
+- Try reinstalling
+
+**Q: Pattern preview is slow**  
+A:
+- Large patterns may be slower
+- Enable frame caching (default)
+- Close other applications
+- Check system resources
+
+**Q: Device not detected**  
+A:
+- Check USB connection
+- Verify drivers installed
+- Try different USB port
+- Check device is in bootloader mode (if required)
+
+**Q: Export fails**  
+A:
+- Check file permissions
+- Verify disk space
+- Check export format compatibility
+- Review error message for details
+
+### Advanced
+
+**Q: Can I customize firmware templates?**  
+A: Yes! Firmware templates are in `firmware/templates/`. You can modify them, but be careful with syntax.
+
+**Q: How do I add custom fonts?**  
+A: Place font files in `Res/fonts/` directory. See [User Manual](USER_MANUAL.md) for font format details.
+
+**Q: Can I script automation?**  
+A: A scripting API is planned for future releases. Currently, use the GUI or modify source code.
 
 ---
 
-## Additional Resources
+## 🔧 Troubleshooting Guide
 
-- **User Manual**: `docs/USER_MANUAL.md`
-- **Quick Start**: `docs/QUICKSTART.md`
-- **Installation**: `docs/INSTALLATION.md`
-- **Changelog**: `CHANGELOG.md`
-- **Release Notes**: `RELEASE_NOTES.md`
+### Common Issues
+
+#### Issue: Application Won't Start
+**Symptoms**: Application doesn't launch or crashes immediately
+
+**Solutions**:
+1. Check Python version: `python --version` (needs 3.8+)
+2. Verify dependencies: `pip install -r requirements.txt`
+3. Check error logs in application directory
+4. Try running from command line to see errors
+5. Reinstall if necessary
+
+#### Issue: Import Fails
+**Symptoms**: Can't import images/files
+
+**Solutions**:
+1. Check file format is supported
+2. Verify file isn't corrupted
+3. Check file permissions
+4. For PDF/SVG: Install required libraries
+5. Try different file
+
+#### Issue: Export Fails
+**Symptoms**: Export doesn't complete or creates invalid file
+
+**Solutions**:
+1. Check disk space
+2. Verify file permissions
+3. Check export format compatibility
+4. Review export options (may be invalid combination)
+5. Try different export location
+
+#### Issue: Device Upload Fails
+**Symptoms**: Can't upload to device
+
+**Solutions**:
+1. Verify device is connected
+2. Check COM port selection
+3. Verify device drivers installed
+4. Check device is in correct mode (bootloader if needed)
+5. Try different USB port/cable
+6. Check device compatibility
+
+#### Issue: Performance Issues
+**Symptoms**: Slow preview, laggy interface
+
+**Solutions**:
+1. Close other applications
+2. Reduce pattern size/number of frames
+3. Enable frame caching (default)
+4. Check system resources (RAM, CPU)
+5. Update graphics drivers
 
 ---
 
-**Thank you for using Upload Bridge!**
+## 📧 Contact Information
+
+### Support Channels
+
+**GitHub Issues** (Preferred)
+- For bugs and feature requests
+- [Link to Issues]
+
+**GitHub Discussions**
+- For questions and community support
+- [Link to Discussions]
+
+**Email** (If available)
+- [Support email]
+- Response time: [e.g., 2-3 business days]
+
+**Discord/Slack** (If available)
+- [Link]
+- Real-time community support
 
 ---
 
-**Last Updated**: 2024-11-XX
+## 🕐 Response Times
 
+- **Critical Bugs**: 1-2 business days
+- **High Priority Issues**: 3-5 business days
+- **Feature Requests**: Reviewed monthly
+- **General Questions**: 5-7 business days
+
+---
+
+## 📝 Contributing
+
+Want to help improve Upload Bridge?
+
+- **Report Bugs**: Use GitHub Issues
+- **Suggest Features**: Use GitHub Discussions
+- **Submit Pull Requests**: See [Contributing Guide](CONTRIBUTING.md)
+- **Improve Documentation**: Submit PRs to docs
+
+---
+
+## 🔒 Security Issues
+
+If you discover a security vulnerability:
+
+1. **DO NOT** open a public issue
+2. Email security team: [Security email]
+3. Include:
+   - Description of vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if available)
+
+We take security seriously and will respond promptly.
+
+---
+
+## 📚 Additional Resources
+
+- **[User Manual](USER_MANUAL.md)** - Complete documentation
+- **[Quick Start Guide](QUICK_START.md)** - Getting started
+- **[Installation Guide](INSTALLATION.md)** - Setup instructions
+- **[API Reference](API_REFERENCE.md)** - Developer docs
+- **[Changelog](../CHANGELOG.md)** - Version history
+- **[Release Notes](../RELEASE_NOTES.md)** - Release information
+
+---
+
+## 🙏 Thank You!
+
+Thank you for using Upload Bridge! We appreciate your feedback and support.
+
+---
+
+**Last Updated**: 2024  
+**Support Version**: 1.0.0

@@ -17,11 +17,11 @@ graph TB
         FM[FrameManager<br/>Frame Operations]
         LM[LayerManager<br/>Multi-layer Support]
         CC[CanvasController<br/>Canvas Rendering]
-        AQM[AutomationQueueManager<br/>Automation Actions]
+        AQM[AutomationQueueManager<br/>Automation Actions<br/>Note: Referenced as automation_manager in code]
         HM[HistoryManager<br/>Undo/Redo]
         SM[ScratchpadManager<br/>Temporary Storage]
         EL[EffectLibrary<br/>Visual Effects]
-        BFR[BitmapFontRepository<br/>Font Assets]
+        BFR[BitmapFontRepository<br/>Font Assets<br/>Note: Referenced as font_repo in code]
         PR[PresetRepository<br/>Automation Presets]
     end
     
@@ -36,9 +36,16 @@ graph TB
         EFFECTS_UI[EffectsLibraryWidget]
     end
     
+    subgraph "UI Dialogs"
+        DETACHED_PREVIEW[DetachedPreviewDialog<br/>Detached Preview Window]
+        FONT_DESIGNER[FontDesignerDialog<br/>Font Creation Tool]
+        AUTOMATION_WIZARD[AutomationWizardDialog<br/>Automation Builder]
+    end
+    
     subgraph "Utilities"
         EXPORT[Export/Import System]
         IMG_IMPORT[ImageImporter]
+        IMG_EXPORT[ImageExporter<br/>Frame/Animation Export]
         PREVIEW[PreviewSimulator]
     end
     
@@ -55,7 +62,11 @@ graph TB
     DTT --> PIS
     DTT --> EXPORT
     DTT --> IMG_IMPORT
+    DTT --> IMG_EXPORT
     DTT --> PREVIEW
+    DTT --> DETACHED_PREVIEW
+    DTT --> FONT_DESIGNER
+    DTT --> AUTOMATION_WIZARD
     
     FM --> PS
     LM --> PS
@@ -468,17 +479,31 @@ graph LR
 
 ---
 
-## 11. Signal Flow: Pattern Modification
+## 11. Signal Flow: Pattern Modification (Complete)
 
 ```mermaid
 flowchart TD
     START[Pattern Modified Event]
     
-    subgraph "Internal Signals"
+    subgraph "Manager Signals"
         PS_SIG[PatternState pattern changed]
         FM_SIG[FrameManager frames_changed]
+        FM_INDEX[FrameManager frame_index_changed]
+        FM_DURATION[FrameManager frame_duration_changed]
         LM_SIG[LayerManager layers_changed]
-        DTT_SIG[DesignToolsTab pattern_modified]
+        LM_ADDED[LayerManager layer_added]
+        LM_REMOVED[LayerManager layer_removed]
+        LM_MOVED[LayerManager layer_moved]
+        AQM_QUEUE[AutomationQueueManager queue_changed]
+        SM_CHANGED[ScratchpadManager scratchpad_changed]
+        CC_FRAME[CanvasController frame_ready]
+    end
+    
+    subgraph "DesignToolsTab Signals"
+        DTT_MODIFIED[DesignToolsTab pattern_modified]
+        DTT_CREATED[DesignToolsTab pattern_created]
+        DTT_PLAYBACK[DesignToolsTab playback_state_changed]
+        DTT_FRAME[DesignToolsTab frame_changed]
     end
     
     subgraph "Internal Listeners"
@@ -486,6 +511,10 @@ flowchart TD
         CANVAS_LIST[Canvas refresh]
         LAYER_LIST[Layer panel update]
         STATUS_LIST[Status labels update]
+        LMS_BINDINGS[LMS frame bindings refresh]
+        SCRATCHPAD_STATUS[Scratchpad status update]
+        DETACHED_SYNC[Detached preview sync]
+        DIRTY_MARK[Mark pattern as dirty]
     end
     
     subgraph "External Listeners"
@@ -495,18 +524,47 @@ flowchart TD
     
     START --> PS_SIG
     START --> FM_SIG
+    START --> FM_INDEX
+    START --> FM_DURATION
     START --> LM_SIG
-    START --> DTT_SIG
+    START --> LM_ADDED
+    START --> LM_REMOVED
+    START --> LM_MOVED
+    START --> AQM_QUEUE
+    START --> SM_CHANGED
+    START --> CC_FRAME
+    START --> DTT_MODIFIED
+    START --> DTT_CREATED
+    START --> DTT_PLAYBACK
+    START --> DTT_FRAME
     
     PS_SIG --> TIMELINE_LIST
     FM_SIG --> TIMELINE_LIST
+    FM_SIG --> LMS_BINDINGS
+    FM_SIG --> DETACHED_SYNC
+    FM_INDEX --> TIMELINE_LIST
+    FM_DURATION --> TIMELINE_LIST
+    
     LM_SIG --> LAYER_LIST
+    LM_ADDED --> LAYER_LIST
+    LM_REMOVED --> LAYER_LIST
+    LM_MOVED --> LAYER_LIST
     
     PS_SIG --> CANVAS_LIST
     LM_SIG --> CANVAS_LIST
+    CC_FRAME --> CANVAS_LIST
     
-    DTT_SIG --> STATUS_LIST
-    DTT_SIG --> MAINWIN
+    SM_CHANGED --> SCRATCHPAD_STATUS
+    AQM_QUEUE --> STATUS_LIST
+    
+    DTT_MODIFIED --> STATUS_LIST
+    DTT_MODIFIED --> DETACHED_SYNC
+    DTT_MODIFIED --> DIRTY_MARK
+    DTT_MODIFIED --> MAINWIN
+    
+    DTT_CREATED --> MAINWIN
+    DTT_PLAYBACK --> TIMELINE_LIST
+    DTT_FRAME --> TIMELINE_LIST
     
     MAINWIN --> OTHER_TABS
 ```
@@ -728,6 +786,204 @@ sequenceDiagram
     DTT->>PS: sync_frame_from_layers() (optional, if needed)
     DTT->>Canvas: Set frame pixels (composite)
     Canvas->>Canvas: Render display
+```
+
+---
+
+## 17. Sequence Diagram: Scratchpad Operations
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Scratchpad Controls
+    participant DTT as DesignToolsTab
+    participant SM as ScratchpadManager
+    participant LM as LayerManager
+    participant PS as PatternState
+    
+    Note over User,PS: Copy Pixels to Scratchpad
+    User->>UI: Click "Copy to Scratchpad"
+    UI->>DTT: _on_copy_to_scratchpad(slot)
+    DTT->>LM: get_composite_pixels(frame_index)
+    LM->>DTT: Return composite pixels
+    DTT->>SM: copy_pixels(slot, pixels)
+    SM->>SM: Store pixels in slot
+    SM->>UI: scratchpad_changed.emit
+    UI->>UI: Update slot indicator
+    
+    Note over User,PS: Paste Pixels from Scratchpad
+    User->>UI: Click "Paste from Scratchpad"
+    UI->>DTT: _on_paste_from_scratchpad(slot)
+    DTT->>SM: get_pixels(slot)
+    SM->>DTT: Return stored pixels
+    DTT->>LM: replace_pixels(frame_index, pixels)
+    LM->>LM: Update layer pixels
+    LM->>PS: sync_frame_from_layers()
+    PS->>PS: Update frame.pixels
+    DTT->>DTT: pattern_modified.emit
+    DTT->>UI: Refresh canvas
+```
+
+---
+
+## 18. Sequence Diagram: Font Designer Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Font Designer Button
+    participant DTT as DesignToolsTab
+    participant FDD as FontDesignerDialog
+    participant BFR as BitmapFontRepository
+    participant Canvas
+    
+    User->>UI: Click "Font Designer"
+    UI->>DTT: _on_font_designer_clicked()
+    DTT->>FDD: FontDesignerDialog(font_repo, parent)
+    FDD->>BFR: Get available fonts
+    BFR->>FDD: Return font list
+    FDD->>FDD: Show font designer UI
+    
+    User->>FDD: Create/Edit font
+    FDD->>FDD: Design glyphs
+    User->>FDD: Click "Save Font"
+    FDD->>BFR: Save font definition
+    BFR->>BFR: Persist font to storage
+    BFR->>FDD: Save complete
+    FDD->>DTT: Font saved notification
+    DTT->>DTT: Refresh font repository
+```
+
+---
+
+## 19. Sequence Diagram: Automation Wizard Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Automation Wizard Button
+    participant DTT as DesignToolsTab
+    participant AW as AutomationWizardDialog
+    participant AQM as AutomationQueueManager
+    participant PS as PatternState
+    
+    User->>UI: Click "Automation Wizard"
+    UI->>DTT: _on_automation_wizard_clicked()
+    DTT->>AW: AutomationWizardDialog(ACTION_PARAM_CONFIG, parent)
+    AW->>AW: Show action selection UI
+    
+    User->>AW: Select action type (scroll/wipe/reveal/etc.)
+    AW->>AW: Show parameter configuration
+    User->>AW: Configure parameters
+    User->>AW: Click "Add to Queue"
+    AW->>DTT: Return action configuration
+    DTT->>AQM: Add action to queue
+    AQM->>PS: Apply action to pattern
+    AQM->>DTT: queue_changed.emit
+    DTT->>DTT: pattern_modified.emit
+    DTT->>UI: Refresh automation queue display
+```
+
+---
+
+## 20. Sequence Diagram: Detached Preview Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Detached Preview Button
+    participant DTT as DesignToolsTab
+    participant DPD as DetachedPreviewDialog
+    participant PS as PatternState
+    participant Canvas
+    
+    User->>UI: Click "Detached Preview"
+    UI->>DTT: _on_detached_preview_clicked()
+    alt Preview Not Open
+        DTT->>DPD: DetachedPreviewDialog(parent)
+        DPD->>PS: Get current pattern
+        PS->>DPD: Return pattern
+        DPD->>DPD: Initialize preview display
+        DPD->>DPD: Show window
+    else Preview Already Open
+        DTT->>DPD: Bring to front
+    end
+    
+    Note over User,Canvas: Pattern Modified
+    DTT->>DTT: pattern_modified.emit
+    DTT->>DPD: _sync_detached_preview()
+    DPD->>PS: Get updated pattern
+    PS->>DPD: Return pattern
+    DPD->>DPD: Refresh preview display
+    
+    User->>DPD: Close window
+    DPD->>DTT: Window closed
+    DTT->>DTT: Clear _detached_preview reference
+```
+
+---
+
+## 21. Sequence Diagram: Autosave Workflow
+
+```mermaid
+sequenceDiagram
+    participant Timer as Autosave Timer
+    participant DTT as DesignToolsTab
+    participant PS as PatternState
+    participant FileSystem
+    
+    Note over Timer,FileSystem: Timer fires every 5 minutes
+    Timer->>DTT: timeout.emit
+    DTT->>DTT: _perform_autosave()
+    DTT->>DTT: Check if pattern is dirty
+    
+    alt Pattern is dirty
+        DTT->>PS: Get current pattern
+        PS->>DTT: Return pattern
+        DTT->>DTT: Generate autosave filename
+        DTT->>FileSystem: Save pattern to autosave file
+        FileSystem->>DTT: Save complete
+        DTT->>DTT: Update autosave timestamp
+        DTT->>DTT: Log autosave success
+    else Pattern is clean
+        DTT->>DTT: Skip autosave (no changes)
+    end
+```
+
+---
+
+## 22. Sequence Diagram: Image Export Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Export Controls
+    participant DTT as DesignToolsTab
+    participant IE as ImageExporter
+    participant PS as PatternState
+    participant FileSystem
+    
+    alt Export Single Frame
+        User->>UI: Click "Export Frame as Image"
+        UI->>DTT: _on_export_frame_as_image()
+        DTT->>PS: Get current frame
+        PS->>DTT: Return frame pixels
+        DTT->>IE: export_frame_as_image(frame, path, format)
+        IE->>IE: Convert pixels to image
+        IE->>FileSystem: Save image file
+        FileSystem->>DTT: Export complete
+    else Export Animation as GIF
+        User->>UI: Click "Export Animation as GIF"
+        UI->>DTT: _on_export_animation_as_gif()
+        DTT->>PS: Get all frames
+        PS->>DTT: Return frame list
+        DTT->>IE: export_animation_as_gif(frames, path, fps)
+        IE->>IE: Create GIF from frames
+        IE->>FileSystem: Save GIF file
+        FileSystem->>DTT: Export complete
+    end
+    
+    DTT->>UI: Show success message
 ```
 
 ---

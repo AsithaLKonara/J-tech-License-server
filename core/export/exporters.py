@@ -131,6 +131,98 @@ class PatternExporter:
         
         return output_path
     
+    def export_sprite_sheet(
+        self,
+        pattern: Pattern,
+        output_path: Path,
+        orientation: str = "horizontal",
+        spacing: int = 0,
+        scale_factor: int = 1,
+        generate_manifest: bool = True
+    ) -> Path:
+        """
+        Export pattern as PNG sprite sheet.
+        
+        Args:
+            pattern: Pattern to export
+            output_path: Output file path
+            orientation: "horizontal" or "vertical" layout
+            spacing: Pixels spacing between frames
+            scale_factor: Pixel scaling factor
+            generate_manifest: Whether to generate build manifest
+            
+        Returns:
+            Path to exported file
+        """
+        from core.image_exporter import ImageExporter
+        
+        ImageExporter.export_sprite_sheet(
+            pattern,
+            str(output_path),
+            orientation=orientation,
+            spacing=spacing,
+            scale_factor=scale_factor,
+            format="PNG"
+        )
+        
+        if generate_manifest:
+            payload = output_path.read_bytes()
+            self._generate_manifest(pattern, output_path, "png_sprite", payload)
+        
+        return output_path
+    
+    def export_gif(
+        self,
+        pattern: Pattern,
+        output_path: Path,
+        frame_delay_ms: int = 50,
+        loop: bool = True,
+        scale_factor: int = 1,
+        generate_manifest: bool = True
+    ) -> Path:
+        """
+        Export pattern as animated GIF.
+        
+        Args:
+            pattern: Pattern to export
+            output_path: Output file path
+            frame_delay_ms: Frame delay in milliseconds (overrides frame durations if > 0)
+            loop: Whether to loop animation
+            scale_factor: Pixel scaling factor
+            generate_manifest: Whether to generate build manifest
+            
+        Returns:
+            Path to exported file
+        """
+        from core.image_exporter import ImageExporter
+        
+        # If frame_delay_ms is specified, temporarily override frame durations
+        if frame_delay_ms > 0:
+            original_durations = [frame.duration_ms for frame in pattern.frames]
+            for frame in pattern.frames:
+                frame.duration_ms = frame_delay_ms
+        
+        try:
+            loop_count = 0 if loop else 1
+            ImageExporter.export_animation_as_gif(
+                pattern,
+                str(output_path),
+                scale_factor=scale_factor,
+                loop_count=loop_count
+            )
+        finally:
+            # Restore original durations
+            if frame_delay_ms > 0:
+                for i, frame in enumerate(pattern.frames):
+                    if i < len(original_durations):
+                        frame.duration_ms = original_durations[i]
+        
+        if generate_manifest:
+            payload = output_path.read_bytes()
+            self._generate_manifest(pattern, output_path, "gif", payload)
+        
+        return output_path
+    
     def export_header(
         self,
         pattern: Pattern,
@@ -334,6 +426,22 @@ def export_pattern(
         return exporter.export_leds(pattern, output_path, **kwargs)
     elif format_lower in ("ledproj", "project"):
         return exporter.export_project(pattern, output_path, kwargs.get('metadata'))
+    elif format_lower == "png_sprite":
+        return exporter.export_sprite_sheet(
+            pattern,
+            output_path,
+            orientation=kwargs.get('orientation', 'horizontal'),
+            spacing=kwargs.get('spacing', 0),
+            scale_factor=kwargs.get('scale_factor', 1)
+        )
+    elif format_lower == "gif":
+        return exporter.export_gif(
+            pattern,
+            output_path,
+            frame_delay_ms=kwargs.get('frame_delay_ms', 0),
+            loop=kwargs.get('loop', True),
+            scale_factor=kwargs.get('scale_factor', 1)
+        )
     else:
         raise ValueError(f"Unknown export format: {format}")
 

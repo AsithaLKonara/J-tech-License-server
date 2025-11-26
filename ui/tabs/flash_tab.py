@@ -18,6 +18,8 @@ from core.matrix_detector import MatrixDetector
 from uploaders.uploader_registry import UploaderRegistry, get_uploader
 from uploaders.base import UploadStatus
 from firmware.builder import FirmwareBuilder
+from core.services.flash_service import FlashService
+from core.repositories.pattern_repository import PatternRepository
 import copy
 
 
@@ -30,8 +32,9 @@ class FlashThread(QThread):
     log = Signal(str)  # log message
     build_result_ready = Signal(object)  # build_result object
     
-    def __init__(self, pattern, chip_id, port, gpio, verify):
+    def __init__(self, flash_service, pattern, chip_id, port, gpio, verify):
         super().__init__()
+        self.flash_service = flash_service
         self.pattern = pattern
         self.chip_id = chip_id
         self.port = port
@@ -41,77 +44,86 @@ class FlashThread(QThread):
     def run(self):
         """Execute build and flash process"""
         try:
-            # Step 1: Get uploader
-            self.log.emit(f"Getting uploader for {self.chip_id}...")
-            uploader = get_uploader(self.chip_id)
-            
-            if not uploader:
-                self.finished.emit(False, f"No uploader found for {self.chip_id}")
+            # Step 1: Check if chip is supported
+            self.log.emit(f"Checking support for {self.chip_id}...")
+            if not self.flash_service.is_chip_supported(self.chip_id):
+                self.finished.emit(False, f"Chip {self.chip_id} is not supported")
                 return
             
-            # Set progress callback
-            uploader.set_progress_callback(self.on_uploader_progress)
-            
-            # Step 2: Build firmware
+            # Step 2: Build firmware using FlashService
             self.log.emit("Building firmware...")
             self.progress.emit("building", 0.0, "Building firmware...")
             
-            builder = FirmwareBuilder()
-            build_result = builder.build(self.pattern, self.chip_id, {
+            build_config = {
                 'gpio_pin': self.gpio
-            })
+            }
+            
+            build_result = self.flash_service.build_firmware(
+                self.pattern,
+                self.chip_id,
+                config=build_config
+            )
             
             if not build_result.success:
-                self.finished.emit(False, f"Build failed: {build_result.error_message}")
+                error_msg = getattr(build_result, 'error_message', 'Unknown error')
+                self.finished.emit(False, f"Build failed: {error_msg}")
                 return
             
             self.log.emit(f"Build successful: {build_result.firmware_path}")
-            self.log.emit(f"Firmware size: {build_result.size_bytes} bytes")
+            if hasattr(build_result, 'size_bytes'):
+                self.log.emit(f"Firmware size: {build_result.size_bytes} bytes")
             
             # Emit build result so FlashTab can store it for save/view
             self.build_result_ready.emit(build_result)
             
-            # Step 3: Upload
+            # Step 3: Upload using FlashService
             self.log.emit(f"Uploading to {self.port}...")
             self.progress.emit("uploading", 0.5, f"Uploading to {self.port}...")
             
-            upload_result = uploader.upload(build_result.firmware_path, {
+            upload_config = {
                 'port': self.port
-            })
+            }
+            
+            upload_result = self.flash_service.upload_firmware(
+                str(build_result.firmware_path),
+                self.chip_id,
+                port=self.port,
+                config=upload_config
+            )
             
             if upload_result.success:
                 self.log.emit(f"Upload successful!")
-                self.log.emit(f"Duration: {upload_result.duration_seconds:.1f}s")
-                self.log.emit(f"Bytes written: {upload_result.bytes_written}")
+                if hasattr(upload_result, 'duration_seconds'):
+                    self.log.emit(f"Duration: {upload_result.duration_seconds:.1f}s")
+                if hasattr(upload_result, 'bytes_written'):
+                    self.log.emit(f"Bytes written: {upload_result.bytes_written}")
                 
                 # Step 4: Verify (if requested)
                 if self.verify:
                     self.log.emit("Verifying...")
                     self.progress.emit("verifying", 0.9, "Verifying...")
                     
-                    verified = uploader.verify(build_result.firmware_path, {
-                        'port': self.port
-                    })
+                    is_valid, error = self.flash_service.verify_upload(
+                        self.chip_id,
+                        port=self.port,
+                        config={'firmware_path': str(build_result.firmware_path)}
+                    )
                     
-                    if verified:
+                    if is_valid:
                         self.log.emit("Verification successful!")
                     else:
-                        self.log.emit("Warning: Verification failed")
+                        self.log.emit(f"Warning: Verification failed: {error or 'Unknown error'}")
                 
                 self.progress.emit("complete", 1.0, "Flash complete!")
                 self.finished.emit(True, "Pattern uploaded successfully!")
             
             else:
-                self.finished.emit(False, f"Upload failed: {upload_result.error_message}")
+                error_msg = getattr(upload_result, 'error_message', 'Unknown error')
+                self.finished.emit(False, f"Upload failed: {error_msg}")
         
         except Exception as e:
             self.log.emit(f"ERROR: {str(e)}")
             self.finished.emit(False, f"Error: {str(e)}")
-    
-    def on_uploader_progress(self, status, progress, message):
-        """Uploader progress callback"""
-        self.progress.emit(status.value, progress, message)
-        self.log.emit(f"  {message}")
 
 
 class FlashTab(QWidget):
@@ -135,6 +147,11 @@ class FlashTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        # Initialize services
+        self.flash_service = FlashService()
+        self.repository = PatternRepository.instance()
+        
+        # Legacy pattern reference (for backward compatibility)
         self.pattern: Pattern = None
         self.flash_thread: FlashThread = None
         self.last_build_result = None  # Store build result for save/view
@@ -418,7 +435,9 @@ class FlashTab(QWidget):
             self.log("⚠️ Warning: Pattern was modified/replaced during flash operation")
             self.log("⚠️ Flash will continue with original pattern")
         
-        self.pattern = pattern
+        # Store in repository and sync legacy reference
+        self.repository.set_current_pattern(pattern)
+        self.pattern = pattern  # Legacy reference for backward compatibility
         self.log(f"Pattern loaded: {pattern.frame_count} frames, {pattern.led_count} LEDs")
         dim_source = getattr(pattern.metadata, 'dimension_source', 'unknown')
         dim_conf = getattr(pattern.metadata, 'dimension_confidence', None)
@@ -436,7 +455,8 @@ class FlashTab(QWidget):
     def refresh_preview(self, pattern: Pattern = None):
         """Refresh preview with updated pattern (called from pattern_changed signal)"""
         if pattern is None:
-            pattern = self.pattern
+            # Get from repository
+            pattern = self.repository.get_current_pattern() or self.pattern
         if pattern:
             self.load_pattern(pattern)
     
@@ -508,7 +528,8 @@ class FlashTab(QWidget):
         
         # Fallback to preview pattern if original not available
         if original_pattern is None:
-            original_pattern = self.pattern
+            # Try repository first, then legacy reference
+            original_pattern = self.repository.get_current_pattern() or self.pattern
             if original_pattern is None:
                 QMessageBox.warning(self, "No Pattern", "Please load a pattern first!")
                 return
@@ -803,7 +824,7 @@ class FlashTab(QWidget):
         self.firmware_building.emit()
         
         # Start flash thread with pattern copy
-        self.flash_thread = FlashThread(pattern_copy, chip_id, port, gpio, verify)
+        self.flash_thread = FlashThread(self.flash_service, pattern_copy, chip_id, port, gpio, verify)
         self.flash_thread.progress.connect(self.on_progress)
         self.flash_thread.finished.connect(self.on_flash_complete)
         self.flash_thread.log.connect(self.log)
