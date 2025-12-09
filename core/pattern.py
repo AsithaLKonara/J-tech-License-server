@@ -111,6 +111,11 @@ class PatternMetadata:
     led_position_units: str = "grid"  # "grid", "mm", "inches"
     custom_position_center_x: Optional[float] = None  # Center X for custom positions
     custom_position_center_y: Optional[float] = None  # Center Y for custom positions
+    # Matrix-style Budurasmala (curved matrix, text rendering)
+    matrix_style: Optional[str] = None  # "curved", "hybrid_ring_matrix", None for standard
+    text_content: Optional[str] = None  # Text to render on circular matrix
+    text_font_size: Optional[int] = None  # Font size for text rendering
+    text_color: Optional[Tuple[int, int, int]] = None  # RGB color for text
     
     def __post_init__(self):
         """Validate metadata"""
