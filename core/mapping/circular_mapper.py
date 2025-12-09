@@ -590,6 +590,33 @@ class CircularMapper:
         return (True, None)
     
     @staticmethod
+    def is_mapped(x: int, y: int, metadata: PatternMetadata) -> bool:
+        """
+        Check if grid cell (x, y) is mapped to a LED.
+        
+        For rectangular layouts, all cells are mapped.
+        For circular layouts, only cells in the mapping table are mapped.
+        
+        Args:
+            x: Grid X coordinate
+            y: Grid Y coordinate
+            metadata: PatternMetadata with layout configuration
+            
+        Returns:
+            True if (x, y) is mapped to a LED, False otherwise
+        """
+        if metadata.layout_type == "rectangular":
+            # All cells are mapped in rectangular layouts
+            return 0 <= x < metadata.width and 0 <= y < metadata.height
+        
+        # For circular layouts, check if (x, y) is in mapping table
+        if not metadata.circular_mapping_table:
+            return False
+        
+        # Check if (x, y) appears in mapping table
+        return (x, y) in metadata.circular_mapping_table
+    
+    @staticmethod
     def ensure_mapping_table(metadata: PatternMetadata) -> bool:
         """
         Ensure mapping table exists, generating it if necessary.
@@ -616,4 +643,37 @@ class CircularMapper:
             return is_valid
         except Exception:
             return False
+    
+    @staticmethod
+    def suggest_grid_size(led_count: int, layout_type: str) -> Tuple[int, int]:
+        """
+        Suggest appropriate grid dimensions for a circular layout.
+        
+        This calculates grid size that will be large enough to accommodate
+        all LEDs in the circular layout. The grid should be at least as large
+        as needed to map all LED positions.
+        
+        Args:
+            led_count: Number of LEDs in the circular layout
+            layout_type: Layout type ("circle", "ring", "arc", "multi_ring", "radial_rays", etc.)
+            
+        Returns:
+            Tuple of (width, height) suggested grid dimensions
+        """
+        # For simple circular layouts, use a square grid
+        # Size should be at least sqrt(led_count) to ensure we have enough cells
+        # Add some margin for better mapping accuracy
+        base_size = int((led_count ** 0.5) * 1.5) + 2
+        
+        # Round up to next even number for better symmetry
+        base_size = (base_size + 1) // 2 * 2
+        
+        # Minimum size
+        base_size = max(base_size, 8)
+        
+        # For multi-ring and radial layouts, might need larger grid
+        if layout_type in ["multi_ring", "radial_rays"]:
+            base_size = max(base_size, 16)
+        
+        return (base_size, base_size)
 

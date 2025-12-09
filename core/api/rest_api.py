@@ -9,8 +9,17 @@ from __future__ import annotations
 import json
 import logging
 from typing import Dict, Any, Optional, List
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+
+try:
+    from flask import Flask, request, jsonify
+    from flask_cors import CORS
+    FLASK_AVAILABLE = True
+except ImportError:
+    FLASK_AVAILABLE = False
+    Flask = None
+    request = None
+    jsonify = None
+    CORS = None
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +48,9 @@ class BudurasmalaRESTAPI:
             host: Host to bind to
             port: Port to listen on
         """
+        if not FLASK_AVAILABLE:
+            raise ImportError("Flask is required for REST API. Install with: pip install flask flask-cors")
+        
         self.device_manager = device_manager
         self.host = host
         self.port = port

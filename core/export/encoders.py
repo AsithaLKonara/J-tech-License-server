@@ -119,16 +119,28 @@ def encode_frame_bytes(pattern: Pattern, frame: Frame, options: ExportOptions) -
         # For circular layouts, reorder pixels using mapping table
         pixels = prepare_frame_pixels(pattern, frame)
         
-        # Ensure mapping table exists (regenerate if missing)
-        # This handles edge cases like loading old patterns or corrupted metadata
-        if not CircularMapper.ensure_mapping_table(pattern.metadata):
-            # Fallback to rectangular export if mapping generation fails
-            import logging
-            logging.warning(
-                f"Failed to ensure mapping table for circular layout export. "
-                f"Using rectangular order as fallback."
-            )
-            layout_type = "rectangular"
+        # Validate mapping table before export
+        is_valid, error_msg = CircularMapper.validate_mapping_table(pattern.metadata)
+        if not is_valid:
+            # Try to regenerate if invalid
+            if not CircularMapper.ensure_mapping_table(pattern.metadata):
+                # Fallback to rectangular export if mapping generation fails
+                import logging
+                logging.error(
+                    f"Circular layout export failed: {error_msg}. "
+                    f"Using rectangular order as fallback."
+                )
+                layout_type = "rectangular"
+            else:
+                # Re-validate after regeneration
+                is_valid, error_msg = CircularMapper.validate_mapping_table(pattern.metadata)
+                if not is_valid:
+                    import logging
+                    logging.error(
+                        f"Circular layout export failed after regeneration: {error_msg}. "
+                        f"Using rectangular order as fallback."
+                    )
+                    layout_type = "rectangular"
         
         if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
             # CRITICAL: Reorder pixels using mapping table

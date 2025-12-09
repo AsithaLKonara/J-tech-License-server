@@ -137,6 +137,29 @@ class PatternMetadata:
             # For radial layouts, circular_led_count can be calculated from grid (height * width)
             # For multi_ring layouts, circular_led_count can be calculated from ring_led_counts
             # For radial_rays layouts, circular_led_count can be calculated from ray_count * leds_per_ray
+            
+            # CRITICAL: Ensure mapping table exists for circular layouts
+            # This is the single source of truth - must be present
+            if self.circular_mapping_table is None:
+                try:
+                    from core.mapping.circular_mapper import CircularMapper
+                    self.circular_mapping_table = CircularMapper.generate_mapping_table(self)
+                    
+                    # Validate the generated mapping
+                    is_valid, error_msg = CircularMapper.validate_mapping_table(self)
+                    if not is_valid:
+                        import logging
+                        logging.warning(
+                            f"Auto-generated mapping table is invalid: {error_msg}. "
+                            f"Layout type: {self.layout_type}"
+                        )
+                except Exception as e:
+                    import logging
+                    logging.warning(
+                        f"Failed to auto-generate mapping table for circular layout: {e}. "
+                        f"Layout type: {self.layout_type}. "
+                        f"Pattern may not work correctly until mapping is generated."
+                    )
             # It will be set during mapping table generation if not provided
             if self.layout_type == "radial":
                 # Radial layouts can calculate from grid

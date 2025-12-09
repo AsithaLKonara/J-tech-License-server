@@ -287,7 +287,7 @@ class TemplateLibrary:
             },
             generator=self._generate_color_gradient_rotation
         ))
-        
+    
         # Cultural Patterns (Phase 3)
         # Lotus Pattern
         self.templates.append(PatternTemplate(

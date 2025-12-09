@@ -693,6 +693,10 @@ class NewPatternDialog(QDialog):
     
     def _update_background_mode_feedback(self):
         """Update background mode visual feedback."""
+        # Check if frames_spin exists (may not be created yet)
+        if not hasattr(self, 'frames_spin') or self.frames_spin is None:
+            return
+        
         mode = "all" if self.background_all_radio.isChecked() else "common"
         frames_count = self.frames_spin.value()
         

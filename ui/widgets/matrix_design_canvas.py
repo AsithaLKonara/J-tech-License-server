@@ -905,10 +905,31 @@ class MatrixDesignCanvas(QWidget):
         if self._pattern_metadata:
             layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
         
-        # If pattern has circular layout, show it regardless of overlay setting
+        # For circular layouts, dim unmapped cells to show active vs inactive
         if layout_type and layout_type != "rectangular":
+            from core.mapping.circular_mapper import CircularMapper
+            
+            # Dim unmapped cells
+            cell_width = bounds.width() / self._matrix_width if self._matrix_width > 0 else 1
+            cell_height = bounds.height() / self._matrix_height if self._matrix_height > 0 else 1
+            
+            inactive_brush = QBrush(QColor(60, 60, 60, 40))
+            painter.setBrush(inactive_brush)
+            painter.setPen(Qt.NoPen)
+            
+            for y in range(self._matrix_height):
+                for x in range(self._matrix_width):
+                    # Check if this cell is mapped
+                    if not CircularMapper.is_mapped(x, y, self._pattern_metadata):
+                        # Dim unmapped cell
+                        cell_x = bounds.x() + x * cell_width
+                        cell_y = bounds.y() + y * cell_height
+                        painter.drawRect(int(cell_x), int(cell_y), int(cell_width), int(cell_height))
+            
+            # Draw circular bounds overlay
             overlay_pen = QPen(QColor(0, 255, 120, 120), 2, Qt.SolidLine)
             painter.setPen(overlay_pen)
+            painter.setBrush(Qt.NoBrush)
             
             if layout_type == "circle":
                 painter.drawEllipse(bounds)
@@ -960,10 +981,12 @@ class MatrixDesignCanvas(QWidget):
         wiring_mode = getattr(self._pattern_metadata, 'wiring_mode', 'Row-major')
         data_in_corner = getattr(self._pattern_metadata, 'data_in_corner', 'LT')
         
-        # Only show wiring overlay for rectangular layouts (circular has its own mapping)
+        # Check layout type
         layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
         if layout_type != 'rectangular':
-            return  # Circular layouts use circular_mapping_table instead
+            # For circular layouts, use circular wiring overlay
+            self._draw_circular_wiring_overlay(painter, bounds)
+            return
         
         # Create wiring mapper to get the path
         mapper = WiringMapper(
@@ -1008,36 +1031,76 @@ class MatrixDesignCanvas(QWidget):
                 painter.setFont(QFont("Arial", max(6, int(min(cell_width, cell_height) * 0.3))))
                 painter.drawText(int(x - cell_width/4), int(y + cell_height/4), str(hw_idx))
                 painter.setPen(wiring_pen)
-                center_x = bounds.center().x()
-                center_y = bounds.center().y()
-                max_radius = min(bounds.width(), bounds.height()) / 2 - 6
-                min_radius = max_radius * 0.15
-                
-                # Draw concentric circles for each row
-                for row in range(num_circles):
-                    # Calculate radius for this circle
-                    if num_circles > 1:
-                        radius = min_radius + (max_radius - min_radius) * (row / (num_circles - 1))
-                    else:
-                        radius = max_radius
-                    
-                    # Draw circle
-                    circle_rect = bounds.adjusted(
-                        int(center_x - radius - bounds.x()),
-                        int(center_y - radius - bounds.y()),
-                        -int(center_x + radius - bounds.right()),
-                        -int(center_y + radius - bounds.bottom())
-                    )
-                    painter.drawEllipse(circle_rect)
             
-            # Highlight active grid cells that map to LEDs
-            # This visual feedback teaches users which grid cells are "active"
-            if self._pattern_metadata and self._pattern_metadata.circular_mapping_table:
-                active_cells = set(self._pattern_metadata.circular_mapping_table)
+    def _draw_circular_wiring_overlay(self, painter: QPainter, bounds):
+        """
+        Draw circular wiring path overlay showing LED index order.
+        
+        This visualizes the physical LED wiring order for circular layouts,
+        following the mapping table order (LED 0, 1, 2, ...).
+        """
+        if not self._pattern_metadata or not self._pattern_metadata.circular_mapping_table:
+            return
+        
+        mapping_table = self._pattern_metadata.circular_mapping_table
+        if not mapping_table:
+            return
+        
+        # Calculate cell size
+        cell_width = bounds.width() / self._matrix_width if self._matrix_width > 0 else 1
+        cell_height = bounds.height() / self._matrix_height if self._matrix_height > 0 else 1
+        
+        # Draw wiring path as arrows/lines
+        wiring_pen = QPen(QColor(255, 200, 0, 150), 2, Qt.SolidLine)
+        painter.setPen(wiring_pen)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        
+        # Draw path connecting LEDs in index order (0, 1, 2, ...)
+        prev_x, prev_y = None, None
+        for led_idx in range(len(mapping_table)):
+            # Get grid coordinate from mapping table
+            grid_x, grid_y = mapping_table[led_idx]
+            
+            # Calculate pixel position
+            x = bounds.x() + (grid_x + 0.5) * cell_width
+            y = bounds.y() + (grid_y + 0.5) * cell_height
+            
+            # Draw line from previous position
+            if prev_x is not None:
+                painter.drawLine(int(prev_x), int(prev_y), int(x), int(y))
                 
-                # First, dim non-active cells to show they're not part of the circular layout
-                inactive_pen = QPen(QColor(60, 60, 60, 40), 1, Qt.SolidLine)
-                inactive_brush = QBrush(QColor(60, 60, 60, 20))
+                # Draw arrow head
+                from math import atan2, cos, sin, pi
+                angle = atan2(y - prev_y, x - prev_x)
+                arrow_size = 8
+                arrow_x1 = x - arrow_size * cos(angle - pi / 6)
+                arrow_y1 = y - arrow_size * sin(angle - pi / 6)
+                arrow_x2 = x - arrow_size * cos(angle + pi / 6)
+                arrow_y2 = y - arrow_size * sin(angle + pi / 6)
+                painter.drawLine(int(x), int(y), int(arrow_x1), int(arrow_y1))
+                painter.drawLine(int(x), int(y), int(arrow_x2), int(arrow_y2))
+            
+            prev_x, prev_y = x, y
+            
+            # Draw LED number (first 20 LEDs to avoid clutter)
+            if led_idx < 20:
+                painter.setPen(QPen(QColor(255, 200, 0, 200), 1))
+                from PySide6.QtGui import QFont
+                painter.setFont(QFont("Arial", max(6, int(min(cell_width, cell_height) * 0.3))))
+                painter.drawText(int(x - cell_width/4), int(y + cell_height/4), str(led_idx))
+                painter.setPen(wiring_pen)
+            
+            # Color-code start (green) and end (red) points
+            if led_idx == 0:
+                # Start point - green
+                start_brush = QBrush(QColor(0, 255, 0, 150))
+                painter.setBrush(start_brush)
+                painter.drawEllipse(int(x - 4), int(y - 4), 8, 8)
+            elif led_idx == len(mapping_table) - 1:
+                # End point - red
+                end_brush = QBrush(QColor(255, 0, 0, 150))
+                painter.setBrush(end_brush)
+                painter.drawEllipse(int(x - 4), int(y - 4), 8, 8)
                 painter.setPen(inactive_pen)
                 painter.setBrush(inactive_brush)
                 

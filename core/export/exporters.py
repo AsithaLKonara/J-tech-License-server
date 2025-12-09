@@ -516,19 +516,51 @@ class PatternExporter:
         }
         
         # Add frames
+        from core.export.encoders import prepare_frame_pixels
+        
+        layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
+        led_count = falcon_data["leds"]
+        
+        # For circular layouts, use circular_led_count
+        if layout_type != "rectangular" and pattern.metadata.circular_led_count:
+            led_count = pattern.metadata.circular_led_count
+            falcon_data["leds"] = led_count
+        
         for frame in pattern.frames:
-            # Convert frame pixels to RGB array
+            # Get pixels from frame
+            pixels = prepare_frame_pixels(pattern, frame)
+            
+            # For circular layouts, reorder pixels using mapping table
+            if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
+                # Reorder pixels according to LED wiring order
+                reordered_pixels = []
+                for led_idx in range(led_count):
+                    if led_idx < len(pattern.metadata.circular_mapping_table):
+                        grid_x, grid_y = pattern.metadata.circular_mapping_table[led_idx]
+                        if 0 <= grid_y < pattern.metadata.height and 0 <= grid_x < pattern.metadata.width:
+                            grid_idx = grid_y * pattern.metadata.width + grid_x
+                            if grid_idx < len(pixels):
+                                reordered_pixels.append(pixels[grid_idx])
+                            else:
+                                reordered_pixels.append((0, 0, 0))
+                        else:
+                            reordered_pixels.append((0, 0, 0))
+                    else:
+                        reordered_pixels.append((0, 0, 0))
+                pixels = reordered_pixels
+            
+            # Convert pixels to RGB array
             rgb_array = []
-            for pixel in frame.pixels:
-                if len(pixel) >= 3:
-                    rgb_array.append([pixel[0], pixel[1], pixel[2]])
+            for pixel in pixels[:led_count]:
+                if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                    rgb_array.append([int(pixel[0]), int(pixel[1]), int(pixel[2])])
                 else:
                     rgb_array.append([0, 0, 0])
             
             # Pad or trim to exact LED count
-            while len(rgb_array) < falcon_data["leds"]:
+            while len(rgb_array) < led_count:
                 rgb_array.append([0, 0, 0])
-            rgb_array = rgb_array[:falcon_data["leds"]]
+            rgb_array = rgb_array[:led_count]
             
             # Falcon Player frame format
             falcon_frame = {
@@ -616,20 +648,52 @@ class PatternExporter:
         xlights_data["sequence"]["duration_ms"] = total_ms
         
         # Add frames
+        from core.export.encoders import prepare_frame_pixels
+        
+        layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
+        led_count = xlights_data["model"]["leds"]
+        
+        # For circular layouts, use circular_led_count
+        if layout_type != "rectangular" and pattern.metadata.circular_led_count:
+            led_count = pattern.metadata.circular_led_count
+            xlights_data["model"]["leds"] = led_count
+        
         current_time_ms = 0
         for frame in pattern.frames:
-            # Convert frame pixels to RGB array
+            # Get pixels from frame
+            pixels = prepare_frame_pixels(pattern, frame)
+            
+            # For circular layouts, reorder pixels using mapping table
+            if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
+                # Reorder pixels according to LED wiring order
+                reordered_pixels = []
+                for led_idx in range(led_count):
+                    if led_idx < len(pattern.metadata.circular_mapping_table):
+                        grid_x, grid_y = pattern.metadata.circular_mapping_table[led_idx]
+                        if 0 <= grid_y < pattern.metadata.height and 0 <= grid_x < pattern.metadata.width:
+                            grid_idx = grid_y * pattern.metadata.width + grid_x
+                            if grid_idx < len(pixels):
+                                reordered_pixels.append(pixels[grid_idx])
+                            else:
+                                reordered_pixels.append((0, 0, 0))
+                        else:
+                            reordered_pixels.append((0, 0, 0))
+                    else:
+                        reordered_pixels.append((0, 0, 0))
+                pixels = reordered_pixels
+            
+            # Convert pixels to RGB array
             rgb_array = []
-            for pixel in frame.pixels:
-                if len(pixel) >= 3:
-                    rgb_array.append([pixel[0], pixel[1], pixel[2]])
+            for pixel in pixels[:led_count]:
+                if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                    rgb_array.append([int(pixel[0]), int(pixel[1]), int(pixel[2])])
                 else:
                     rgb_array.append([0, 0, 0])
             
             # Pad or trim to exact LED count
-            while len(rgb_array) < xlights_data["model"]["leds"]:
+            while len(rgb_array) < led_count:
                 rgb_array.append([0, 0, 0])
-            rgb_array = rgb_array[:xlights_data["model"]["leds"]]
+            rgb_array = rgb_array[:led_count]
             
             # xLights frame format
             xlights_frame = {

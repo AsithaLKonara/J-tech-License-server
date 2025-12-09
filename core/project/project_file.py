@@ -89,6 +89,25 @@ class ProjectFile:
         pattern_data = data.get("pattern", data)  # Fallback to entire data if no pattern key
         pattern = PatternConverter.pattern_from_json(pattern_data)
         
+        # Ensure mapping table exists for circular layouts (regenerate if missing or invalid)
+        if pattern.metadata.layout_type != "rectangular":
+            from core.mapping.circular_mapper import CircularMapper
+            is_valid, error_msg = CircularMapper.validate_mapping_table(pattern.metadata)
+            if not is_valid:
+                import logging
+                logging.info(
+                    f"Mapping table missing or invalid for circular layout (type: {pattern.metadata.layout_type}). "
+                    f"Regenerating mapping table. Error: {error_msg}"
+                )
+                # Regenerate mapping table
+                if CircularMapper.ensure_mapping_table(pattern.metadata):
+                    logging.info("Mapping table successfully regenerated.")
+                else:
+                    logging.warning(
+                        f"Failed to regenerate mapping table for circular layout. "
+                        f"Pattern may not work correctly."
+                    )
+        
         return cls(pattern=pattern, metadata=metadata)
     
     def save(self, file_path: Optional[Path] = None, use_rle: bool = True) -> None:
