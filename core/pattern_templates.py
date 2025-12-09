@@ -287,6 +287,43 @@ class TemplateLibrary:
             },
             generator=self._generate_color_gradient_rotation
         ))
+        
+        # Cultural Patterns (Phase 3)
+        # Lotus Pattern
+        self.templates.append(PatternTemplate(
+            name="Lotus Pattern",
+            category=TemplateCategory.BUDURASMALA,
+            description="Lotus flower pattern (Buddhist symbolism)",
+            parameters={
+                "color": (255, 215, 0),  # Gold
+                "frames": 30
+            },
+            generator=self._generate_lotus_pattern
+        ))
+        
+        # Dharma Wheel
+        self.templates.append(PatternTemplate(
+            name="Dharma Wheel",
+            category=TemplateCategory.BUDURASMALA,
+            description="Dharma wheel pattern (Buddhist symbolism)",
+            parameters={
+                "color": (255, 255, 255),  # White
+                "frames": 40
+            },
+            generator=self._generate_dharma_wheel
+        ))
+        
+        # Vesak Stars
+        self.templates.append(PatternTemplate(
+            name="Vesak Stars",
+            category=TemplateCategory.BUDURASMALA,
+            description="Traditional Vesak festival stars pattern",
+            parameters={
+                "color": (255, 215, 0),  # Gold
+                "frames": 50
+            },
+            generator=self._generate_vesak_stars
+        ))
     
     def list_templates(self, category: Optional[TemplateCategory] = None) -> List[PatternTemplate]:
         """List all templates, optionally filtered by category."""
@@ -936,4 +973,160 @@ class TemplateLibrary:
         
         metadata = PatternMetadata(width=width, height=height)
         return Pattern(name="Color Gradient Rotation", metadata=metadata, frames=pattern_frames)
+    
+    # Cultural Pattern Templates (Budurasmala - Phase 3)
+    def _generate_lotus_pattern(self, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate lotus flower pattern (Buddhist symbolism)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = (frame_idx / frames) * 2 * math.pi
+            
+            # Draw lotus petals (8 petals)
+            for petal_idx in range(8):
+                petal_angle = (2 * math.pi * petal_idx / 8) + t * 0.1
+                
+                # Draw petal as elongated ellipse
+                for r in range(0, int(max_radius * 0.8), 1):
+                    for angle_offset in range(-15, 16, 2):
+                        angle = petal_angle + math.radians(angle_offset)
+                        x = int(center_x + r * math.cos(angle))
+                        y = int(center_y + r * math.sin(angle))
+                        
+                        if 0 <= x < width and 0 <= y < height:
+                            idx = y * width + x
+                            if idx < len(pixels):
+                                # Fade from center
+                                fade = 1.0 - (r / (max_radius * 0.8))
+                                r_val = int(color[0] * fade)
+                                g_val = int(color[1] * fade)
+                                b_val = int(color[2] * fade)
+                                pixels[idx] = (r_val, g_val, b_val)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Lotus Pattern", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_dharma_wheel(self, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate dharma wheel pattern (Buddhist symbolism)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = (frame_idx / frames) * 2 * math.pi
+            
+            # Draw outer circle
+            for angle_deg in range(0, 360, 1):
+                angle = math.radians(angle_deg)
+                x = int(center_x + max_radius * 0.9 * math.cos(angle))
+                y = int(center_y + max_radius * 0.9 * math.sin(angle))
+                
+                if 0 <= x < width and 0 <= y < height:
+                    idx = y * width + x
+                    if idx < len(pixels):
+                        pixels[idx] = color
+            
+            # Draw spokes (8 spokes)
+            for spoke_idx in range(8):
+                spoke_angle = (2 * math.pi * spoke_idx / 8) + t * 0.2
+                
+                for r in range(int(max_radius * 0.3), int(max_radius * 0.9), 1):
+                    x = int(center_x + r * math.cos(spoke_angle))
+                    y = int(center_y + r * math.sin(spoke_angle))
+                    
+                    if 0 <= x < width and 0 <= y < height:
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            pixels[idx] = color
+            
+            # Draw center hub
+            for r in range(0, int(max_radius * 0.3), 1):
+                for angle_deg in range(0, 360, 2):
+                    angle = math.radians(angle_deg)
+                    x = int(center_x + r * math.cos(angle))
+                    y = int(center_y + r * math.sin(angle))
+                    
+                    if 0 <= x < width and 0 <= y < height:
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            pixels[idx] = color
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Dharma Wheel", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_vesak_stars(self, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate Vesak stars pattern (traditional festival pattern)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = frame_idx / frames
+            
+            # Draw 5-pointed stars at various positions
+            star_positions = [
+                (center_x, center_y),
+                (center_x * 0.5, center_y * 0.5),
+                (center_x * 1.5, center_y * 0.5),
+                (center_x * 0.5, center_y * 1.5),
+                (center_x * 1.5, center_y * 1.5),
+            ]
+            
+            for star_x, star_y in star_positions:
+                if star_x >= width or star_y >= height:
+                    continue
+                
+                # Draw 5-pointed star
+                star_size = min(width, height) * 0.15
+                rotation = t * 2 * math.pi
+                
+                for i in range(5):
+                    # Outer point
+                    outer_angle = (2 * math.pi * i / 5) - math.pi / 2 + rotation
+                    outer_x = int(star_x + star_size * math.cos(outer_angle))
+                    outer_y = int(star_y + star_size * math.sin(outer_angle))
+                    
+                    # Inner point
+                    inner_angle = (2 * math.pi * (i + 0.5) / 5) - math.pi / 2 + rotation
+                    inner_x = int(star_x + star_size * 0.4 * math.cos(inner_angle))
+                    inner_y = int(star_y + star_size * 0.4 * math.sin(inner_angle))
+                    
+                    # Draw lines
+                    self._draw_line(pixels, width, height, 
+                                   int(star_x), int(star_y), outer_x, outer_y, color)
+                    self._draw_line(pixels, width, height,
+                                   outer_x, outer_y, inner_x, inner_y, color)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Vesak Stars", metadata=metadata, frames=pattern_frames)
+    
+    def _draw_line(self, pixels: List[RGB], width: int, height: int, 
+                   x1: int, y1: int, x2: int, y2: int, color: RGB):
+        """Draw a line between two points."""
+        steps = max(abs(x2 - x1), abs(y2 - y1))
+        if steps == 0:
+            return
+        
+        for i in range(steps + 1):
+            t = i / steps
+            x = int(x1 + (x2 - x1) * t)
+            y = int(y1 + (y2 - y1) * t)
+            
+            if 0 <= x < width and 0 <= y < height:
+                idx = y * width + x
+                if idx < len(pixels):
+                    pixels[idx] = color
 
