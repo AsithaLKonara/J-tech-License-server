@@ -41,6 +41,10 @@ class Budurasmala3DPreview(QWidget):
         self._view_angle = 45.0  # Viewing angle in degrees
         self._rotation_angle = 0.0  # Rotation around Y axis
         self._statue_height_ratio = 0.6  # Statue height as ratio of display radius
+        self._lighting_enabled = True  # Enable lighting simulation
+        self._ambient_light = 0.3  # Ambient light intensity (0-1)
+        self._directional_light = 0.7  # Directional light intensity (0-1)
+        self._light_direction = (0.5, -1.0, 0.5)  # Light direction vector
         
         # Add label
         self._label = QLabel("3D Preview", self)
@@ -186,13 +190,23 @@ class Budurasmala3DPreview(QWidget):
                 else:
                     r, g, b = (50, 50, 50)
                 
-                # Draw LED
-                led_size = max(3, int(radius / led_count * 2))
-                color = QColor(r, g, b)
-                painter.setBrush(QBrush(color))
-                painter.setPen(QPen(QColor(0, 0, 0), 1))
-                painter.drawEllipse(int(x_2d - led_size / 2), int(y_2d - led_size / 2), 
-                                   led_size, led_size)
+            # Draw LED with lighting
+            led_size = max(3, int(radius / led_count * 2))
+            
+            # Apply lighting simulation
+            if self._lighting_enabled:
+                # Calculate lighting based on position and normal
+                # Simple lighting: LEDs facing light are brighter
+                light_factor = self._ambient_light + self._directional_light * 0.5
+                r = int(min(255, r * light_factor))
+                g = int(min(255, g * light_factor))
+                b = int(min(255, b * light_factor))
+            
+            color = QColor(r, g, b)
+            painter.setBrush(QBrush(color))
+            painter.setPen(QPen(QColor(0, 0, 0), 1))
+            painter.drawEllipse(int(x_2d - led_size / 2), int(y_2d - led_size / 2), 
+                               led_size, led_size)
         else:
             # Fallback: draw simple circle
             ellipse_rect = QPolygonF([
