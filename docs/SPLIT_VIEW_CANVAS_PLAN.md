@@ -107,3 +107,5 @@ Implement a split-view canvas similar to LED Matrix Studio:
 - [ ] Preview scales correctly
 
 
+
+

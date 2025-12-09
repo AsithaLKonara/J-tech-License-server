@@ -480,6 +480,201 @@ class PatternExporter:
         
         return output_path
     
+    def export_falcon_player(
+        self,
+        pattern: Pattern,
+        output_path: Path,
+        generate_manifest: bool = True
+    ) -> Path:
+        """
+        Export pattern as Falcon Player sequence format.
+        
+        Falcon Player uses a JSON format similar to WLED but with additional
+        metadata for sequence timing and effects.
+        
+        Args:
+            pattern: Pattern to export
+            output_path: Output file path
+            generate_manifest: Whether to generate build manifest
+            
+        Returns:
+            Path to exported file
+        """
+        import json
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Falcon Player sequence format
+        falcon_data = {
+            "name": pattern.name or "LED Pattern",
+            "version": "1.0",
+            "leds": pattern.metadata.width * pattern.metadata.height,
+            "width": pattern.metadata.width,
+            "height": pattern.metadata.height,
+            "fps": pattern.metadata.fps or (1000.0 / pattern.frames[0].duration_ms if pattern.frames else 10.0),
+            "frames": []
+        }
+        
+        # Add frames
+        for frame in pattern.frames:
+            # Convert frame pixels to RGB array
+            rgb_array = []
+            for pixel in frame.pixels:
+                if len(pixel) >= 3:
+                    rgb_array.append([pixel[0], pixel[1], pixel[2]])
+                else:
+                    rgb_array.append([0, 0, 0])
+            
+            # Pad or trim to exact LED count
+            while len(rgb_array) < falcon_data["leds"]:
+                rgb_array.append([0, 0, 0])
+            rgb_array = rgb_array[:falcon_data["leds"]]
+            
+            # Falcon Player frame format
+            falcon_frame = {
+                "duration": frame.duration_ms,  # Duration in milliseconds
+                "pixels": rgb_array  # RGB data array
+            }
+            falcon_data["frames"].append(falcon_frame)
+        
+        # Add metadata for Budurasmala layouts
+        if hasattr(pattern.metadata, 'layout_type') and pattern.metadata.layout_type != "rectangular":
+            falcon_data["layout"] = {
+                "type": pattern.metadata.layout_type,
+                "circular_led_count": getattr(pattern.metadata, 'circular_led_count', None),
+            }
+            
+            # Add multi-ring metadata (Budurasmala)
+            if pattern.metadata.layout_type == "multi_ring":
+                falcon_data["layout"]["multi_ring_count"] = getattr(pattern.metadata, 'multi_ring_count', None)
+                falcon_data["layout"]["ring_led_counts"] = getattr(pattern.metadata, 'ring_led_counts', None)
+                falcon_data["layout"]["ring_radii"] = getattr(pattern.metadata, 'ring_radii', None)
+                falcon_data["layout"]["ring_spacing"] = getattr(pattern.metadata, 'ring_spacing', None)
+            
+            # Add radial ray metadata (Budurasmala)
+            elif pattern.metadata.layout_type == "radial_rays":
+                falcon_data["layout"]["ray_count"] = getattr(pattern.metadata, 'ray_count', None)
+                falcon_data["layout"]["leds_per_ray"] = getattr(pattern.metadata, 'leds_per_ray', None)
+                falcon_data["layout"]["ray_spacing_angle"] = getattr(pattern.metadata, 'ray_spacing_angle', None)
+        
+        # Add wiring information
+        falcon_data["wiring"] = {
+            "mode": pattern.metadata.wiring_mode,
+            "data_in_corner": pattern.metadata.data_in_corner
+        }
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(falcon_data, f, indent=2, ensure_ascii=False)
+        
+        if generate_manifest:
+            self._generate_manifest(pattern, output_path, "falcon", json.dumps(falcon_data, sort_keys=True).encode())
+        
+        return output_path
+    
+    def export_xlights(
+        self,
+        pattern: Pattern,
+        output_path: Path,
+        generate_manifest: bool = True
+    ) -> Path:
+        """
+        Export pattern as xLights sequence format.
+        
+        xLights uses a JSON format with timing information and effect data.
+        This creates a basic xLights-compatible sequence file.
+        
+        Args:
+            pattern: Pattern to export
+            output_path: Output file path
+            generate_manifest: Whether to generate build manifest
+            
+        Returns:
+            Path to exported file
+        """
+        import json
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # xLights sequence format
+        xlights_data = {
+            "name": pattern.name or "LED Pattern",
+            "version": "1.0",
+            "model": {
+                "name": "LED Matrix",
+                "width": pattern.metadata.width,
+                "height": pattern.metadata.height,
+                "leds": pattern.metadata.width * pattern.metadata.height
+            },
+            "sequence": {
+                "fps": pattern.metadata.fps or (1000.0 / pattern.frames[0].duration_ms if pattern.frames else 10.0),
+                "frames": []
+            }
+        }
+        
+        # Calculate total duration
+        total_ms = sum(frame.duration_ms for frame in pattern.frames)
+        xlights_data["sequence"]["duration_ms"] = total_ms
+        
+        # Add frames
+        current_time_ms = 0
+        for frame in pattern.frames:
+            # Convert frame pixels to RGB array
+            rgb_array = []
+            for pixel in frame.pixels:
+                if len(pixel) >= 3:
+                    rgb_array.append([pixel[0], pixel[1], pixel[2]])
+                else:
+                    rgb_array.append([0, 0, 0])
+            
+            # Pad or trim to exact LED count
+            while len(rgb_array) < xlights_data["model"]["leds"]:
+                rgb_array.append([0, 0, 0])
+            rgb_array = rgb_array[:xlights_data["model"]["leds"]]
+            
+            # xLights frame format
+            xlights_frame = {
+                "time_ms": current_time_ms,
+                "duration_ms": frame.duration_ms,
+                "pixels": rgb_array
+            }
+            xlights_data["sequence"]["frames"].append(xlights_frame)
+            
+            current_time_ms += frame.duration_ms
+        
+        # Add metadata for Budurasmala layouts
+        if hasattr(pattern.metadata, 'layout_type') and pattern.metadata.layout_type != "rectangular":
+            xlights_data["layout"] = {
+                "type": pattern.metadata.layout_type,
+                "circular_led_count": getattr(pattern.metadata, 'circular_led_count', None),
+            }
+            
+            # Add multi-ring metadata (Budurasmala)
+            if pattern.metadata.layout_type == "multi_ring":
+                xlights_data["layout"]["multi_ring_count"] = getattr(pattern.metadata, 'multi_ring_count', None)
+                xlights_data["layout"]["ring_led_counts"] = getattr(pattern.metadata, 'ring_led_counts', None)
+                xlights_data["layout"]["ring_radii"] = getattr(pattern.metadata, 'ring_radii', None)
+                xlights_data["layout"]["ring_spacing"] = getattr(pattern.metadata, 'ring_spacing', None)
+            
+            # Add radial ray metadata (Budurasmala)
+            elif pattern.metadata.layout_type == "radial_rays":
+                xlights_data["layout"]["ray_count"] = getattr(pattern.metadata, 'ray_count', None)
+                xlights_data["layout"]["leds_per_ray"] = getattr(pattern.metadata, 'leds_per_ray', None)
+                xlights_data["layout"]["ray_spacing_angle"] = getattr(pattern.metadata, 'ray_spacing_angle', None)
+        
+        # Add wiring information
+        xlights_data["wiring"] = {
+            "mode": pattern.metadata.wiring_mode,
+            "data_in_corner": pattern.metadata.data_in_corner
+        }
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(xlights_data, f, indent=2, ensure_ascii=False)
+        
+        if generate_manifest:
+            self._generate_manifest(pattern, output_path, "xlights", json.dumps(xlights_data, sort_keys=True).encode())
+        
+        return output_path
+    
     def preview(self, pattern: Pattern, format_name: str) -> ExportPreview:
         """
         Generate export preview.
@@ -567,6 +762,10 @@ def export_pattern(
         )
     elif format_lower == "wled":
         return exporter.export_wled(pattern, output_path, **kwargs)
+    elif format_lower == "falcon":
+        return exporter.export_falcon_player(pattern, output_path, **kwargs)
+    elif format_lower == "xlights":
+        return exporter.export_xlights(pattern, output_path, **kwargs)
     else:
         raise ValueError(f"Unknown export format: {format}")
 

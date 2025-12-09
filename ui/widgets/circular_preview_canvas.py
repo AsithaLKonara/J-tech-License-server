@@ -349,4 +349,74 @@ class CircularPreviewCanvas(QWidget):
                 painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
                 
                 led_idx += 1
+    
+    def _paint_custom_position_preview(self, painter: QPainter, rect):
+        """Paint custom position preview: LEDs at custom (x, y) positions (Budurasmala)."""
+        if not self._grid_data or not self._pattern_metadata:
+            return
+        
+        if not self._pattern_metadata.custom_led_positions:
+            # No custom positions defined
+            painter.setPen(QColor(100, 100, 100))
+            painter.drawText(rect, Qt.AlignCenter, "No custom positions\ndefined")
+            return
+        
+        # Calculate display parameters
+        center_x = rect.center().x()
+        center_y = rect.center().y()
+        
+        # Get bounds of custom positions to scale them
+        positions = self._pattern_metadata.custom_led_positions
+        if not positions:
+            return
+        
+        # Find min/max for scaling
+        x_coords = [p[0] for p in positions]
+        y_coords = [p[1] for p in positions]
+        min_x, max_x = min(x_coords), max(x_coords)
+        min_y, max_y = min(y_coords), max(y_coords)
+        
+        # Calculate scale to fit in preview
+        width_range = max_x - min_x if max_x > min_x else 1.0
+        height_range = max_y - min_y if max_y > min_y else 1.0
+        max_range = max(width_range, height_range)
+        
+        # Scale factor to fit in preview (leave 20px margin)
+        available_width = rect.width() - 20
+        available_height = rect.height() - 20
+        scale = min(available_width / max_range, available_height / max_range) if max_range > 0 else 1.0
+        
+        # Calculate pixel size
+        pixel_size = max(4, int(min(available_width, available_height) / max(len(positions), 1) * 0.1))
+        
+        # Ensure mapping table exists
+        if not self._pattern_metadata.circular_mapping_table:
+            from core.mapping.circular_mapper import CircularMapper
+            CircularMapper.ensure_mapping_table(self._pattern_metadata)
+        
+        # Draw each LED at its custom position
+        for led_idx, (pos_x, pos_y) in enumerate(positions):
+            # Normalize position to 0-based
+            normalized_x = (pos_x - min_x) / max_range if max_range > 0 else 0.5
+            normalized_y = (pos_y - min_y) / max_range if max_range > 0 else 0.5
+            
+            # Scale to preview coordinates
+            x = center_x + (normalized_x - 0.5) * available_width
+            y = center_y + (normalized_y - 0.5) * available_height
+            
+            # Get pixel color from grid using mapping table
+            if led_idx < len(self._pattern_metadata.circular_mapping_table):
+                grid_x, grid_y = self._pattern_metadata.circular_mapping_table[led_idx]
+                if 0 <= grid_y < len(self._grid_data) and 0 <= grid_x < len(self._grid_data[grid_y]):
+                    r, g, b = self._grid_data[grid_y][grid_x]
+                else:
+                    r, g, b = (0, 0, 0)
+            else:
+                r, g, b = (0, 0, 0)
+            
+            # Draw LED
+            color = QColor(r, g, b)
+            painter.setBrush(QBrush(color))
+            painter.setPen(QPen(self._pixel_border_color, 1))
+            painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
 

@@ -18,7 +18,7 @@ from collections import deque
 import random
 
 from PySide6.QtCore import Qt, QPoint, Signal, QSize, QRectF
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor, QFont
 from PySide6.QtWidgets import QWidget
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -937,6 +937,77 @@ class MatrixDesignCanvas(QWidget):
                 # Draw concentric circles (rows = circles, cols = LEDs per circle)
                 # This matches the radial preview interpretation
                 num_circles = self._pattern_metadata.height if self._pattern_metadata else 1
+                
+        painter.restore()
+        
+        # Draw wiring path overlay if enabled
+        if self._pattern_metadata and hasattr(self._pattern_metadata, 'wiring_mode'):
+            self._draw_wiring_overlay(painter, bounds)
+    
+    def _draw_wiring_overlay(self, painter: QPainter, bounds):
+        """
+        Draw wiring path overlay showing LED strip order.
+        
+        This visualizes how the LED strip is physically wired through the matrix,
+        showing the data flow path based on wiring_mode and data_in_corner.
+        """
+        if not self._pattern_metadata:
+            return
+        
+        from core.wiring_mapper import WiringMapper
+        
+        # Get wiring configuration
+        wiring_mode = getattr(self._pattern_metadata, 'wiring_mode', 'Row-major')
+        data_in_corner = getattr(self._pattern_metadata, 'data_in_corner', 'LT')
+        
+        # Only show wiring overlay for rectangular layouts (circular has its own mapping)
+        layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
+        if layout_type != 'rectangular':
+            return  # Circular layouts use circular_mapping_table instead
+        
+        # Create wiring mapper to get the path
+        mapper = WiringMapper(
+            width=self._pattern_metadata.width,
+            height=self._pattern_metadata.height,
+            wiring_mode=wiring_mode,
+            data_in_corner=data_in_corner
+        )
+        
+        # Build the wiring path
+        mapping = mapper._build_mapping_table()
+        
+        # Calculate cell size
+        cell_width = bounds.width() / self._pattern_metadata.width
+        cell_height = bounds.height() / self._pattern_metadata.height
+        
+        # Draw wiring path as arrows/lines
+        wiring_pen = QPen(QColor(255, 200, 0, 150), 2, Qt.SolidLine)
+        painter.setPen(wiring_pen)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        
+        # Draw path connecting LEDs in hardware order
+        prev_x, prev_y = None, None
+        for hw_idx in range(len(mapping)):
+            design_idx = mapping[hw_idx]
+            grid_x = design_idx % self._pattern_metadata.width
+            grid_y = design_idx // self._pattern_metadata.width
+            
+            # Calculate pixel position
+            x = bounds.x() + (grid_x + 0.5) * cell_width
+            y = bounds.y() + (grid_y + 0.5) * cell_height
+            
+            # Draw line from previous position
+            if prev_x is not None:
+                painter.drawLine(int(prev_x), int(prev_y), int(x), int(y))
+            
+            prev_x, prev_y = x, y
+            
+            # Draw LED number (small, semi-transparent)
+            if hw_idx < 50:  # Only show numbers for first 50 LEDs to avoid clutter
+                painter.setPen(QPen(QColor(255, 200, 0, 100), 1))
+                painter.setFont(QFont("Arial", max(6, int(min(cell_width, cell_height) * 0.3))))
+                painter.drawText(int(x - cell_width/4), int(y + cell_height/4), str(hw_idx))
+                painter.setPen(wiring_pen)
                 center_x = bounds.center().x()
                 center_y = bounds.center().y()
                 max_radius = min(bounds.width(), bounds.height()) / 2 - 6

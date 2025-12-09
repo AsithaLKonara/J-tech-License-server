@@ -39,7 +39,7 @@ class ExportService:
     """
     
     # Supported export formats
-    SUPPORTED_FORMATS = ['bin', 'hex', 'dat', 'leds', 'json', 'csv', 'txt', 'ledproj', 'h', 'png_sprite', 'gif', 'wled']
+    SUPPORTED_FORMATS = ['bin', 'hex', 'dat', 'leds', 'json', 'csv', 'txt', 'ledproj', 'h', 'png_sprite', 'gif', 'wled', 'falcon', 'xlights']
     
     def __init__(self, options: Optional[ExportOptions] = None):
         """
@@ -138,6 +138,10 @@ class ExportService:
                 )
             elif format_lower == 'wled':
                 result_path = self.exporter.export_wled(pattern, output_path_obj, generate_manifest)
+            elif format_lower == 'falcon':
+                result_path = self.exporter.export_falcon_player(pattern, output_path_obj, generate_manifest)
+            elif format_lower == 'xlights':
+                result_path = self.exporter.export_xlights(pattern, output_path_obj, generate_manifest)
             else:
                 raise ValueError(f"Format '{format}' not yet implemented")
             
