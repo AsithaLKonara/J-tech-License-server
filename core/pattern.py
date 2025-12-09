@@ -88,6 +88,29 @@ class PatternMetadata:
     wiring_mode_hint: Optional[str] = None  # Detected wiring mode hint from filename/metadata
     data_in_corner_hint: Optional[str] = None  # Detected data-in corner hint from filename/metadata
     hint_confidence: float = 0.0  # Confidence in hints (0.0-1.0), 0.9+ = strong hint
+    # Circular layout support
+    layout_type: str = "rectangular"  # "rectangular", "circle", "ring", "arc", "radial", "multi_ring", "radial_rays"
+    circular_led_count: Optional[int] = None  # Number of LEDs in circular layout
+    circular_radius: Optional[float] = None  # Outer radius (for ring/circle)
+    circular_inner_radius: Optional[float] = None  # Inner radius (for ring)
+    circular_start_angle: float = 0.0  # Start angle in degrees (for arc)
+    circular_end_angle: float = 360.0  # End angle in degrees (for arc)
+    circular_led_spacing: Optional[float] = None  # Optional custom LED spacing
+    circular_mapping_table: Optional[List[Tuple[int, int]]] = None  # Precomputed (x,y) → LED index mapping
+    # Multi-ring support (Budurasmala)
+    multi_ring_count: Optional[int] = None  # Number of concentric rings (1-5)
+    ring_led_counts: List[int] = field(default_factory=list)  # LEDs per ring
+    ring_radii: List[float] = field(default_factory=list)  # Radius for each ring
+    ring_spacing: Optional[float] = None  # Spacing between rings
+    # Radial ray support (Budurasmala)
+    ray_count: Optional[int] = None  # Number of rays extending from center
+    leds_per_ray: Optional[int] = None  # LEDs along each ray
+    ray_spacing_angle: Optional[float] = None  # Angle between rays in degrees
+    # Custom LED positions (for custom PCBs - Budurasmala)
+    custom_led_positions: Optional[List[Tuple[float, float]]] = None  # (x, y) positions in mm or units
+    led_position_units: str = "grid"  # "grid", "mm", "inches"
+    custom_position_center_x: Optional[float] = None  # Center X for custom positions
+    custom_position_center_y: Optional[float] = None  # Center Y for custom positions
     
     def __post_init__(self):
         """Validate metadata"""
@@ -101,6 +124,94 @@ class PatternMetadata:
             raise ValueError(f"Brightness must be 0.0-1.0: {self.brightness}")
         if not (0.0 <= self.dimension_confidence <= 1.0):
             raise ValueError(f"Dimension confidence must be 0.0-1.0: {self.dimension_confidence}")
+        # Validate circular layout fields
+        valid_layouts = ["rectangular", "circle", "ring", "arc", "radial", "multi_ring", "radial_rays", "custom_positions"]
+        if self.layout_type not in valid_layouts:
+            raise ValueError(f"Invalid layout_type: {self.layout_type}, must be one of {valid_layouts}")
+        if self.layout_type != "rectangular":
+            # For radial layouts, circular_led_count can be calculated from grid (height * width)
+            # For multi_ring layouts, circular_led_count can be calculated from ring_led_counts
+            # For radial_rays layouts, circular_led_count can be calculated from ray_count * leds_per_ray
+            # It will be set during mapping table generation if not provided
+            if self.layout_type == "radial":
+                # Radial layouts can calculate from grid
+                if self.circular_led_count is not None and self.circular_led_count < 1:
+                    raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
+            elif self.layout_type == "multi_ring":
+                # Multi-ring layouts: calculate from ring_led_counts if not provided
+                if self.circular_led_count is None:
+                    if self.ring_led_counts:
+                        # Will be calculated during mapping table generation
+                        pass
+                    else:
+                        raise ValueError(f"Either circular_led_count or ring_led_counts must be provided for {self.layout_type} layout")
+                elif self.circular_led_count < 1:
+                    raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
+            elif self.layout_type == "radial_rays":
+                # Radial rays layouts: calculate from ray_count * leds_per_ray if not provided
+                if self.circular_led_count is None:
+                    if self.ray_count and self.leds_per_ray:
+                        # Will be calculated during mapping table generation
+                        pass
+                    else:
+                        raise ValueError(f"Either circular_led_count or (ray_count and leds_per_ray) must be provided for {self.layout_type} layout")
+                elif self.circular_led_count < 1:
+                    raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
+            elif self.layout_type == "custom_positions":
+                # Custom positions layouts: calculate from custom_led_positions if not provided
+                if self.circular_led_count is None:
+                    if self.custom_led_positions:
+                        # Will be calculated during mapping table generation
+                        pass
+                    else:
+                        raise ValueError(f"Either circular_led_count or custom_led_positions must be provided for {self.layout_type} layout")
+                elif self.circular_led_count < 1:
+                    raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
+            else:
+                # Standard circular/ring/arc layouts require circular_led_count
+                if self.circular_led_count is None or self.circular_led_count < 1:
+                    raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
+            if self.circular_radius is not None and self.circular_radius <= 0:
+                raise ValueError(f"circular_radius must be > 0: {self.circular_radius}")
+            if self.layout_type == "ring":
+                if self.circular_inner_radius is not None:
+                    if self.circular_radius is None:
+                        raise ValueError("circular_radius required when circular_inner_radius is set")
+                    if self.circular_inner_radius >= self.circular_radius:
+                        raise ValueError("circular_inner_radius must be < circular_radius")
+            if self.circular_start_angle < 0 or self.circular_start_angle >= 360:
+                raise ValueError(f"circular_start_angle must be 0-360: {self.circular_start_angle}")
+            if self.circular_end_angle < 0 or self.circular_end_angle > 360:
+                raise ValueError(f"circular_end_angle must be 0-360: {self.circular_end_angle}")
+            if self.circular_end_angle <= self.circular_start_angle:
+                raise ValueError("circular_end_angle must be > circular_start_angle")
+        
+        # Validate multi-ring layout fields
+        if self.layout_type == "multi_ring":
+            if self.multi_ring_count is None or not (1 <= self.multi_ring_count <= 5):
+                raise ValueError(f"multi_ring_count must be 1-5 for multi_ring layout, got {self.multi_ring_count}")
+            if len(self.ring_led_counts) != self.multi_ring_count:
+                raise ValueError(f"ring_led_counts length ({len(self.ring_led_counts)}) must match multi_ring_count ({self.multi_ring_count})")
+            if len(self.ring_radii) != self.multi_ring_count:
+                raise ValueError(f"ring_radii length ({len(self.ring_radii)}) must match multi_ring_count ({self.multi_ring_count})")
+            for i, count in enumerate(self.ring_led_counts):
+                if count < 1:
+                    raise ValueError(f"ring_led_counts[{i}] must be >= 1, got {count}")
+            for i, radius in enumerate(self.ring_radii):
+                if radius <= 0:
+                    raise ValueError(f"ring_radii[{i}] must be > 0, got {radius}")
+            if self.ring_spacing is not None and self.ring_spacing < 0:
+                raise ValueError(f"ring_spacing must be >= 0, got {self.ring_spacing}")
+        
+        # Validate radial ray layout fields
+        if self.layout_type == "radial_rays":
+            if self.ray_count is None or self.ray_count < 1:
+                raise ValueError(f"ray_count must be >= 1 for radial_rays layout, got {self.ray_count}")
+            if self.leds_per_ray is None or self.leds_per_ray < 1:
+                raise ValueError(f"leds_per_ray must be >= 1 for radial_rays layout, got {self.leds_per_ray}")
+            if self.ray_spacing_angle is not None:
+                if self.ray_spacing_angle <= 0 or self.ray_spacing_angle > 360:
+                    raise ValueError(f"ray_spacing_angle must be 0-360 degrees, got {self.ray_spacing_angle}")
     
     @property
     def led_count(self) -> int:
@@ -522,6 +633,29 @@ class Pattern:
                 "wiring_mode_hint": getattr(self.metadata, 'wiring_mode_hint', None),
                 "data_in_corner_hint": getattr(self.metadata, 'data_in_corner_hint', None),
                 "hint_confidence": getattr(self.metadata, 'hint_confidence', 0.0),
+                # Circular layout
+                "layout_type": getattr(self.metadata, 'layout_type', 'rectangular'),
+                "circular_led_count": getattr(self.metadata, 'circular_led_count', None),
+                "circular_radius": getattr(self.metadata, 'circular_radius', None),
+                "circular_inner_radius": getattr(self.metadata, 'circular_inner_radius', None),
+                "circular_start_angle": getattr(self.metadata, 'circular_start_angle', 0.0),
+                "circular_end_angle": getattr(self.metadata, 'circular_end_angle', 360.0),
+                "circular_led_spacing": getattr(self.metadata, 'circular_led_spacing', None),
+                "circular_mapping_table": getattr(self.metadata, 'circular_mapping_table', None),
+                # Multi-ring layout (Budurasmala)
+                "multi_ring_count": getattr(self.metadata, 'multi_ring_count', None),
+                "ring_led_counts": getattr(self.metadata, 'ring_led_counts', None),
+                "ring_radii": getattr(self.metadata, 'ring_radii', None),
+                "ring_spacing": getattr(self.metadata, 'ring_spacing', None),
+                # Radial ray layout (Budurasmala)
+                "ray_count": getattr(self.metadata, 'ray_count', None),
+                "leds_per_ray": getattr(self.metadata, 'leds_per_ray', None),
+                "ray_spacing_angle": getattr(self.metadata, 'ray_spacing_angle', None),
+                # Custom LED positions (Budurasmala)
+                "custom_led_positions": getattr(self.metadata, 'custom_led_positions', None),
+                "led_position_units": getattr(self.metadata, 'led_position_units', 'grid'),
+                "custom_position_center_x": getattr(self.metadata, 'custom_position_center_x', None),
+                "custom_position_center_y": getattr(self.metadata, 'custom_position_center_y', None),
             },
             "frames": [
                 {
@@ -581,6 +715,29 @@ class Pattern:
             wiring_mode_hint=meta_dict.get('wiring_mode_hint'),
             data_in_corner_hint=meta_dict.get('data_in_corner_hint'),
             hint_confidence=meta_dict.get('hint_confidence', 0.0),
+            # Circular layout
+            layout_type=meta_dict.get('layout_type', 'rectangular'),
+            circular_led_count=meta_dict.get('circular_led_count'),
+            circular_radius=meta_dict.get('circular_radius'),
+            circular_inner_radius=meta_dict.get('circular_inner_radius'),
+            circular_start_angle=meta_dict.get('circular_start_angle', 0.0),
+            circular_end_angle=meta_dict.get('circular_end_angle', 360.0),
+            circular_led_spacing=meta_dict.get('circular_led_spacing'),
+            circular_mapping_table=meta_dict.get('circular_mapping_table'),
+            # Multi-ring layout (Budurasmala)
+            multi_ring_count=meta_dict.get('multi_ring_count'),
+            ring_led_counts=meta_dict.get('ring_led_counts'),
+            ring_radii=meta_dict.get('ring_radii'),
+            ring_spacing=meta_dict.get('ring_spacing'),
+            # Radial ray layout (Budurasmala)
+            ray_count=meta_dict.get('ray_count'),
+            leds_per_ray=meta_dict.get('leds_per_ray'),
+            ray_spacing_angle=meta_dict.get('ray_spacing_angle'),
+            # Custom LED positions (Budurasmala)
+            custom_led_positions=meta_dict.get('custom_led_positions'),
+            led_position_units=meta_dict.get('led_position_units', 'grid'),
+            custom_position_center_x=meta_dict.get('custom_position_center_x'),
+            custom_position_center_y=meta_dict.get('custom_position_center_y'),
         )
         
         # Parse frames

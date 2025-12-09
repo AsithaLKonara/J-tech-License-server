@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QMenu,
+    QDialog,
+    QDialogButtonBox,
 )
 from domain.layers import LayerManager, Layer
 
@@ -350,6 +352,69 @@ class LayerPanelWidget(QWidget):
             new_layer.visible = source_layer.visible
             self._refresh_layer_list()
             self.set_active_layer(new_index)
+    
+    def _on_copy_layer_to_frame(self, layer_index: int):
+        """Copy layer to other frames."""
+        # Get pattern from parent (DesignToolsTab)
+        parent = self.parent()
+        while parent and not hasattr(parent, '_pattern'):
+            parent = parent.parent()
+        
+        if not parent or not hasattr(parent, '_pattern') or not parent._pattern:
+            QMessageBox.warning(self, "No Pattern", "No pattern loaded.")
+            return
+        
+        pattern = parent._pattern
+        total_frames = len(pattern.frames)
+        
+        if total_frames <= 1:
+            QMessageBox.information(self, "No Target Frames", "Need at least 2 frames to copy layers.")
+            return
+        
+        # Create dialog to select target frames
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Copy Layer to Frames")
+        dialog.setMinimumWidth(300)
+        layout = QVBoxLayout(dialog)
+        
+        layout.addWidget(QLabel(f"Select target frames for layer '{layer_index + 1}':"))
+        
+        frame_list = QListWidget()
+        frame_list.setSelectionMode(QListWidget.MultiSelection)
+        for i in range(total_frames):
+            if i != self._current_frame_index:  # Exclude current frame
+                item_text = f"Frame {i + 1}"
+                frame_list.addItem(item_text)
+                frame_list.item(i if i < self._current_frame_index else i - 1).setData(Qt.UserRole, i)
+        layout.addWidget(frame_list)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QDialog.Accepted:
+            selected_items = frame_list.selectedItems()
+            if not selected_items:
+                QMessageBox.information(self, "No Selection", "Please select at least one target frame.")
+                return
+            
+            target_frames = [item.data(Qt.UserRole) for item in selected_items]
+            
+            # Copy layer to target frames
+            self.layer_manager.copy_layer_to_frames(self._current_frame_index, layer_index, target_frames)
+            
+            QMessageBox.information(
+                self,
+                "Layer Copied",
+                f"Layer copied to {len(target_frames)} frame(s)."
+            )
+            
+            # Refresh if parent has refresh method
+            if hasattr(parent, '_refresh_timeline'):
+                parent._refresh_timeline()
+            if hasattr(parent, '_load_current_frame_into_canvas'):
+                parent._load_current_frame_into_canvas()
 
     def _on_name_changed(self):
         """Handle layer name change."""
@@ -468,6 +533,10 @@ class LayerPanelWidget(QWidget):
         # Duplicate
         duplicate_action = menu.addAction("Duplicate (Ctrl+D)")
         duplicate_action.triggered.connect(self._on_duplicate_layer)
+        
+        # Copy to Frame
+        copy_to_frame_action = menu.addAction("Copy Layer to Frame...")
+        copy_to_frame_action.triggered.connect(lambda: self._on_copy_layer_to_frame(layer_index))
         
         menu.addSeparator()
         

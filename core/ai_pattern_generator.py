@@ -199,8 +199,6 @@ class CloudieCLIInterface:
         pattern_metadata = PatternMetadata(
             width=width,
             height=height,
-            name=ai_output.get("name", "AI Generated Pattern"),
-            description=ai_output.get("description", ""),
         )
         
         # Convert frames
@@ -244,7 +242,7 @@ class CloudieCLIInterface:
         
         # Create pattern
         pattern = Pattern(
-            name=pattern_metadata.name,
+            name=ai_output.get("name", "AI Generated Pattern"),
             metadata=pattern_metadata,
             frames=frames
         )
@@ -277,8 +275,6 @@ class FallbackAIGenerator:
         metadata = PatternMetadata(
             width=width,
             height=height,
-            name=f"AI: {config.prompt[:30]}",
-            description=f"Generated from prompt: {config.prompt}"
         )
         
         # Generate frames based on prompt keywords
@@ -311,7 +307,7 @@ class FallbackAIGenerator:
             )
         
         return Pattern(
-            name=metadata.name,
+            name=f"AI: {config.prompt[:30]}",
             metadata=metadata,
             frames=pattern_frames
         )

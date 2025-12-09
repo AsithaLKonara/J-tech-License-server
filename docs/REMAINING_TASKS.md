@@ -1,313 +1,298 @@
-# Remaining Tasks - What's Left to Do
+# Remaining Tasks — Layer Features Implementation
 
-**Date**: 2024-11-XX  
-**Status**: Phase 1-3 Complete, Phase 4-5 Remaining
-
----
-
-## ✅ Completed (Phases 1-3)
-
-### Phase 1: Code Completion ✅ 100%
-- ✅ UI Polish (frame preset persistence)
-- ✅ All 9 firmware templates
-- ✅ All 4 installer build scripts
-- ✅ Code quality verification
-
-### Phase 2: Documentation ✅ 100%
-- ✅ User Manual
-- ✅ Quick Start Guide
-- ✅ Installation Guide
-- ✅ README.md updated
-
-### Phase 3: Testing Infrastructure ✅ 100%
-- ✅ Performance test suite
-- ✅ Security audit script
-- ✅ Security documentation
-- ✅ Hardware testing guide
+**Status**: Implementation Complete ✅ | Testing In Progress ⏳
 
 ---
 
-## ⏳ Remaining Tasks (Phases 4-5)
+## ✅ Completed
 
-### Phase 4: User Acceptance Testing (UAT)
+### Implementation
+- ✅ Phase 1: Automation layer integration
+- ✅ Phase 2: Layer sync detection
+- ✅ Phase 3: Brush broadcast feedback
+- ✅ Phase 4: Hidden layer prevention
+- ✅ Phase 5: Layer copy to frames
+- ✅ Phase 6: Performance optimization
 
-#### 4.1 UAT Planning ⏳
+### Testing (Automated)
+- ✅ Comprehensive test script (`tests/test_new_layer_features.py`) - 6/6 passing
+- ✅ Unit tests (`tests/unit/test_layers.py`) - 6/6 passing
+- ✅ Verification checklist script created
+
+### Documentation
+- ✅ Updated `DESIGN_TOOLS_COMPLETE_FEATURES_GUIDE.md` with all new features
+- ✅ Created `NEXT_STEPS_IMPLEMENTATION_COMPLETE.md` guide
+- ✅ Created this remaining tasks document
+
+---
+
+## ⏳ Remaining Tasks
+
+### 1. Manual Testing (Priority: HIGH)
+
 **Status**: Not Started  
-**Requires**: Planning and documentation
+**Estimated Time**: 2-4 hours
 
-**Tasks:**
-- [ ] Create `docs/UAT_PLAN.md`
-  - Define UAT scope and objectives
-  - Identify test users (internal/external)
-  - Create test scenarios (basic, advanced, error scenarios)
-  - Define success criteria
-  - Create feedback collection mechanism
-  - Set timeline and milestones
+#### Test Scenarios to Execute:
 
-**Estimated Time**: 2-4 hours  
-**Can Do Now**: ✅ Yes (create planning documents)
+**Scenario 1: Automation Layer Creation**
+- [ ] Create new pattern (8x8 or larger)
+- [ ] Paint something on canvas
+- [ ] Apply automation (scroll, rotate, etc.)
+- [ ] Verify new "Auto:" layer is created
+- [ ] Verify original layer still exists
+- [ ] Verify can toggle automation layer visibility
+- [ ] Verify frame shows composite correctly
+
+**Scenario 2: Layer Sync Warning**
+- [ ] Create pattern and paint on layer
+- [ ] Apply automation
+- [ ] Check if sync warning appears
+- [ ] Verify warning banner message
+- [ ] Click "Sync Layers" button
+- [ ] Verify confirmation dialog
+- [ ] Verify sync restores correctly
+- [ ] Verify warning disappears after sync
+
+**Scenario 3: Brush Broadcast Feedback**
+- [ ] Create pattern with 3+ frames
+- [ ] Paint different content on each frame
+- [ ] Enable "Apply brush strokes to all frames"
+- [ ] Verify warning dialog appears
+- [ ] Test cancel (checkbox stays unchecked)
+- [ ] Enable broadcast mode
+- [ ] Verify all frames highlighted in timeline
+- [ ] Verify checkbox shows red border/warning icon
+- [ ] Verify warning banner appears
+- [ ] Paint on one frame, verify all frames update
+
+**Scenario 4: Hidden Layer Prevention**
+- [ ] Create pattern with multiple layers
+- [ ] Hide a layer (click eye icon)
+- [ ] Select the hidden layer
+- [ ] Try to paint on canvas
+- [ ] Verify dialog appears: "Cannot paint on hidden layer"
+- [ ] Make layer visible
+- [ ] Verify painting works on visible layer
+
+**Scenario 5: Copy Layer to Frames**
+- [ ] Create pattern with 3+ frames
+- [ ] Add custom layer to frame 0
+- [ ] Paint something on this layer
+- [ ] Right-click layer in layer panel
+- [ ] Verify "Copy Layer to Frame" option exists
+- [ ] Select option, choose target frames
+- [ ] Verify layer copied to selected frames
+- [ ] Verify original layer unchanged
+- [ ] Verify copied layers have same pixels
+
+**Scenario 6: Multiple Automation Layers**
+- [ ] Create pattern
+- [ ] Apply first automation (e.g., scroll)
+- [ ] Apply second automation (e.g., rotate)
+- [ ] Apply third automation (e.g., mirror)
+- [ ] Verify all automation layers exist
+- [ ] Verify can toggle each independently
+- [ ] Verify composite shows all layers
+
+**Scenario 7: Edge Cases**
+- [ ] Test with single frame pattern
+- [ ] Test with single layer
+- [ ] Test with many layers (10+)
+- [ ] Test with large pattern (64x64)
+- [ ] Test undo/redo after automation
+- [ ] Test save/load with automation layers
+- [ ] Test copy layer to same frame (should skip)
 
 ---
 
-#### 4.2 UAT Execution ⏳
+### 2. Integration Testing (Priority: MEDIUM)
+
 **Status**: Not Started  
-**Requires**: Actual users to test the software
+**Estimated Time**: 1-2 hours
 
-**Tasks:**
-- [ ] Create `docs/UAT_TEST_SCENARIOS.md`
-- [ ] Create `docs/UAT_FEEDBACK_FORM.md`
-- [ ] Execute UAT with selected users
-  - Test complete workflows
-  - Test UI usability
-  - Test feature discoverability
-  - Test error messages
-  - Test performance on customer hardware
-- [ ] Collect and document feedback
-- [ ] Prioritize findings
+#### GUI Integration Tests:
 
-**Estimated Time**: 1-2 weeks (depends on user availability)  
-**Can Do Now**: ⚠️ Partial (create test scenarios and forms, but need users for execution)
+- [ ] Test with existing GUI test suite
+  ```bash
+  python tests/gui/test_design_tools_gui.py
+  ```
+- [ ] Verify no regressions in existing features
+- [ ] Test signal connections work correctly
+- [ ] Test with real UI interactions
+- [ ] Verify timeline integration
+- [ ] Verify layer panel integration
+- [ ] Test keyboard shortcuts still work
+
+#### Cross-Feature Integration:
+
+- [ ] Automation + Layer sync warning
+- [ ] Broadcast mode + Multiple frames
+- [ ] Copy layer + Undo/redo
+- [ ] Hidden layer + Effects
+- [ ] Automation layers + Export/import
 
 ---
 
-#### 4.3 UAT Follow-up ⏳
+### 3. User Acceptance Testing (Priority: MEDIUM)
+
 **Status**: Not Started  
-**Requires**: UAT execution to be completed first
+**Estimated Time**: 2-3 hours
 
-**Tasks:**
-- [ ] Fix critical issues from UAT
-- [ ] Address high-priority feedback
-- [ ] Update documentation based on feedback
-- [ ] Create `docs/UAT_RESULTS.md` (summary report)
-- [ ] Get UAT sign-off
+#### UAT Scenarios:
 
-**Estimated Time**: 1-2 weeks (depends on findings)  
-**Can Do Now**: ❌ No (requires UAT execution first)
+Follow the scenarios in `docs/UAT_TEST_SCENARIOS.md`:
+- [ ] Scenario 4: Brush Broadcast Warning
+- [ ] Scenario 10: Layer Operations (updated for new features)
+
+#### UAT Checklist:
+
+- [ ] All critical scenarios pass
+- [ ] No critical bugs found
+- [ ] Usability feedback is positive
+- [ ] Team members can complete tasks successfully
+- [ ] Documentation is clear and helpful
 
 ---
 
-### Phase 5: Final Preparation
+### 4. Bug Fixes & Edge Cases (Priority: MEDIUM)
 
-#### 5.1 Documentation Review ⏳
+**Status**: Pending Manual Testing  
+**Estimated Time**: Variable
+
+#### Known Potential Issues:
+
+- [ ] Check if sync warning appears correctly after all automation types
+- [ ] Verify broadcast highlighting works with many frames (50+)
+- [ ] Test copy layer with very large layers
+- [ ] Verify performance with many automation layers
+- [ ] Test edge cases (empty patterns, single pixel, etc.)
+
+#### If Issues Found:
+
+1. Document the issue
+2. Reproduce consistently
+3. Fix the bug
+4. Add test case to prevent regression
+5. Update documentation if needed
+
+---
+
+### 5. Performance Verification (Priority: LOW)
+
 **Status**: Not Started  
-**Requires**: Review and verification
+**Estimated Time**: 1 hour
 
-**Tasks:**
-- [ ] Review all documentation for accuracy
-- [ ] Update documentation with latest features
-- [ ] Ensure all links work
-- [ ] Add screenshots where helpful (if needed)
-- [ ] Create documentation index
-- [ ] Proofread all documentation
-- [ ] Get documentation review/approval
+#### Performance Tests:
 
-**Estimated Time**: 4-8 hours  
-**Can Do Now**: ✅ Yes (can start documentation review)
+- [ ] Test with large patterns (64x64, 100+ frames)
+- [ ] Test with many layers (10+ per frame)
+- [ ] Test with many automation layers (5+)
+- [ ] Verify no performance degradation
+- [ ] Check memory usage
+- [ ] Verify batch updates work efficiently
 
 ---
 
-#### 5.2 Release Preparation ⏳
-**Status**: Not Started  
-**Requires**: Documentation and compilation
+### 6. Documentation Polish (Priority: LOW)
 
-**Tasks:**
-- [ ] Create `CHANGELOG.md`
-  - List all features
-  - List all bug fixes
-  - List all improvements
-- [ ] Create `RELEASE_NOTES.md`
-  - Highlight key features
-  - Note breaking changes (if any)
-  - Provide upgrade instructions
-- [ ] Create `docs/SUPPORT.md`
-  - How to report issues
-  - How to request features
-  - Support contact information
-- [ ] Optional: Prepare demo materials
-  - Screenshots
-  - Example patterns
+**Status**: Mostly Complete  
+**Estimated Time**: 30 minutes
 
-**Estimated Time**: 4-6 hours  
-**Can Do Now**: ✅ Yes (can create all release documents)
+#### Remaining Documentation Tasks:
 
----
-
-#### 5.3 Final Verification ⏳
-**Status**: Not Started  
-**Requires**: All previous phases complete
-
-**Tasks:**
-- [ ] Run complete test suite (all tests)
-- [ ] Verify all code is complete (100%)
-- [ ] Verify all documentation is complete
-- [ ] Verify UAT is complete (if done)
-- [ ] Verify security audit is complete
-- [ ] Create final readiness report
-- [ ] Get final approval for handover
-
-**Estimated Time**: 2-4 hours  
-**Can Do Now**: ⚠️ Partial (can run tests and verify code, but need UAT for complete verification)
-
----
-
-## 📊 Summary
-
-### What Can Be Done Now (No External Dependencies)
-
-1. **UAT Planning** (Phase 4.1)
-   - Create UAT plan document
-   - Create test scenarios
-   - Create feedback forms
-   - **Time**: 2-4 hours
-
-2. **Documentation Review** (Phase 5.1)
-   - Review all docs for accuracy
-   - Check all links
-   - Create documentation index
-   - **Time**: 4-8 hours
-
-3. **Release Preparation** (Phase 5.2)
-   - Create CHANGELOG.md
-   - Create RELEASE_NOTES.md
-   - Create SUPPORT.md
-   - **Time**: 4-6 hours
-
-4. **Partial Final Verification** (Phase 5.3)
-   - Run complete test suite
-   - Verify code completeness
-   - Verify documentation completeness
-   - **Time**: 2-4 hours
-
-**Total Time for "Can Do Now" Tasks**: ~12-22 hours
-
----
-
-### What Requires External Resources
-
-1. **UAT Execution** (Phase 4.2)
-   - Requires: Actual users to test
-   - Time: 1-2 weeks
-   - **Blocking**: Yes (recommended before customer handover)
-
-2. **UAT Follow-up** (Phase 4.3)
-   - Requires: UAT execution to be done first
-   - Time: 1-2 weeks (depends on findings)
-   - **Blocking**: Yes (if UAT finds critical issues)
-
-3. **Complete Final Verification** (Phase 5.3)
-   - Requires: UAT completion
-   - **Blocking**: Partial (can do most, but need UAT for complete)
-
----
-
-## 🎯 Recommended Next Steps
-
-### Immediate (Can Do Now)
-
-1. **Create UAT Planning Documents** (2-4 hours)
-   - UAT plan
-   - Test scenarios
-   - Feedback forms
-
-2. **Create Release Documents** (4-6 hours)
-   - CHANGELOG.md
-   - RELEASE_NOTES.md
-   - SUPPORT.md
-
-3. **Documentation Review** (4-8 hours)
-   - Review all docs
-   - Fix any issues
-   - Create index
-
-4. **Run Final Test Suite** (1-2 hours)
-   - Verify all tests pass
-   - Create test report
-
-**Total**: ~11-20 hours of work that can be done immediately
-
----
-
-### Short-term (1-2 Weeks)
-
-5. **Execute UAT** (requires users)
-   - Recruit test users
-   - Execute test scenarios
-   - Collect feedback
-
-6. **UAT Follow-up** (if needed)
-   - Fix critical issues
-   - Update documentation
-   - Get sign-off
-
----
-
-### Final Step
-
-7. **Final Verification & Handover**
-   - Complete all verification
-   - Get approvals
-   - Handover to customer
+- [ ] Add screenshots to documentation (if needed)
+- [ ] Update any outdated examples
+- [ ] Verify all links work
+- [ ] Add troubleshooting section for common issues
+- [ ] Update changelog/release notes
 
 ---
 
 ## 📋 Quick Action Checklist
 
-### Do Now (No Dependencies)
-- [ ] Create `docs/UAT_PLAN.md`
-- [ ] Create `docs/UAT_TEST_SCENARIOS.md`
-- [ ] Create `docs/UAT_FEEDBACK_FORM.md`
-- [ ] Create `CHANGELOG.md`
-- [ ] Create `RELEASE_NOTES.md`
-- [ ] Create `docs/SUPPORT.md`
-- [ ] Review all documentation
-- [ ] Create documentation index
-- [ ] Run complete test suite
-- [ ] Create test report
+### Immediate Next Steps (Today):
 
-### Do Later (Requires Resources)
-- [ ] Execute UAT with users
-- [ ] Collect UAT feedback
-- [ ] Fix UAT issues
-- [ ] Create UAT results report
-- [ ] Get UAT sign-off
-- [ ] Final handover approval
+1. **Run Manual Testing**
+   ```bash
+   python main.py
+   ```
+   - Test each scenario above
+   - Document any issues found
+   - Note any usability concerns
 
----
+2. **Run Integration Tests**
+   ```bash
+   python tests/gui/test_design_tools_gui.py
+   python -m pytest tests/integration/ -v
+   ```
 
-## ⏱️ Estimated Timeline
+3. **Check for Console Errors**
+   - Monitor console while testing
+   - Note any warnings or errors
+   - Check signal connection issues
 
-**If doing everything sequentially:**
-- UAT Planning: 1 day
-- UAT Execution: 1-2 weeks (depends on users)
-- UAT Follow-up: 1-2 weeks (depends on findings)
-- Release Prep: 1 day
-- Final Verification: 1 day
+### This Week:
 
-**Total**: 2-4 weeks (mostly waiting for UAT)
+- [ ] Complete all manual testing scenarios
+- [ ] Fix any bugs found
+- [ ] Run integration tests
+- [ ] Get user feedback
+- [ ] Update documentation based on feedback
 
-**If doing in parallel:**
-- Can do UAT Planning + Release Prep + Doc Review: 2-3 days
-- Then wait for UAT: 1-2 weeks
-- Then UAT Follow-up: 1-2 weeks
-- Then Final Verification: 1 day
+### Before Release:
 
-**Total**: 2-4 weeks (but more efficient)
+- [ ] All manual tests pass
+- [ ] All integration tests pass
+- [ ] No critical bugs
+- [ ] Performance is acceptable
+- [ ] Documentation is complete
+- [ ] User acceptance is positive
 
 ---
 
-## 🎯 Recommendation
+## 🎯 Success Criteria
 
-**Do these now** (can complete in 1-2 days):
-1. UAT Planning documents
-2. Release documents (CHANGELOG, RELEASE_NOTES, SUPPORT)
-3. Documentation review
-4. Final test suite run
+The implementation is ready for release when:
 
-**Then**:
-5. Execute UAT when users are available
-6. Follow up on UAT findings
-7. Final handover
+- ✅ All automated tests pass (DONE)
+- ⏳ All manual test scenarios pass
+- ⏳ No critical bugs found
+- ⏳ Integration tests pass
+- ⏳ User acceptance is positive
+- ✅ Documentation is complete (DONE)
+
+**Current Status**: 50% Complete (Implementation + Automated Tests Done)
 
 ---
 
-**Last Updated**: 2024-11-XX
+## 📝 Notes
+
+- Manual testing is the critical path item
+- Most time should be spent on thorough manual testing
+- Integration issues are more likely than unit test failures
+- User feedback is valuable for UX improvements
+- Performance testing can be done in parallel
+
+---
+
+## 🚀 Getting Started
+
+1. **Start with Manual Testing**
+   - Open the application: `python main.py`
+   - Follow test scenarios in order
+   - Document findings
+
+2. **If Issues Found**
+   - Document in issue tracker
+   - Reproduce consistently
+   - Fix and re-test
+
+3. **When All Tests Pass**
+   - Get user feedback
+   - Polish documentation
+   - Prepare for release
+
+---
+
+**Next Action**: Start manual testing with Scenario 1 (Automation Layer Creation)

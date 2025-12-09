@@ -12,6 +12,7 @@ from typing import Iterable, List, Tuple
 
 from core.pattern import Frame, Pattern
 from core.export_options import ExportOptions, RGB
+from core.mapping.circular_mapper import CircularMapper
 
 
 def _reverse_bits(value: int, bit_count: int = 8) -> int:
@@ -48,12 +49,53 @@ def _encode_pixel_bytes(pixel: RGB, options: ExportOptions) -> List[int]:
 
 
 def _expected_pixel_count(pattern: Pattern) -> int:
+    """
+    Get expected pixel count for a pattern.
+    
+    For rectangular layouts: width * height
+    For circular layouts: circular_led_count (physical LED count)
+    For multi-ring layouts: sum of ring_led_counts
+    For radial ray layouts: ray_count * leds_per_ray
+    """
+    layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
+    if layout_type == "rectangular":
+        return pattern.metadata.width * pattern.metadata.height
+    elif layout_type == "multi_ring":
+        # Multi-ring: sum of all ring LED counts
+        ring_led_counts = getattr(pattern.metadata, 'ring_led_counts', [])
+        if ring_led_counts:
+            return sum(ring_led_counts)
+        # Fallback to circular_led_count if ring_led_counts not available
+        if pattern.metadata.circular_led_count:
+            return pattern.metadata.circular_led_count
+    elif layout_type == "radial_rays":
+        # Radial rays: ray_count * leds_per_ray
+        ray_count = getattr(pattern.metadata, 'ray_count', 0)
+        leds_per_ray = getattr(pattern.metadata, 'leds_per_ray', 0)
+        if ray_count > 0 and leds_per_ray > 0:
+            return ray_count * leds_per_ray
+        # Fallback to circular_led_count if ray parameters not available
+        if pattern.metadata.circular_led_count:
+            return pattern.metadata.circular_led_count
+    # Standard circular/ring/arc layouts
+    if pattern.metadata.circular_led_count:
+        return pattern.metadata.circular_led_count
     return pattern.metadata.width * pattern.metadata.height
 
 
 def prepare_frame_pixels(pattern: Pattern, frame: Frame) -> List[RGB]:
-    """Ensure a frame has exactly width*height pixels (pad or trim)."""
-    expected = _expected_pixel_count(pattern)
+    """
+    Ensure a frame has exactly the expected pixel count (pad or trim).
+    
+    For rectangular: width * height pixels
+    For circular: circular_led_count pixels (but we work with grid pixels internally)
+    
+    Note: For circular layouts, this prepares the grid pixels.
+    The reordering happens in encode_frame_bytes().
+    """
+    # Always prepare based on grid size (width * height)
+    # Circular reordering happens later in encode_frame_bytes
+    expected = pattern.metadata.width * pattern.metadata.height
     pixels = list(frame.pixels)
     if len(pixels) < expected:
         pixels.extend([(0, 0, 0)] * (expected - len(pixels)))
@@ -63,12 +105,73 @@ def prepare_frame_pixels(pattern: Pattern, frame: Frame) -> List[RGB]:
 
 
 def encode_frame_bytes(pattern: Pattern, frame: Frame, options: ExportOptions) -> bytes:
-    """Encode a single frame into bytes (pixel only, no duration header)."""
-    ordered_pixels = options.reorder_pixels(
-        prepare_frame_pixels(pattern, frame),
-        pattern.metadata.width,
-        pattern.metadata.height,
-    )
+    """
+    Encode a single frame into bytes (pixel only, no duration header).
+    
+    For circular layouts, this function reorders pixels using the mapping table
+    to match physical LED wiring order. The mapping table is the single source
+    of truth - no live calculations are performed.
+    """
+    # Check if pattern has circular layout
+    layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
+    
+    if layout_type != "rectangular" and pattern.metadata.circular_led_count:
+        # For circular layouts, reorder pixels using mapping table
+        pixels = prepare_frame_pixels(pattern, frame)
+        
+        # Ensure mapping table exists (regenerate if missing)
+        # This handles edge cases like loading old patterns or corrupted metadata
+        if not CircularMapper.ensure_mapping_table(pattern.metadata):
+            # Fallback to rectangular export if mapping generation fails
+            import logging
+            logging.warning(
+                f"Failed to ensure mapping table for circular layout export. "
+                f"Using rectangular order as fallback."
+            )
+            layout_type = "rectangular"
+        
+        if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
+            # CRITICAL: Reorder pixels using mapping table
+            # Iterate LED indices 0..N-1 (physical wiring order)
+            # For each index, lookup grid (x,y) from mapping table
+            # Read pixel color from grid at that position
+            led_count = pattern.metadata.circular_led_count
+            reordered_pixels = []
+            
+            for led_idx in range(led_count):
+                if led_idx < len(pattern.metadata.circular_mapping_table):
+                    # Use mapping table to get grid coordinate
+                    grid_x, grid_y = pattern.metadata.circular_mapping_table[led_idx]
+                    if 0 <= grid_y < pattern.metadata.height and 0 <= grid_x < pattern.metadata.width:
+                        grid_idx = grid_y * pattern.metadata.width + grid_x
+                        if grid_idx < len(pixels):
+                            reordered_pixels.append(pixels[grid_idx])
+                        else:
+                            reordered_pixels.append((0, 0, 0))
+                    else:
+                        reordered_pixels.append((0, 0, 0))
+                else:
+                    reordered_pixels.append((0, 0, 0))
+            
+            ordered_pixels = options.reorder_pixels(
+                reordered_pixels,
+                pattern.metadata.width,
+                pattern.metadata.height,
+            )
+        else:
+            # Fallback to standard ordering
+            ordered_pixels = options.reorder_pixels(
+                pixels,
+                pattern.metadata.width,
+                pattern.metadata.height,
+            )
+    else:
+        # Standard rectangular layout
+        ordered_pixels = options.reorder_pixels(
+            prepare_frame_pixels(pattern, frame),
+            pattern.metadata.width,
+            pattern.metadata.height,
+        )
 
     data = bytearray()
     for pixel in ordered_pixels:

@@ -110,6 +110,7 @@ class MatrixDesignCanvas(QWidget):
         self._dirty_regions: List[Tuple[int, int, int, int]] = []  # (x, y, w, h) dirty rectangles
         self._full_repaint_needed = False
         self._bucket_fill_tolerance: int = 0  # Color tolerance for bucket fill (0-255)
+        self._border_width: int = 0  # Pixel border width (0 = no border, 1-3 = border width)
         
         # Zoom and pan support
         self._zoom_level = 1.0
@@ -122,6 +123,10 @@ class MatrixDesignCanvas(QWidget):
         self._onion_skin_next_frames: List[List[List[RGB]]] = []  # List of next frame grids
         self._onion_skin_prev_opacities: List[float] = []
         self._onion_skin_next_opacities: List[float] = []
+        
+        # Pattern metadata for circular layout support
+        self._pattern_metadata: Optional['PatternMetadata'] = None
+        self._show_led_indices = False  # Toggle for showing LED indices on active cells
 
         self.setMouseTracking(True)
         self.updateGeometry()
@@ -148,6 +153,10 @@ class MatrixDesignCanvas(QWidget):
         self.updateGeometry()
         self.update()
 
+    def get_grid_data(self) -> List[List[RGB]]:
+        """Get current grid data as 2D list."""
+        return self._grid
+    
     def set_frame_pixels(self, pixels: List[RGB]):
         """Load pixels from a linear list (row-major)."""
         expected = self._matrix_width * self._matrix_height
@@ -197,6 +206,25 @@ class MatrixDesignCanvas(QWidget):
         """Set whether shapes should be filled or outlined."""
         self._shape_filled = filled
 
+    def mark_dirty(self, x: int, y: int, width: int = 1, height: int = 1) -> None:
+        """
+        Mark a region as dirty for optimized repainting.
+        
+        Args:
+            x: X coordinate of dirty region
+            y: Y coordinate of dirty region
+            width: Width of dirty region (default: 1)
+            height: Height of dirty region (default: 1)
+        """
+        # Clamp to matrix bounds
+        x = max(0, min(x, self._matrix_width - 1))
+        y = max(0, min(y, self._matrix_height - 1))
+        width = max(1, min(width, self._matrix_width - x))
+        height = max(1, min(height, self._matrix_height - y))
+        
+        self._dirty_regions.append((x, y, width, height))
+        self.update()
+    
     def set_brush_size(self, size: int):
         """Set brush size (1-8)."""
         self._brush_size = max(1, min(8, size))
@@ -215,6 +243,15 @@ class MatrixDesignCanvas(QWidget):
         if shape == self._pixel_shape:
             return
         self._pixel_shape = shape
+        self._full_repaint_needed = True
+        self.update()
+    
+    def set_border_width(self, width: int):
+        """Set pixel border width (0-3)."""
+        width = max(0, min(3, int(width)))
+        if width == self._border_width:
+            return
+        self._border_width = width
         self._full_repaint_needed = True
         self.update()
 
@@ -813,7 +850,12 @@ class MatrixDesignCanvas(QWidget):
         """Render a pixel tile respecting the selected pixel shape."""
         painter.save()
         painter.setBrush(QBrush(QColor(*color)))
-        if self._pixel_border_color.isValid():
+        
+        # Set border pen based on border width setting
+        if self._border_width > 0:
+            border_color = self._pixel_border_color if self._pixel_border_color.isValid() else QColor(18, 18, 18)
+            painter.setPen(QPen(border_color, self._border_width))
+        elif self._pixel_border_color.isValid():
             painter.setPen(QPen(self._pixel_border_color, 1))
         else:
             painter.setPen(Qt.NoPen)
@@ -827,39 +869,183 @@ class MatrixDesignCanvas(QWidget):
             painter.drawRect(rect_x, rect_y, rect_w, rect_h)
         painter.restore()
 
+    def set_pattern_metadata(self, metadata: Optional['PatternMetadata']) -> None:
+        """
+        Set pattern metadata for circular layout support.
+        
+        This enables the canvas to:
+        - Show circular/ring/arc bounds overlay
+        - Highlight active grid cells that map to LEDs
+        - Dim non-active cells
+        
+        The canvas itself remains grid-based - this is just visual feedback.
+        All drawing tools continue to work on the grid normally.
+        """
+        from core.pattern import PatternMetadata
+        self._pattern_metadata = metadata
+        self.update()  # Trigger repaint to show updated overlay
+    
     def _draw_geometry_overlay(self, painter: QPainter):
-        """Draw LMS-style overlays (circle/ring/radial) to preview alternate geometries."""
-        if self._geometry_overlay == GeometryOverlay.MATRIX:
-            return
-
+        """
+        Draw LMS-style overlays (circle/ring/radial) to preview alternate geometries.
+        
+        This overlay is purely visual - it shows which grid cells map to LEDs
+        and displays the circular bounds. It does NOT affect drawing behavior.
+        
+        Key principle: "Circular View is a lens, not a new world"
+        - Grid-based editing remains primary
+        - Overlay is interpretation layer only
+        """
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing, True)
-        overlay_pen = QPen(QColor(255, 255, 255, 80), 2, Qt.DashLine)
-        painter.setPen(overlay_pen)
         bounds = self.rect().adjusted(6, 6, -6, -6)
-
-        if self._geometry_overlay == GeometryOverlay.CIRCLE:
-            painter.drawEllipse(bounds)
-        elif self._geometry_overlay == GeometryOverlay.RING:
-            painter.drawEllipse(bounds)
-            inner = bounds.adjusted(
-                bounds.width() * 0.2,
-                bounds.height() * 0.2,
-                -bounds.width() * 0.2,
-                -bounds.height() * 0.2,
-            )
-            painter.drawEllipse(inner)
-        elif self._geometry_overlay == GeometryOverlay.RADIAL:
-            # Draw semi-circle with spokes
-            painter.drawArc(bounds, 0, 180 * 16)
-            steps = 8
-            center = bounds.bottomLeft()
-            radius = bounds.width()
-            for i in range(steps + 1):
-                angle = pi * (i / steps)
-                x = center.x() + radius * cos(angle)
-                y = center.y() - radius * sin(angle)
-                painter.drawLine(center, QPoint(int(x), int(y)))
+        
+        # Check if pattern has circular layout
+        layout_type = None
+        if self._pattern_metadata:
+            layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
+        
+        # If pattern has circular layout, show it regardless of overlay setting
+        if layout_type and layout_type != "rectangular":
+            overlay_pen = QPen(QColor(0, 255, 120, 120), 2, Qt.SolidLine)
+            painter.setPen(overlay_pen)
+            
+            if layout_type == "circle":
+                painter.drawEllipse(bounds)
+            elif layout_type == "ring":
+                painter.drawEllipse(bounds)
+                if self._pattern_metadata and self._pattern_metadata.circular_inner_radius:
+                    # Calculate inner radius proportion
+                    outer_radius = self._pattern_metadata.circular_radius or (min(bounds.width(), bounds.height()) / 2.0)
+                    inner_radius = self._pattern_metadata.circular_inner_radius
+                    ratio = inner_radius / outer_radius if outer_radius > 0 else 0.2
+                    inner = bounds.adjusted(
+                        int(bounds.width() * ratio / 2),
+                        int(bounds.height() * ratio / 2),
+                        -int(bounds.width() * ratio / 2),
+                        -int(bounds.height() * ratio / 2),
+                    )
+                    painter.drawEllipse(inner)
+            elif layout_type == "arc":
+                # Draw arc based on start/end angles
+                start_angle = getattr(self._pattern_metadata, 'circular_start_angle', 0.0) if self._pattern_metadata else 0.0
+                end_angle = getattr(self._pattern_metadata, 'circular_end_angle', 360.0) if self._pattern_metadata else 360.0
+                span_angle = int((end_angle - start_angle) * 16)  # Qt uses 1/16th degree units
+                start_angle_qt = int(start_angle * 16)
+                painter.drawArc(bounds, start_angle_qt, span_angle)
+            elif layout_type == "radial":
+                # Draw concentric circles (rows = circles, cols = LEDs per circle)
+                # This matches the radial preview interpretation
+                num_circles = self._pattern_metadata.height if self._pattern_metadata else 1
+                center_x = bounds.center().x()
+                center_y = bounds.center().y()
+                max_radius = min(bounds.width(), bounds.height()) / 2 - 6
+                min_radius = max_radius * 0.15
+                
+                # Draw concentric circles for each row
+                for row in range(num_circles):
+                    # Calculate radius for this circle
+                    if num_circles > 1:
+                        radius = min_radius + (max_radius - min_radius) * (row / (num_circles - 1))
+                    else:
+                        radius = max_radius
+                    
+                    # Draw circle
+                    circle_rect = bounds.adjusted(
+                        int(center_x - radius - bounds.x()),
+                        int(center_y - radius - bounds.y()),
+                        -int(center_x + radius - bounds.right()),
+                        -int(center_y + radius - bounds.bottom())
+                    )
+                    painter.drawEllipse(circle_rect)
+            
+            # Highlight active grid cells that map to LEDs
+            # This visual feedback teaches users which grid cells are "active"
+            if self._pattern_metadata and self._pattern_metadata.circular_mapping_table:
+                active_cells = set(self._pattern_metadata.circular_mapping_table)
+                
+                # First, dim non-active cells to show they're not part of the circular layout
+                inactive_pen = QPen(QColor(60, 60, 60, 40), 1, Qt.SolidLine)
+                inactive_brush = QBrush(QColor(60, 60, 60, 20))
+                painter.setPen(inactive_pen)
+                painter.setBrush(inactive_brush)
+                
+                # Draw dimmed overlay for non-active cells
+                for y in range(self._matrix_height):
+                    for x in range(self._matrix_width):
+                        if (x, y) not in active_cells:
+                            rect_x = x * self._pixel_size + 1
+                            rect_y = y * self._pixel_size + 1
+                            rect_w = self._pixel_size - 2
+                            rect_h = self._pixel_size - 2
+                            painter.drawRect(rect_x, rect_y, rect_w, rect_h)
+                
+                # Then highlight active cells (those that map to LEDs)
+                highlight_pen = QPen(QColor(0, 255, 120, 120), 2, Qt.SolidLine)
+                highlight_brush = QBrush(QColor(0, 255, 120, 40))
+                painter.setPen(highlight_pen)
+                painter.setBrush(highlight_brush)
+                
+                for grid_x, grid_y in active_cells:
+                    if 0 <= grid_x < self._matrix_width and 0 <= grid_y < self._matrix_height:
+                        rect_x = grid_x * self._pixel_size + 1
+                        rect_y = grid_y * self._pixel_size + 1
+                        rect_w = self._pixel_size - 2
+                        rect_h = self._pixel_size - 2
+                        painter.drawRect(rect_x, rect_y, rect_w, rect_h)
+                        
+                        # Optionally show LED index on active cells (for debugging)
+                        # This helps users understand the mapping
+                        if hasattr(self, '_show_led_indices') and self._show_led_indices:
+                            # Find LED index for this grid cell
+                            led_idx = None
+                            for idx, (mx, my) in enumerate(self._pattern_metadata.circular_mapping_table):
+                                if mx == grid_x and my == grid_y:
+                                    led_idx = idx
+                                    break
+                            
+                            if led_idx is not None and self._pixel_size > 16:
+                                painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+                                font = painter.font()
+                                font.setPointSize(max(6, self._pixel_size // 4))
+                                painter.setFont(font)
+                                text_rect = painter.boundingRect(
+                                    rect_x, rect_y, rect_w, rect_h,
+                                    Qt.AlignCenter, str(led_idx)
+                                )
+                                painter.fillRect(text_rect, QColor(0, 0, 0, 180))
+                                painter.drawText(
+                                    rect_x, rect_y, rect_w, rect_h,
+                                    Qt.AlignCenter, str(led_idx)
+                                )
+        
+        # Also draw manual overlay if set (for preview purposes)
+        if self._geometry_overlay != GeometryOverlay.MATRIX:
+            overlay_pen = QPen(QColor(255, 255, 255, 80), 2, Qt.DashLine)
+            painter.setPen(overlay_pen)
+            
+            if self._geometry_overlay == GeometryOverlay.CIRCLE:
+                painter.drawEllipse(bounds)
+            elif self._geometry_overlay == GeometryOverlay.RING:
+                painter.drawEllipse(bounds)
+                inner = bounds.adjusted(
+                    bounds.width() * 0.2,
+                    bounds.height() * 0.2,
+                    -bounds.width() * 0.2,
+                    -bounds.height() * 0.2,
+                )
+                painter.drawEllipse(inner)
+            elif self._geometry_overlay == GeometryOverlay.RADIAL:
+                # Draw semi-circle with spokes
+                painter.drawArc(bounds, 0, 180 * 16)
+                steps = 8
+                center = bounds.bottomLeft()
+                radius = bounds.width()
+                for i in range(steps + 1):
+                    angle = pi * (i / steps)
+                    x = center.x() + radius * cos(angle)
+                    y = center.y() - radius * sin(angle)
+                    painter.drawLine(center, QPoint(int(x), int(y)))
 
         painter.restore()
 

@@ -23,6 +23,7 @@ class TemplateCategory(Enum):
     EFFECT = "Effect"
     TEXT = "Text"
     GAME = "Game"
+    BUDURASMALA = "Budurasmala"
 
 
 @dataclass
@@ -215,6 +216,76 @@ class TemplateLibrary:
                 "color": (255, 255, 255)
             },
             generator=self._generate_random
+        ))
+        
+        # Budurasmala Templates
+        # Ray Rotation
+        self.templates.append(PatternTemplate(
+            name="Ray Rotation",
+            category=TemplateCategory.BUDURASMALA,
+            description="Rotating rays around center (Budurasmala)",
+            parameters={
+                "speed": 2.0,
+                "color": (255, 255, 0),
+                "ray_count": 8,
+                "frames": 30
+            },
+            generator=self._generate_ray_rotation
+        ))
+        
+        # Pulsing Halo
+        self.templates.append(PatternTemplate(
+            name="Pulsing Halo",
+            category=TemplateCategory.BUDURASMALA,
+            description="Expanding and contracting rings (Budurasmala)",
+            parameters={
+                "ring_count": 3,
+                "pulse_speed": 1.0,
+                "color": (255, 200, 0),
+                "frames": 40
+            },
+            generator=self._generate_pulsing_halo
+        ))
+        
+        # Twinkling Stars
+        self.templates.append(PatternTemplate(
+            name="Twinkling Stars",
+            category=TemplateCategory.BUDURASMALA,
+            description="Random LEDs twinkling (Budurasmala)",
+            parameters={
+                "density": 0.15,
+                "twinkle_speed": 3.0,
+                "color": (255, 255, 255),
+                "frames": 50
+            },
+            generator=self._generate_twinkling_stars
+        ))
+        
+        # Wave Propagation
+        self.templates.append(PatternTemplate(
+            name="Wave Propagation",
+            category=TemplateCategory.BUDURASMALA,
+            description="Wave moving around circle (Budurasmala)",
+            parameters={
+                "wave_count": 2,
+                "speed": 2.0,
+                "color": (0, 150, 255),
+                "frames": 60
+            },
+            generator=self._generate_wave_propagation
+        ))
+        
+        # Color Gradient Rotation
+        self.templates.append(PatternTemplate(
+            name="Color Gradient Rotation",
+            category=TemplateCategory.BUDURASMALA,
+            description="Rotating color gradient pattern (Budurasmala)",
+            parameters={
+                "gradient_colors": [(255, 0, 0), (0, 255, 0), (0, 0, 255)],
+                "rotation_speed": 1.5,
+                "frames": 40
+            },
+            generator=self._generate_color_gradient_rotation
         ))
     
     def list_templates(self, category: Optional[TemplateCategory] = None) -> List[PatternTemplate]:
@@ -652,4 +723,217 @@ class TemplateLibrary:
         
         metadata = PatternMetadata(width=width, height=height)
         return Pattern(name="Random Pixels", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_ray_rotation(self, speed: float, color: RGB, ray_count: int, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate rotating rays pattern (Budurasmala)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            angle_offset = (frame_idx * speed / frames) * 2 * math.pi
+            
+            # Draw rays
+            for ray_idx in range(ray_count):
+                ray_angle = (2 * math.pi * ray_idx / ray_count) + angle_offset
+                
+                # Draw ray from center outward
+                for r in range(0, int(max_radius), 2):
+                    x = int(center_x + r * math.cos(ray_angle))
+                    y = int(center_y + r * math.sin(ray_angle))
+                    
+                    if 0 <= x < width and 0 <= y < height:
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            # Fade intensity based on distance
+                            fade = 1.0 - (r / max_radius) * 0.5
+                            r_val = int(color[0] * fade)
+                            g_val = int(color[1] * fade)
+                            b_val = int(color[2] * fade)
+                            pixels[idx] = (r_val, g_val, b_val)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Ray Rotation", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_pulsing_halo(self, ring_count: int, pulse_speed: float, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate pulsing halo pattern (Budurasmala)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = (frame_idx / frames) * 2 * math.pi
+            
+            # Calculate pulse factor (0.3 to 1.0)
+            pulse_factor = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(t * pulse_speed))
+            
+            # Draw concentric rings
+            for ring_idx in range(ring_count):
+                base_radius = (max_radius * (ring_idx + 1) / (ring_count + 1))
+                radius = base_radius * pulse_factor
+                
+                # Draw ring
+                for angle in range(0, 360, 2):
+                    rad = math.radians(angle)
+                    x = int(center_x + radius * math.cos(rad))
+                    y = int(center_y + radius * math.sin(rad))
+                    
+                    if 0 <= x < width and 0 <= y < height:
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            # Fade outer rings
+                            fade = 1.0 - (ring_idx / ring_count) * 0.3
+                            r_val = int(color[0] * fade)
+                            g_val = int(color[1] * fade)
+                            b_val = int(color[2] * fade)
+                            pixels[idx] = (r_val, g_val, b_val)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Pulsing Halo", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_twinkling_stars(self, density: float, twinkle_speed: float, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate twinkling stars pattern (Budurasmala)."""
+        pattern_frames: List[Frame] = []
+        num_stars = int(width * height * density)
+        random.seed(42)
+        
+        # Pre-generate star positions
+        star_positions = []
+        for _ in range(num_stars):
+            x = random.randint(0, width - 1)
+            y = random.randint(0, height - 1)
+            star_positions.append((x, y))
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = frame_idx / frames
+            
+            # Draw twinkling stars
+            for star_x, star_y in star_positions:
+                # Each star has its own phase
+                star_phase = (star_x + star_y) % 10
+                phase_offset = (star_phase / 10.0) * 2 * math.pi
+                intensity = 0.3 + 0.7 * abs(math.sin(t * twinkle_speed * 2 * math.pi + phase_offset))
+                
+                idx = star_y * width + star_x
+                if idx < len(pixels):
+                    r_val = int(color[0] * intensity)
+                    g_val = int(color[1] * intensity)
+                    b_val = int(color[2] * intensity)
+                    pixels[idx] = (r_val, g_val, b_val)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Twinkling Stars", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_wave_propagation(self, wave_count: int, speed: float, color: RGB, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate wave propagation pattern (Budurasmala)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            t = frame_idx / frames
+            
+            # Draw waves propagating around circle
+            for wave_idx in range(wave_count):
+                wave_phase = (t * speed + wave_idx / wave_count) * 2 * math.pi
+                
+                # Draw wave along circle
+                for angle_deg in range(0, 360, 1):
+                    angle = math.radians(angle_deg)
+                    wave_angle = angle + wave_phase
+                    
+                    # Wave intensity based on angle
+                    wave_intensity = 0.5 + 0.5 * math.sin(wave_angle * 8)
+                    
+                    # Draw at multiple radii for wave effect
+                    for r_offset in range(-3, 4):
+                        radius = max_radius * 0.7 + r_offset
+                        x = int(center_x + radius * math.cos(angle))
+                        y = int(center_y + radius * math.sin(angle))
+                        
+                        if 0 <= x < width and 0 <= y < height:
+                            idx = y * width + x
+                            if idx < len(pixels):
+                                # Fade based on distance from wave center
+                                distance_fade = 1.0 - abs(r_offset) / 3.0
+                                intensity = wave_intensity * distance_fade
+                                
+                                if intensity > 0.1:
+                                    r_val = int(color[0] * intensity)
+                                    g_val = int(color[1] * intensity)
+                                    b_val = int(color[2] * intensity)
+                                    pixels[idx] = (r_val, g_val, b_val)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Wave Propagation", metadata=metadata, frames=pattern_frames)
+    
+    def _generate_color_gradient_rotation(self, gradient_colors: List[RGB], rotation_speed: float, frames: int, width: int, height: int, **kwargs) -> Pattern:
+        """Generate rotating color gradient pattern (Budurasmala)."""
+        pattern_frames: List[Frame] = []
+        center_x, center_y = width / 2, height / 2
+        max_radius = min(width, height) / 2
+        
+        if not gradient_colors:
+            gradient_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        
+        for frame_idx in range(frames):
+            pixels = [(0, 0, 0)] * (width * height)
+            angle_offset = (frame_idx * rotation_speed / frames) * 2 * math.pi
+            
+            # Draw gradient pattern
+            for y in range(height):
+                for x in range(width):
+                    dx, dy = x - center_x, y - center_y
+                    angle = math.atan2(dy, dx) + angle_offset
+                    radius = math.sqrt(dx * dx + dy * dy)
+                    
+                    if radius <= max_radius:
+                        # Normalize angle to 0-2π
+                        angle = (angle % (2 * math.pi) + 2 * math.pi) % (2 * math.pi)
+                        
+                        # Map angle to gradient
+                        gradient_pos = angle / (2 * math.pi)
+                        color_idx = int(gradient_pos * len(gradient_colors)) % len(gradient_colors)
+                        next_color_idx = (color_idx + 1) % len(gradient_colors)
+                        
+                        # Interpolate between colors
+                        local_pos = (gradient_pos * len(gradient_colors)) % 1.0
+                        color1 = gradient_colors[color_idx]
+                        color2 = gradient_colors[next_color_idx]
+                        
+                        r = int(color1[0] * (1 - local_pos) + color2[0] * local_pos)
+                        g = int(color1[1] * (1 - local_pos) + color2[1] * local_pos)
+                        b = int(color1[2] * (1 - local_pos) + color2[2] * local_pos)
+                        
+                        # Fade based on radius
+                        radius_fade = 1.0 - (radius / max_radius) * 0.3
+                        r = int(r * radius_fade)
+                        g = int(g * radius_fade)
+                        b = int(b * radius_fade)
+                        
+                        idx = y * width + x
+                        if idx < len(pixels):
+                            pixels[idx] = (r, g, b)
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+        
+        metadata = PatternMetadata(width=width, height=height)
+        return Pattern(name="Color Gradient Rotation", metadata=metadata, frames=pattern_frames)
 

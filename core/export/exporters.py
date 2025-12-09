@@ -282,6 +282,129 @@ class PatternExporter:
         
         return output_path
     
+    def export_wled(
+        self,
+        pattern: Pattern,
+        output_path: Path,
+        generate_manifest: bool = True
+    ) -> Path:
+        """
+        Export pattern as WLED JSON format.
+        
+        WLED is a popular ESP32-based LED controller firmware.
+        This export creates a JSON file compatible with WLED's custom effect format.
+        
+        Args:
+            pattern: Pattern to export
+            output_path: Output file path
+            generate_manifest: Whether to generate build manifest
+            
+        Returns:
+            Path to exported file
+        """
+        import json
+        from core.export.encoders import _expected_pixel_count, prepare_frame_pixels
+        from core.mapping.circular_mapper import CircularMapper
+        
+        # Get expected LED count (physical LEDs, not grid size)
+        led_count = _expected_pixel_count(pattern)
+        
+        # WLED JSON format structure
+        wled_data = {
+            "name": pattern.name or "LED Pattern",
+            "leds": led_count,
+            "frames": []
+        }
+        
+        # Convert each frame to WLED format
+        for frame_idx, frame in enumerate(pattern.frames):
+            # Get pixels from frame
+            pixels = prepare_frame_pixels(pattern, frame)
+            
+            # For circular layouts, reorder pixels using mapping table
+            layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
+            if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
+                # Reorder pixels according to LED wiring order
+                reordered_pixels = []
+                for led_idx in range(led_count):
+                    if led_idx < len(pattern.metadata.circular_mapping_table):
+                        grid_x, grid_y = pattern.metadata.circular_mapping_table[led_idx]
+                        if 0 <= grid_y < pattern.metadata.height and 0 <= grid_x < pattern.metadata.width:
+                            grid_idx = grid_y * pattern.metadata.width + grid_x
+                            if grid_idx < len(pixels):
+                                reordered_pixels.append(pixels[grid_idx])
+                            else:
+                                reordered_pixels.append((0, 0, 0))
+                        else:
+                            reordered_pixels.append((0, 0, 0))
+                    else:
+                        reordered_pixels.append((0, 0, 0))
+                pixels = reordered_pixels
+            
+            # Convert pixels to RGB array for WLED
+            # WLED expects array of [R, G, B] tuples
+            rgb_array = []
+            for pixel in pixels[:led_count]:  # Ensure we don't exceed LED count
+                if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                    rgb_array.append([int(pixel[0]), int(pixel[1]), int(pixel[2])])
+                else:
+                    rgb_array.append([0, 0, 0])
+            
+            # Pad or trim to exact LED count
+            while len(rgb_array) < led_count:
+                rgb_array.append([0, 0, 0])
+            rgb_array = rgb_array[:led_count]
+            
+            # WLED frame format
+            wled_frame = {
+                "dur": frame.duration_ms,  # Duration in milliseconds
+                "data": rgb_array  # RGB data array
+            }
+            wled_data["frames"].append(wled_frame)
+        
+        # Add metadata for Budurasmala layouts
+        # This helps WLED or other players understand the physical LED arrangement
+        if hasattr(pattern.metadata, 'layout_type') and pattern.metadata.layout_type != "rectangular":
+            wled_data["layout"] = {
+                "type": pattern.metadata.layout_type,
+                "circular_led_count": getattr(pattern.metadata, 'circular_led_count', None),
+            }
+            
+            # Add multi-ring metadata (Budurasmala)
+            if pattern.metadata.layout_type == "multi_ring":
+                wled_data["layout"]["multi_ring_count"] = getattr(pattern.metadata, 'multi_ring_count', None)
+                wled_data["layout"]["ring_led_counts"] = getattr(pattern.metadata, 'ring_led_counts', None)
+                wled_data["layout"]["ring_radii"] = getattr(pattern.metadata, 'ring_radii', None)
+                wled_data["layout"]["ring_spacing"] = getattr(pattern.metadata, 'ring_spacing', None)
+                wled_data["description"] = f"Budurasmala multi-ring pattern: {wled_data['layout']['multi_ring_count']} rings"
+            
+            # Add radial ray metadata (Budurasmala)
+            elif pattern.metadata.layout_type == "radial_rays":
+                wled_data["layout"]["ray_count"] = getattr(pattern.metadata, 'ray_count', None)
+                wled_data["layout"]["leds_per_ray"] = getattr(pattern.metadata, 'leds_per_ray', None)
+                wled_data["layout"]["ray_spacing_angle"] = getattr(pattern.metadata, 'ray_spacing_angle', None)
+                wled_data["description"] = f"Budurasmala radial ray pattern: {wled_data['layout']['ray_count']} rays"
+            
+            # Add standard circular layout metadata
+            else:
+                wled_data["layout"]["circular_radius"] = getattr(pattern.metadata, 'circular_radius', None)
+                wled_data["layout"]["circular_inner_radius"] = getattr(pattern.metadata, 'circular_inner_radius', None)
+                wled_data["layout"]["circular_start_angle"] = getattr(pattern.metadata, 'circular_start_angle', None)
+                wled_data["layout"]["circular_end_angle"] = getattr(pattern.metadata, 'circular_end_angle', None)
+        
+        # Add pattern metadata
+        if not wled_data.get("description"):
+            wled_data["description"] = f"LED pattern: {wled_data['leds']} LEDs, {len(wled_data['frames'])} frames"
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(wled_data, f, indent=2, ensure_ascii=False)
+        
+        if generate_manifest:
+            self._generate_manifest(pattern, output_path, "wled", json.dumps(wled_data, sort_keys=True).encode())
+        
+        return output_path
+    
     def export_leds(
         self,
         pattern: Pattern,
@@ -442,6 +565,8 @@ def export_pattern(
             loop=kwargs.get('loop', True),
             scale_factor=kwargs.get('scale_factor', 1)
         )
+    elif format_lower == "wled":
+        return exporter.export_wled(pattern, output_path, **kwargs)
     else:
         raise ValueError(f"Unknown export format: {format}")
 

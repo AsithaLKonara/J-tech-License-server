@@ -174,6 +174,16 @@ This is the first stable release (v1.0.0). If you're upgrading from a beta versi
 
 ---
 
+## 🆕 Upcoming Features (In Development)
+
+### Layer System Enhancements
+- **Automation Layer Integration**: Automation operations create new layers, preserving original work
+- **Layer Sync Detection**: Automatic detection and warning when layers are out of sync
+- **Copy Layer to Frames**: Easily duplicate layers across multiple frames
+- **Hidden Layer Prevention**: Prevents accidental edits on hidden layers
+- **Brush Broadcast Feedback**: Enhanced visual feedback for broadcast mode operations
+- **Performance Optimizations**: Improved efficiency for large patterns and many layers
+
 ## 🔮 What's Coming Next
 
 ### Planned Features (Future Releases)

@@ -17,7 +17,7 @@ from core.errors.exceptions import (
     FlashUploadError,
     ServiceError
 )
-from core.errors.error_handler import ErrorHandler, get_error_handler
+from core.errors.error_handler import ErrorHandler, get_error_handler, ErrorSeverity
 
 __all__ = [
     'PatternError',
@@ -32,5 +32,6 @@ __all__ = [
     'ServiceError',
     'ErrorHandler',
     'get_error_handler',
+    'ErrorSeverity',
 ]
 

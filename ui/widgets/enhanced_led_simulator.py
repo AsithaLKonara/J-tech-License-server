@@ -5,6 +5,7 @@ Shows exact pattern with correct matrix size and shape
 
 from typing import Dict
 from math import cos, sin, pi
+import math
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QSlider, QSpinBox, QComboBox,
@@ -15,8 +16,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
 
-from core.pattern import Pattern, Frame
+from core.pattern import Pattern, Frame, PatternMetadata
 from core.matrix_detector import MatrixDetector, MatrixLayout
+from core.mapping.circular_mapper import CircularMapper
 
 
 class EnhancedLEDSimulatorWidget(QWidget):
@@ -805,7 +807,20 @@ class LEDDisplayWidget(QWidget):
         start_x = (self.width() - total_width) // 2
         start_y = (self.height() - total_height) // 2
         
-        # Draw LEDs according to the selected display mode
+        # Check pattern metadata for circular layout
+        # This follows the "lens, not new world" principle - same pattern data,
+        # different interpretation based on layout_type
+        layout_type = None
+        if self.pattern and hasattr(self.pattern, 'metadata'):
+            layout_type = getattr(self.pattern.metadata, 'layout_type', 'rectangular')
+        
+        # Use circular rendering if pattern has circular layout
+        # The preview uses the mapping table to get pixel colors from grid
+        if layout_type and layout_type != "rectangular":
+            self._paint_circular_layout(painter, frame, self.pattern.metadata, self.rect())
+            return
+        
+        # Draw LEDs according to the selected display mode (for manual preview)
         if self.display_mode == "Circle":
             self._paint_circle(painter, frame, width, height, self.rect())
             return
@@ -1005,6 +1020,173 @@ class LEDDisplayWidget(QWidget):
                 painter.setBrush(QBrush(QColor(r_val, g_val, b_val)))
                 painter.setPen(QPen(self._cell_border_color, 1))
                 painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
+    
+    def _paint_circular_layout(self, painter: QPainter, frame: Frame, metadata: PatternMetadata, rect):
+        """
+        Paint circular layout using CircularMapper to map grid pixels to LED positions.
+        
+        IMPORTANT: This method uses the mapping table (single source of truth) to get
+        pixel colors from the grid. Display positions are calculated for rendering,
+        but pixel data always comes from the mapping table lookup.
+        
+        For radial layouts, uses row/column interpretation (LMS-style):
+        - Rows = number of concentric circles
+        - Columns = LEDs per circle
+        - Read pixels directly from grid: frame.pixels[row * width + col]
+        
+        This follows the "lens, not new world" philosophy - the grid is primary,
+        circular layout is an interpretation layer.
+        
+        Args:
+            painter: QPainter instance
+            frame: Frame with pixel data (grid-based)
+            metadata: PatternMetadata with circular layout configuration
+            rect: Drawing rectangle
+        """
+        # Handle radial layout type (LMS-style: rows = circles, cols = LEDs per circle)
+        if metadata.layout_type == "radial":
+            # Use row/column interpretation (LMS-style)
+            num_circles = metadata.height
+            leds_per_circle = metadata.width
+            
+            # Calculate display parameters
+            pixel_size = max(4, int(self.led_size * self.zoom_factor * 0.8))
+            center_x = rect.x() + rect.width() / 2
+            center_y = rect.y() + rect.height() / 2
+            
+            # Calculate radius range
+            outer_radius = min(rect.width(), rect.height()) / 2 - 16
+            inner_radius = outer_radius * 0.15
+            radius_delta = (outer_radius - inner_radius) / max(1, num_circles - 1) if num_circles > 1 else 0
+            
+            # Render concentric circles
+            for row in range(num_circles):
+                # Calculate radius for this circle
+                radius = inner_radius + radius_delta * row
+                
+                # Render LEDs around this circle
+                for col in range(leds_per_circle):
+                    # Calculate angle for this LED position
+                    angle = 2 * pi * (col / max(1, leds_per_circle))
+                    
+                    # Calculate LED position
+                    x = center_x + radius * cos(angle)
+                    y = center_y + radius * sin(angle)
+                    
+                    # Read pixel color directly from grid (row/column interpretation)
+                    grid_idx = row * metadata.width + col
+                    if grid_idx < len(frame.pixels):
+                        r, g, b = frame.pixels[grid_idx]
+                    else:
+                        r, g, b = (0, 0, 0)
+                    
+                    # Draw LED
+                    color = QColor(r, g, b)
+                    painter.setBrush(QBrush(color))
+                    painter.setPen(QPen(self._cell_border_color, 1))
+                    painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
+                    
+                    # Draw LED index if enabled
+                    if self.show_numbers and pixel_size > 12:
+                        painter.setPen(QPen(Qt.white, 1))
+                        font = QFont()
+                        font.setPointSize(max(6, pixel_size // 4))
+                        painter.setFont(font)
+                        led_num = row * leds_per_circle + col
+                        painter.drawText(int(x) - pixel_size // 2, int(y) - pixel_size // 2, 
+                                        pixel_size, pixel_size, Qt.AlignCenter, str(led_num))
+            
+            return
+        
+        # Ensure mapping table exists (regenerate if missing)
+        # This handles edge cases like loading old patterns
+        if not CircularMapper.ensure_mapping_table(metadata):
+            # Fallback to matrix rendering if mapping generation fails
+            # This ensures the app never crashes due to circular layout issues
+            import logging
+            logging.warning(
+                f"Failed to ensure mapping table for circular layout preview. "
+                f"Falling back to matrix view."
+            )
+            self._paint_matrix(painter, frame, metadata.width, metadata.height, 
+                             int(self.led_size * self.zoom_factor), 
+                             int(self.led_size * self.zoom_factor), rect)
+            return
+        
+        # Calculate display parameters
+        led_count = metadata.circular_led_count or len(metadata.circular_mapping_table)
+        pixel_size = max(4, int(self.led_size * self.zoom_factor * 0.8))
+        
+        # Calculate center and radius
+        center_x = rect.x() + rect.width() / 2
+        center_y = rect.y() + rect.height() / 2
+        outer_radius = min(rect.width(), rect.height()) / 2 - 16
+        
+        # Get LED positions in polar coordinates
+        positions = CircularMapper.generate_circular_positions(
+            led_count=led_count,
+            radius=metadata.circular_radius or outer_radius,
+            start_angle=metadata.circular_start_angle,
+            end_angle=metadata.circular_end_angle,
+            inner_radius=metadata.circular_inner_radius
+        )
+        
+        # Draw each LED in index order (0 → N-1)
+        # This matches the physical wiring order
+        for led_idx in range(led_count):
+            if led_idx >= len(metadata.circular_mapping_table):
+                # Missing mapping - skip this LED
+                continue
+            
+            # CRITICAL: Use mapping table to get grid coordinate (single source of truth)
+            grid_pos = metadata.circular_mapping_table[led_idx]
+            if grid_pos is None:
+                continue
+            
+            grid_x, grid_y = grid_pos
+            
+            # Get pixel color from grid using mapping table lookup
+            # This is the key: we read from grid, not from live calculations
+            if 0 <= grid_y < metadata.height and 0 <= grid_x < metadata.width:
+                grid_idx = grid_y * metadata.width + grid_x
+                if grid_idx < len(frame.pixels):
+                    r, g, b = frame.pixels[grid_idx]
+                else:
+                    r, g, b = (0, 0, 0)
+            else:
+                r, g, b = (0, 0, 0)
+            
+            # Get LED position in polar coordinates
+            if led_idx < len(positions):
+                angle, led_radius = positions[led_idx]
+                # Convert to cartesian
+                x = center_x + led_radius * cos(angle)
+                y = center_y + led_radius * sin(angle)
+            else:
+                # Fallback: calculate from angle
+                angle_step = (metadata.circular_end_angle - metadata.circular_start_angle) / led_count
+                angle = math.radians(metadata.circular_start_angle + led_idx * angle_step)
+                radius = metadata.circular_radius or outer_radius
+                x = center_x + radius * cos(angle)
+                y = center_y + radius * sin(angle)
+            
+            # Draw LED
+            color = QColor(r, g, b)
+            painter.setBrush(QBrush(color))
+            painter.setPen(QPen(self._cell_border_color, 1))
+            painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
+            
+            # Draw LED index if enabled
+            if self.show_numbers and pixel_size > 12:
+                painter.setPen(QPen(Qt.white, 1))
+                font = QFont()
+                font.setPointSize(max(6, pixel_size // 4))
+                painter.setFont(font)
+                text_rect = painter.boundingRect(int(x) - pixel_size // 2, int(y) - pixel_size // 2, 
+                                                pixel_size, pixel_size, Qt.AlignCenter, str(led_idx))
+                painter.fillRect(text_rect, QColor(0, 0, 0, 180))
+                painter.drawText(int(x) - pixel_size // 2, int(y) - pixel_size // 2, 
+                               pixel_size, pixel_size, Qt.AlignCenter, str(led_idx))
 
     def _compute_display_path(self, w: int, h: int):
         """

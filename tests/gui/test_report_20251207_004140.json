@@ -1,0 +1,1108 @@
+{
+  "timestamp": "2025-12-07T00:41:40.249048",
+  "summary": {
+    "total_tests": 153,
+    "passed": 153,
+    "failed": 0,
+    "pass_rate": 100
+  },
+  "results": {
+    "Header Toolbar": [
+      {
+        "feature": "New Pattern Button",
+        "status": "Pass",
+        "message": "Method _on_new_pattern_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Templates Button",
+        "status": "Pass",
+        "message": "Method _on_templates_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "AI Generate Button",
+        "status": "Pass",
+        "message": "Method _on_ai_generate_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Create Animation Button",
+        "status": "Pass",
+        "message": "Method _on_create_animation_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Version History Button",
+        "status": "Pass",
+        "message": "Method _on_version_history_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Save Button",
+        "status": "Pass",
+        "message": "Method _on_header_save_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Settings Button",
+        "status": "Pass",
+        "message": "Method _on_header_settings_clicked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Header Toolbar Creation",
+        "status": "Pass",
+        "message": "Method _create_header_toolbar exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Toolbox Tabs": [
+      {
+        "feature": "Brushes Tab",
+        "status": "Pass",
+        "message": "Method _create_brushes_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LED Colors Tab",
+        "status": "Pass",
+        "message": "Method _create_led_colors_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Mapping Tab",
+        "status": "Pass",
+        "message": "Method _create_pixel_mapping_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpads Tab",
+        "status": "Pass",
+        "message": "Method _create_scratchpad_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layers Tab",
+        "status": "Pass",
+        "message": "Method _create_layers_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effects Tab",
+        "status": "Pass",
+        "message": "Method _create_effects_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Tab",
+        "status": "Pass",
+        "message": "Method _create_automation_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Tab",
+        "status": "Pass",
+        "message": "Method _create_export_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Toolbox Column Creation",
+        "status": "Pass",
+        "message": "Method _create_toolbox_column exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Drawing Tools": [
+      {
+        "feature": "PIXEL Tool",
+        "status": "Pass",
+        "message": "DrawingMode.PIXEL exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "RECTANGLE Tool",
+        "status": "Pass",
+        "message": "DrawingMode.RECTANGLE exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "CIRCLE Tool",
+        "status": "Pass",
+        "message": "DrawingMode.CIRCLE exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LINE Tool",
+        "status": "Pass",
+        "message": "DrawingMode.LINE exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "RANDOM Tool",
+        "status": "Pass",
+        "message": "DrawingMode.RANDOM exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "GRADIENT Tool",
+        "status": "Pass",
+        "message": "DrawingMode.GRADIENT exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "BUCKET_FILL Tool",
+        "status": "Pass",
+        "message": "DrawingMode.BUCKET_FILL exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "EYEDROPPER Tool",
+        "status": "Pass",
+        "message": "DrawingMode.EYEDROPPER exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Tool Selection Handler",
+        "status": "Pass",
+        "message": "Method _on_tool_selected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Brush Size Control",
+        "status": "Pass",
+        "message": "Method _on_brush_size_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shape Filled Option",
+        "status": "Pass",
+        "message": "Method _on_shape_filled_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Bucket Fill Tolerance",
+        "status": "Pass",
+        "message": "Method _on_bucket_fill_tolerance_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Drawing Tools Group",
+        "status": "Pass",
+        "message": "Method _create_drawing_tools_group exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Canvas Features": [
+      {
+        "feature": "Canvas Method: set_matrix_size",
+        "status": "Pass",
+        "message": "Method set_matrix_size exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_frame_pixels",
+        "status": "Pass",
+        "message": "Method set_frame_pixels exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: to_pixels",
+        "status": "Pass",
+        "message": "Method to_pixels exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_current_color",
+        "status": "Pass",
+        "message": "Method set_current_color exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_erase_color",
+        "status": "Pass",
+        "message": "Method set_erase_color exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_drawing_mode",
+        "status": "Pass",
+        "message": "Method set_drawing_mode exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_brush_size",
+        "status": "Pass",
+        "message": "Method set_brush_size exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_shape_filled",
+        "status": "Pass",
+        "message": "Method set_shape_filled exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Panel Creation",
+        "status": "Pass",
+        "message": "Method _create_canvas_panel exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "View Controls Group",
+        "status": "Pass",
+        "message": "Method _create_view_controls_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: pixel_updated",
+        "status": "Pass",
+        "message": "Signal pixel_updated exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: hover_changed",
+        "status": "Pass",
+        "message": "Signal hover_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: painting_finished",
+        "status": "Pass",
+        "message": "Signal painting_finished exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: color_picked",
+        "status": "Pass",
+        "message": "Signal color_picked exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: MATRIX",
+        "status": "Pass",
+        "message": "GeometryOverlay.MATRIX exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: CIRCLE",
+        "status": "Pass",
+        "message": "GeometryOverlay.CIRCLE exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: RING",
+        "status": "Pass",
+        "message": "GeometryOverlay.RING exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: RADIAL",
+        "status": "Pass",
+        "message": "GeometryOverlay.RADIAL exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: SQUARE",
+        "status": "Pass",
+        "message": "PixelShape.SQUARE exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: ROUND",
+        "status": "Pass",
+        "message": "PixelShape.ROUND exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: ROUNDED",
+        "status": "Pass",
+        "message": "PixelShape.ROUNDED exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Timeline Features": [
+      {
+        "feature": "Frame Operation: _on_add_frame",
+        "status": "Pass",
+        "message": "Method _on_add_frame exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_duplicate_frame",
+        "status": "Pass",
+        "message": "Method _on_duplicate_frame exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_delete_frame",
+        "status": "Pass",
+        "message": "Method _on_delete_frame exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_frame_selected",
+        "status": "Pass",
+        "message": "Method _on_frame_selected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_frames_selected",
+        "status": "Pass",
+        "message": "Method _on_frames_selected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_play",
+        "status": "Pass",
+        "message": "Method _on_transport_play exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_pause",
+        "status": "Pass",
+        "message": "Method _on_transport_pause exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_stop",
+        "status": "Pass",
+        "message": "Method _on_transport_stop exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _step_frame",
+        "status": "Pass",
+        "message": "Method _step_frame exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Duration Control",
+        "status": "Pass",
+        "message": "Method _on_duration_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Zoom Control",
+        "status": "Pass",
+        "message": "Method _on_timeline_zoom_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Dock Creation",
+        "status": "Pass",
+        "message": "Method _create_timeline_dock exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameSelected",
+        "status": "Pass",
+        "message": "Signal frameSelected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: framesSelected",
+        "status": "Pass",
+        "message": "Signal framesSelected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: playheadDragged",
+        "status": "Pass",
+        "message": "Signal playheadDragged exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: contextMenuRequested",
+        "status": "Pass",
+        "message": "Signal contextMenuRequested exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: overlayActivated",
+        "status": "Pass",
+        "message": "Signal overlayActivated exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerTrackSelected",
+        "status": "Pass",
+        "message": "Signal layerTrackSelected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameMoved",
+        "status": "Pass",
+        "message": "Signal frameMoved exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameDurationChanged",
+        "status": "Pass",
+        "message": "Signal frameDurationChanged exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerMoved",
+        "status": "Pass",
+        "message": "Signal layerMoved exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerVisibilityToggled",
+        "status": "Pass",
+        "message": "Signal layerVisibilityToggled exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Layer System": [
+      {
+        "feature": "LayerManager Import",
+        "status": "Pass",
+        "message": "LayerManager class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LayerPanelWidget Import",
+        "status": "Pass",
+        "message": "LayerPanelWidget class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layer Method: _on_active_layer_changed",
+        "status": "Pass",
+        "message": "Method _on_active_layer_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layer Method: _on_solo_mode_changed",
+        "status": "Pass",
+        "message": "Method _on_solo_mode_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layer Method: _on_timeline_layer_visibility_toggled",
+        "status": "Pass",
+        "message": "Method _on_timeline_layer_visibility_toggled exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layer Method: _on_timeline_layer_selected",
+        "status": "Pass",
+        "message": "Method _on_timeline_layer_selected exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layers Tab Creation",
+        "status": "Pass",
+        "message": "Method _create_layers_tab exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Automation": [
+      {
+        "feature": "AutomationQueueManager Import",
+        "status": "Pass",
+        "message": "AutomationQueueManager class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Tab Creation",
+        "status": "Pass",
+        "message": "Method _create_automation_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Automation Panel",
+        "status": "Pass",
+        "message": "Method _create_legacy_automation_panel exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Automation Panel",
+        "status": "Pass",
+        "message": "Method _create_lms_automation_panel exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Instruction Builder",
+        "status": "Pass",
+        "message": "Method _create_lms_builder_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Queue Tab",
+        "status": "Pass",
+        "message": "Method _create_lms_queue_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Export Tab",
+        "status": "Pass",
+        "message": "Method _create_lms_export_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_automation_actions_group",
+        "status": "Pass",
+        "message": "Method _create_automation_actions_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_apply_effect_group",
+        "status": "Pass",
+        "message": "Method _create_apply_effect_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_action_queue_group",
+        "status": "Pass",
+        "message": "Method _create_action_queue_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_action_inspector_group",
+        "status": "Pass",
+        "message": "Method _create_action_inspector_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_processing_group",
+        "status": "Pass",
+        "message": "Method _create_processing_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Group: _create_presets_group",
+        "status": "Pass",
+        "message": "Method _create_presets_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_add_instruction",
+        "status": "Pass",
+        "message": "Method _on_lms_add_instruction exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_remove_instruction",
+        "status": "Pass",
+        "message": "Method _on_lms_remove_instruction exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_duplicate_instruction",
+        "status": "Pass",
+        "message": "Method _on_lms_duplicate_instruction exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_move_instruction",
+        "status": "Pass",
+        "message": "Method _on_lms_move_instruction exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_preview_sequence",
+        "status": "Pass",
+        "message": "Method _on_lms_preview_sequence exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_apply_preview",
+        "status": "Pass",
+        "message": "Method _on_lms_apply_preview exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_exit_preview",
+        "status": "Pass",
+        "message": "Method _on_lms_exit_preview exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_import_leds",
+        "status": "Pass",
+        "message": "Method _on_lms_import_leds exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Method: _on_lms_export_leds",
+        "status": "Pass",
+        "message": "Method _on_lms_export_leds exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Effects": [
+      {
+        "feature": "EffectLibrary Import",
+        "status": "Pass",
+        "message": "EffectLibrary class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "EffectsLibraryWidget Import",
+        "status": "Pass",
+        "message": "EffectsLibraryWidget class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effects Tab Creation",
+        "status": "Pass",
+        "message": "Method _create_effects_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Method: _on_effect_selection_changed",
+        "status": "Pass",
+        "message": "Method _on_effect_selection_changed exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Method: _on_effect_preview_requested",
+        "status": "Pass",
+        "message": "Method _on_effect_preview_requested exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Method: _on_effect_apply_requested",
+        "status": "Pass",
+        "message": "Method _on_effect_apply_requested exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Method: _on_effects_refresh_requested",
+        "status": "Pass",
+        "message": "Method _on_effects_refresh_requested exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Method: _refresh_effects_library",
+        "status": "Pass",
+        "message": "Method _refresh_effects_library exists",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Export/Import": [
+      {
+        "feature": "Export Method: _on_open_export_dialog",
+        "status": "Pass",
+        "message": "Method _on_open_export_dialog exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Method: _emit_pattern",
+        "status": "Pass",
+        "message": "Method _emit_pattern exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Method: _on_export_frame_as_image",
+        "status": "Pass",
+        "message": "Method _on_export_frame_as_image exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Method: _on_export_animation_as_gif",
+        "status": "Pass",
+        "message": "Method _on_export_animation_as_gif exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Method: _on_export_code_template",
+        "status": "Pass",
+        "message": "Method _on_export_code_template exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Method: _on_optimize_pattern",
+        "status": "Pass",
+        "message": "Method _on_optimize_pattern exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Import Method: _on_import_image",
+        "status": "Pass",
+        "message": "Method _on_import_image exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Group: _create_pattern_export_group",
+        "status": "Pass",
+        "message": "Method _create_pattern_export_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Group: _create_code_template_group",
+        "status": "Pass",
+        "message": "Method _create_code_template_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Group: _create_import_group",
+        "status": "Pass",
+        "message": "Method _create_import_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Group: _create_matrix_configuration_group",
+        "status": "Pass",
+        "message": "Method _create_matrix_configuration_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Group: _create_export_summary_group",
+        "status": "Pass",
+        "message": "Method _create_export_summary_group exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "ImageImporter Import",
+        "status": "Pass",
+        "message": "ImageImporter class imported successfully",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "ImageExporter Import",
+        "status": "Pass",
+        "message": "ImageExporter class imported successfully",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Scratchpads": [
+      {
+        "feature": "Scratchpads Tab Creation",
+        "status": "Pass",
+        "message": "Method _create_scratchpad_tab exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpad Method: _copy_to_scratchpad",
+        "status": "Pass",
+        "message": "Method _copy_to_scratchpad exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpad Method: _paste_from_scratchpad",
+        "status": "Pass",
+        "message": "Method _paste_from_scratchpad exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpad Method: _clear_scratchpad_slot",
+        "status": "Pass",
+        "message": "Method _clear_scratchpad_slot exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpad Method: _refresh_scratchpad_status",
+        "status": "Pass",
+        "message": "Method _refresh_scratchpad_status exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "ScratchpadManager Import",
+        "status": "Pass",
+        "message": "ScratchpadManager class imported successfully",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Keyboard Shortcuts": [
+      {
+        "feature": "KeyPressEvent Handler",
+        "status": "Pass",
+        "message": "Method keyPressEvent exists",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+Z",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+Z found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+Y",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+Y found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+D",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+D found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+R",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+R found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Space",
+        "status": "Pass",
+        "message": "Shortcut Space found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Delete",
+        "status": "Pass",
+        "message": "Shortcut Delete found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+0",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+0 found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shortcut: Ctrl+1",
+        "status": "Pass",
+        "message": "Shortcut Ctrl+1 found in keyPressEvent",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Options and Parameters": [
+      {
+        "feature": "Brush Size",
+        "status": "Pass",
+        "message": "Option control Brush Size found in code",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shape Filled",
+        "status": "Pass",
+        "message": "Option control Shape Filled found in code",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Bucket Fill Tolerance",
+        "status": "Pass",
+        "message": "Option control Bucket Fill Tolerance found in code",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Duration",
+        "status": "Pass",
+        "message": "Option control Frame Duration found in code",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Zoom",
+        "status": "Pass",
+        "message": "Option control Timeline Zoom found in code",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Autosave Interval",
+        "status": "Pass",
+        "message": "Option control Autosave Interval found in code",
+        "error": "",
+        "duration": 0.0
+      }
+    ],
+    "Feature Flows": [
+      {
+        "feature": "Create New Pattern",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Draw and Animate",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Apply Automation",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Multi-Layer Workflow",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Import and Edit",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "LMS Instruction Workflow",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effect Application",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpad Workflow",
+        "status": "Pass",
+        "message": "All flow methods exist",
+        "error": "",
+        "duration": 0.0
+      }
+    ]
+  }
+}

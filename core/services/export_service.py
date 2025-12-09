@@ -39,7 +39,7 @@ class ExportService:
     """
     
     # Supported export formats
-    SUPPORTED_FORMATS = ['bin', 'hex', 'dat', 'leds', 'json', 'csv', 'txt', 'ledproj', 'h', 'png_sprite', 'gif']
+    SUPPORTED_FORMATS = ['bin', 'hex', 'dat', 'leds', 'json', 'csv', 'txt', 'ledproj', 'h', 'png_sprite', 'gif', 'wled']
     
     def __init__(self, options: Optional[ExportOptions] = None):
         """
@@ -136,6 +136,8 @@ class ExportService:
                     scale_factor=scale_factor,
                     generate_manifest=generate_manifest
                 )
+            elif format_lower == 'wled':
+                result_path = self.exporter.export_wled(pattern, output_path_obj, generate_manifest)
             else:
                 raise ValueError(f"Format '{format}' not yet implemented")
             

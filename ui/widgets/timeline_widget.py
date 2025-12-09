@@ -98,6 +98,7 @@ class TimelineWidget(QWidget):
         self._layer_tracks: List[TimelineLayerTrack] = []
         self._hover_index: Optional[int] = None
         self._hover_overlay_index: Optional[int] = None
+        self._highlighted_frames: Dict[int, QColor] = {}  # frame_index -> highlight color
         self._hover_layer_index: Optional[int] = None
         self._dragging_playhead = False
         self._selected_action_index: Optional[int] = None
@@ -156,6 +157,18 @@ class TimelineWidget(QWidget):
         self._playhead_index = min(self._playhead_index, max(0, len(frames) - 1))
         self._update_geometry()
         self._invalidate_thumbnails()
+    
+    def highlight_frames(self, indices: List[int], color: QColor) -> None:
+        """Highlight specified frames with given color."""
+        for idx in indices:
+            if 0 <= idx < len(self._frames):
+                self._highlighted_frames[idx] = QColor(color)
+        self.update()
+    
+    def clear_highlights(self) -> None:
+        """Clear all frame highlights."""
+        self._highlighted_frames.clear()
+        self.update()
     
     def set_frame_durations(self, durations: List[int]) -> None:
         """Set frame durations for duration-based positioning."""
@@ -283,8 +296,20 @@ class TimelineWidget(QWidget):
             # background
             base_color = self._colors["frame_bg"] if idx != self._hover_index else self._colors["frame_hover"]
             painter.fillRect(rect.adjusted(1, 1, -1, -1), base_color)
-            painter.setPen(self._colors["frame_border"])
-            painter.drawRect(rect)
+            
+            # Draw highlight if frame is highlighted
+            if idx in self._highlighted_frames:
+                highlight_color = QColor(self._highlighted_frames[idx])
+                highlight_color.setAlpha(100)
+                painter.fillRect(rect.adjusted(1, 1, -1, -1), highlight_color)
+                # Draw border with highlight color
+                border_color = QColor(self._highlighted_frames[idx])
+                border_color.setAlpha(200)
+                painter.setPen(QPen(border_color, 2))
+                painter.drawRect(rect)
+            else:
+                painter.setPen(self._colors["frame_border"])
+                painter.drawRect(rect)
 
             if pixmap:
                 thumb_rect = rect.adjusted(6, 6, -6, -26)

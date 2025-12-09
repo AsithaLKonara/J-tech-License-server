@@ -182,6 +182,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Layer System Enhancements
+- **Automation Layer Integration**
+  - Automation operations now create new layers instead of modifying frames directly
+  - Automation layers are prefixed with "Auto:" for easy identification (e.g., "Auto: Scroll Left")
+  - Original layers remain intact, enabling non-destructive workflows
+  - Multiple automation layers can be stacked and toggled independently
+
+- **Layer Sync Detection**
+  - Automatic detection when layers are out of sync with frame pixels
+  - Warning banner appears when sync issues are detected
+  - "Sync Layers" button to restore synchronization
+  - Real-time sync state checking and updates
+
+- **Copy Layer to Frames**
+  - Right-click context menu option to copy layers between frames
+  - Copy to multiple target frames simultaneously
+  - Preserves layer name, pixels, and all properties
+  - Original layer remains unchanged
+
+- **Hidden Layer Prevention**
+  - Blocks painting operations on hidden layers
+  - Clear error dialog when attempting to paint on hidden layer
+  - Prevents accidental edits on hidden layers
+
+- **Brush Broadcast Feedback**
+  - Visual feedback when brush broadcast mode is active
+  - Timeline frame highlighting (yellow/orange) for all affected frames
+  - Warning dialog on first enable with clear explanation
+  - Visual indicators: red border, warning icon, warning banner
+  - Enhanced user awareness of destructive operations
+
+- **Performance Optimizations**
+  - Batch updates for layer operations
+  - Dirty region tracking for efficient canvas rendering
+  - Optimized layer composite calculations
+
 ### Planned
 - Real-time collaboration
 - Cloud pattern storage

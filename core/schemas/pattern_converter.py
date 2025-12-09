@@ -161,7 +161,14 @@ class PatternConverter:
                 "height": pattern.metadata.height,
                 "layout": "row_major" if pattern.metadata.wiring_mode == "Row-major" else "column_major",
                 "wiring": "zigzag" if "Serpentine" in pattern.metadata.wiring_mode else "linear",
-                "default_color_order": pattern.metadata.color_order
+                "default_color_order": pattern.metadata.color_order,
+                # Circular layout support
+                "layout_type": getattr(pattern.metadata, 'layout_type', 'rectangular'),
+                "circular_led_count": getattr(pattern.metadata, 'circular_led_count', None),
+                "circular_radius": getattr(pattern.metadata, 'circular_radius', None),
+                "circular_inner_radius": getattr(pattern.metadata, 'circular_inner_radius', None),
+                "circular_start_angle": getattr(pattern.metadata, 'circular_start_angle', 0.0),
+                "circular_end_angle": getattr(pattern.metadata, 'circular_end_angle', 360.0),
             },
             "frames": frames_json,
             "effects": effects_json,
@@ -205,6 +212,13 @@ class PatternConverter:
             height=matrix["height"],
             color_order=matrix.get("default_color_order", "RGB"),
             wiring_mode=matrix.get("layout", "row_major").replace("_", "-").title(),
+            # Circular layout support
+            layout_type=matrix.get("layout_type", "rectangular"),
+            circular_led_count=matrix.get("circular_led_count"),
+            circular_radius=matrix.get("circular_radius"),
+            circular_inner_radius=matrix.get("circular_inner_radius"),
+            circular_start_angle=matrix.get("circular_start_angle", 0.0),
+            circular_end_angle=matrix.get("circular_end_angle", 360.0),
         )
         
         # Extract frames

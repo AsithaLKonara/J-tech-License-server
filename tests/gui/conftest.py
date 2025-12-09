@@ -5,8 +5,15 @@ Provides dialog mocking to prevent QMessageBox from blocking GUI tests.
 """
 
 import pytest
+import os
+import sys
+from typing import Callable
 from unittest.mock import patch, MagicMock
 from PySide6.QtWidgets import QApplication, QMessageBox
+from core.pattern import Pattern, Frame, PatternMetadata
+
+# Set offscreen platform to prevent GUI blocking during test collection
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -14,8 +21,24 @@ def qapp():
     """Ensure QApplication exists for GUI tests"""
     app = QApplication.instance()
     if app is None:
-        app = QApplication([])
+        # Use offscreen platform to prevent GUI windows
+        if "QT_QPA_PLATFORM" not in os.environ:
+            os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        app = QApplication(sys.argv if sys.argv else [])
     yield app
+
+
+@pytest.fixture
+def pattern_factory() -> Callable[[int, int, int], Pattern]:
+    """Factory function to create test patterns."""
+    def _make_pattern(frame_count: int = 3, width: int = 4, height: int = 1) -> Pattern:
+        metadata = PatternMetadata(width=width, height=height)
+        frames = []
+        for idx in range(frame_count):
+            pixels = [(idx * 10 + col, 0, 0) for col in range(width)]
+            frames.append(Frame(pixels=pixels, duration_ms=50))
+        return Pattern(name="Test Pattern", metadata=metadata, frames=frames)
+    return _make_pattern
 
 
 @pytest.fixture(autouse=True)

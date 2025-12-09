@@ -1,0 +1,532 @@
+{
+  "timestamp": "2025-12-07T00:26:53.630857",
+  "summary": {
+    "total_tests": 73,
+    "passed": 0,
+    "failed": 73,
+    "pass_rate": 0
+  },
+  "results": {
+    "Header Toolbar": [
+      {
+        "feature": "New Pattern Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Templates Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "AI Generate Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Create Animation Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Version History Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Save Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Settings Button",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Header Toolbar Creation",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      }
+    ],
+    "Toolbox Tabs": [
+      {
+        "feature": "Brushes Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "LED Colors Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Mapping Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Scratchpads Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Layers Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Effects Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Automation Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Export Tab",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Toolbox Column Creation",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      }
+    ],
+    "Drawing Tools": [
+      {
+        "feature": "PIXEL Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "RECTANGLE Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "CIRCLE Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "LINE Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "RANDOM Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "GRADIENT Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "BUCKET_FILL Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "EYEDROPPER Tool",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Tool Selection Handler",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Brush Size Control",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Shape Filled Option",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Bucket Fill Tolerance",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Drawing Tools Group",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      }
+    ],
+    "Canvas Features": [
+      {
+        "feature": "Canvas Method: set_matrix_size",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_frame_pixels",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: to_pixels",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_current_color",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_erase_color",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_drawing_mode",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_brush_size",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Method: set_shape_filled",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Panel Creation",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "View Controls Group",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: pixel_updated",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: hover_changed",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: painting_finished",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Canvas Signal: color_picked",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: MATRIX",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: CIRCLE",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: RING",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Geometry Overlay: RADIAL",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: SQUARE",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: ROUND",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Pixel Shape: ROUNDED",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      }
+    ],
+    "Timeline Features": [
+      {
+        "feature": "Frame Operation: _on_add_frame",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_duplicate_frame",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_delete_frame",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_frame_selected",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Operation: _on_frames_selected",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_play",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_pause",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _on_transport_stop",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Playback Control: _step_frame",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Frame Duration Control",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Zoom Control",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Dock Creation",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameSelected",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: framesSelected",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: playheadDragged",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: contextMenuRequested",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: overlayActivated",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerTrackSelected",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameMoved",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: frameDurationChanged",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerMoved",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      },
+      {
+        "feature": "Timeline Signal: layerVisibilityToggled",
+        "status": "Fail",
+        "message": "Error: test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "error": "test_completed(QString,QString,QString,QString,QString) needs 5 argument(s), 4 given!",
+        "duration": 0.0
+      }
+    ]
+  }
+}

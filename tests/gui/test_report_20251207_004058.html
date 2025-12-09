@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Design Tools Tab - Test Report</title>
+<style>
+
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                background-color: #f5f5f5;
+            }
+            .header {
+                background-color: #2196F3;
+                color: white;
+                padding: 20px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+            }
+            .summary {
+                background-color: white;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .category {
+                background-color: white;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 15px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .category-header {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #e0e0e0;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            th, td {
+                padding: 10px;
+                text-align: left;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            th {
+                background-color: #f0f0f0;
+                font-weight: bold;
+            }
+            .status-pass {
+                color: #4CAF50;
+                font-weight: bold;
+            }
+            .status-fail {
+                color: #f44336;
+                font-weight: bold;
+            }
+            .status-pending {
+                color: #9E9E9E;
+            }
+            .error {
+                color: #f44336;
+                font-size: 12px;
+                font-style: italic;
+            }
+        
+</style>
+</head>
+<body>
+<div class='header'>
+<h1>Design Tools Tab - Test Report</h1>
+<p>Generated: 2025-12-07 00:40:58</p>
+</div>
+<div class='summary'>
+<h2>Summary</h2>
+<p><strong>Total Tests:</strong> 139</p>
+<p><strong>Passed:</strong> <span class='status-pass'>131</span></p>
+<p><strong>Failed:</strong> <span class='status-fail'>8</span></p>
+<p><strong>Pass Rate:</strong> 94%</p>
+</div>
+<div class='category'>
+<div class='category-header'>Header Toolbar (8/8 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>New Pattern Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_new_pattern_clicked exists
+</td>
+</tr>
+<tr>
+<td>Templates Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_templates_clicked exists
+</td>
+</tr>
+<tr>
+<td>AI Generate Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_ai_generate_clicked exists
+</td>
+</tr>
+<tr>
+<td>Create Animation Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_create_animation_clicked exists
+</td>
+</tr>
+<tr>
+<td>Version History Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_version_history_clicked exists
+</td>
+</tr>
+<tr>
+<td>Save Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_header_save_clicked exists
+</td>
+</tr>
+<tr>
+<td>Settings Button</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_header_settings_clicked exists
+</td>
+</tr>
+<tr>
+<td>Header Toolbar Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_header_toolbar exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Toolbox Tabs (9/9 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>Brushes Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_brushes_tab exists
+</td>
+</tr>
+<tr>
+<td>LED Colors Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_led_colors_tab exists
+</td>
+</tr>
+<tr>
+<td>Pixel Mapping Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_pixel_mapping_tab exists
+</td>
+</tr>
+<tr>
+<td>Scratchpads Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_scratchpad_tab exists
+</td>
+</tr>
+<tr>
+<td>Layers Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_layers_tab exists
+</td>
+</tr>
+<tr>
+<td>Effects Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_effects_tab exists
+</td>
+</tr>
+<tr>
+<td>Automation Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_automation_tab exists
+</td>
+</tr>
+<tr>
+<td>Export Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_export_tab exists
+</td>
+</tr>
+<tr>
+<td>Toolbox Column Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_toolbox_column exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Drawing Tools (13/13 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>PIXEL Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.PIXEL exists
+</td>
+</tr>
+<tr>
+<td>RECTANGLE Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.RECTANGLE exists
+</td>
+</tr>
+<tr>
+<td>CIRCLE Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.CIRCLE exists
+</td>
+</tr>
+<tr>
+<td>LINE Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.LINE exists
+</td>
+</tr>
+<tr>
+<td>RANDOM Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.RANDOM exists
+</td>
+</tr>
+<tr>
+<td>GRADIENT Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.GRADIENT exists
+</td>
+</tr>
+<tr>
+<td>BUCKET_FILL Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.BUCKET_FILL exists
+</td>
+</tr>
+<tr>
+<td>EYEDROPPER Tool</td>
+<td class='status-pass'>Pass</td>
+<td>DrawingMode.EYEDROPPER exists
+</td>
+</tr>
+<tr>
+<td>Tool Selection Handler</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_tool_selected exists
+</td>
+</tr>
+<tr>
+<td>Brush Size Control</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_brush_size_changed exists
+</td>
+</tr>
+<tr>
+<td>Shape Filled Option</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_shape_filled_changed exists
+</td>
+</tr>
+<tr>
+<td>Bucket Fill Tolerance</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_bucket_fill_tolerance_changed exists
+</td>
+</tr>
+<tr>
+<td>Drawing Tools Group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_drawing_tools_group exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Canvas Features (21/21 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>Canvas Method: set_matrix_size</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_matrix_size exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_frame_pixels</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_frame_pixels exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: to_pixels</td>
+<td class='status-pass'>Pass</td>
+<td>Method to_pixels exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_current_color</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_current_color exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_erase_color</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_erase_color exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_drawing_mode</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_drawing_mode exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_brush_size</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_brush_size exists
+</td>
+</tr>
+<tr>
+<td>Canvas Method: set_shape_filled</td>
+<td class='status-pass'>Pass</td>
+<td>Method set_shape_filled exists
+</td>
+</tr>
+<tr>
+<td>Canvas Panel Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_canvas_panel exists
+</td>
+</tr>
+<tr>
+<td>View Controls Group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_view_controls_group exists
+</td>
+</tr>
+<tr>
+<td>Canvas Signal: pixel_updated</td>
+<td class='status-pass'>Pass</td>
+<td>Signal pixel_updated exists
+</td>
+</tr>
+<tr>
+<td>Canvas Signal: hover_changed</td>
+<td class='status-pass'>Pass</td>
+<td>Signal hover_changed exists
+</td>
+</tr>
+<tr>
+<td>Canvas Signal: painting_finished</td>
+<td class='status-pass'>Pass</td>
+<td>Signal painting_finished exists
+</td>
+</tr>
+<tr>
+<td>Canvas Signal: color_picked</td>
+<td class='status-pass'>Pass</td>
+<td>Signal color_picked exists
+</td>
+</tr>
+<tr>
+<td>Geometry Overlay: MATRIX</td>
+<td class='status-pass'>Pass</td>
+<td>GeometryOverlay.MATRIX exists
+</td>
+</tr>
+<tr>
+<td>Geometry Overlay: CIRCLE</td>
+<td class='status-pass'>Pass</td>
+<td>GeometryOverlay.CIRCLE exists
+</td>
+</tr>
+<tr>
+<td>Geometry Overlay: RING</td>
+<td class='status-pass'>Pass</td>
+<td>GeometryOverlay.RING exists
+</td>
+</tr>
+<tr>
+<td>Geometry Overlay: RADIAL</td>
+<td class='status-pass'>Pass</td>
+<td>GeometryOverlay.RADIAL exists
+</td>
+</tr>
+<tr>
+<td>Pixel Shape: SQUARE</td>
+<td class='status-pass'>Pass</td>
+<td>PixelShape.SQUARE exists
+</td>
+</tr>
+<tr>
+<td>Pixel Shape: ROUND</td>
+<td class='status-pass'>Pass</td>
+<td>PixelShape.ROUND exists
+</td>
+</tr>
+<tr>
+<td>Pixel Shape: ROUNDED</td>
+<td class='status-pass'>Pass</td>
+<td>PixelShape.ROUNDED exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Timeline Features (22/22 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>Frame Operation: _on_add_frame</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_add_frame exists
+</td>
+</tr>
+<tr>
+<td>Frame Operation: _on_duplicate_frame</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_duplicate_frame exists
+</td>
+</tr>
+<tr>
+<td>Frame Operation: _on_delete_frame</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_delete_frame exists
+</td>
+</tr>
+<tr>
+<td>Frame Operation: _on_frame_selected</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_frame_selected exists
+</td>
+</tr>
+<tr>
+<td>Frame Operation: _on_frames_selected</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_frames_selected exists
+</td>
+</tr>
+<tr>
+<td>Playback Control: _on_transport_play</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_transport_play exists
+</td>
+</tr>
+<tr>
+<td>Playback Control: _on_transport_pause</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_transport_pause exists
+</td>
+</tr>
+<tr>
+<td>Playback Control: _on_transport_stop</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_transport_stop exists
+</td>
+</tr>
+<tr>
+<td>Playback Control: _step_frame</td>
+<td class='status-pass'>Pass</td>
+<td>Method _step_frame exists
+</td>
+</tr>
+<tr>
+<td>Frame Duration Control</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_duration_changed exists
+</td>
+</tr>
+<tr>
+<td>Timeline Zoom Control</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_timeline_zoom_changed exists
+</td>
+</tr>
+<tr>
+<td>Timeline Dock Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_timeline_dock exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: frameSelected</td>
+<td class='status-pass'>Pass</td>
+<td>Signal frameSelected exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: framesSelected</td>
+<td class='status-pass'>Pass</td>
+<td>Signal framesSelected exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: playheadDragged</td>
+<td class='status-pass'>Pass</td>
+<td>Signal playheadDragged exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: contextMenuRequested</td>
+<td class='status-pass'>Pass</td>
+<td>Signal contextMenuRequested exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: overlayActivated</td>
+<td class='status-pass'>Pass</td>
+<td>Signal overlayActivated exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: layerTrackSelected</td>
+<td class='status-pass'>Pass</td>
+<td>Signal layerTrackSelected exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: frameMoved</td>
+<td class='status-pass'>Pass</td>
+<td>Signal frameMoved exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: frameDurationChanged</td>
+<td class='status-pass'>Pass</td>
+<td>Signal frameDurationChanged exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: layerMoved</td>
+<td class='status-pass'>Pass</td>
+<td>Signal layerMoved exists
+</td>
+</tr>
+<tr>
+<td>Timeline Signal: layerVisibilityToggled</td>
+<td class='status-pass'>Pass</td>
+<td>Signal layerVisibilityToggled exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Layer System (7/7 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>LayerManager Import</td>
+<td class='status-pass'>Pass</td>
+<td>LayerManager class imported successfully
+</td>
+</tr>
+<tr>
+<td>LayerPanelWidget Import</td>
+<td class='status-pass'>Pass</td>
+<td>LayerPanelWidget class imported successfully
+</td>
+</tr>
+<tr>
+<td>Layer Method: _on_active_layer_changed</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_active_layer_changed exists
+</td>
+</tr>
+<tr>
+<td>Layer Method: _on_solo_mode_changed</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_solo_mode_changed exists
+</td>
+</tr>
+<tr>
+<td>Layer Method: _on_timeline_layer_visibility_toggled</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_timeline_layer_visibility_toggled exists
+</td>
+</tr>
+<tr>
+<td>Layer Method: _on_timeline_layer_selected</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_timeline_layer_selected exists
+</td>
+</tr>
+<tr>
+<td>Layers Tab Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_layers_tab exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Automation (22/22 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>AutomationQueueManager Import</td>
+<td class='status-pass'>Pass</td>
+<td>AutomationQueueManager class imported successfully
+</td>
+</tr>
+<tr>
+<td>Automation Tab Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_automation_tab exists
+</td>
+</tr>
+<tr>
+<td>Canvas Automation Panel</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_legacy_automation_panel exists
+</td>
+</tr>
+<tr>
+<td>LMS Automation Panel</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_lms_automation_panel exists
+</td>
+</tr>
+<tr>
+<td>LMS Instruction Builder</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_lms_builder_tab exists
+</td>
+</tr>
+<tr>
+<td>LMS Queue Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_lms_queue_tab exists
+</td>
+</tr>
+<tr>
+<td>LMS Export Tab</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_lms_export_tab exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_automation_actions_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_automation_actions_group exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_apply_effect_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_apply_effect_group exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_action_queue_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_action_queue_group exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_action_inspector_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_action_inspector_group exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_processing_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_processing_group exists
+</td>
+</tr>
+<tr>
+<td>Automation Group: _create_presets_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_presets_group exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_add_instruction</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_add_instruction exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_remove_instruction</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_remove_instruction exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_duplicate_instruction</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_duplicate_instruction exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_move_instruction</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_move_instruction exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_preview_sequence</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_preview_sequence exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_apply_preview</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_apply_preview exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_exit_preview</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_exit_preview exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_import_leds</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_import_leds exists
+</td>
+</tr>
+<tr>
+<td>LMS Method: _on_lms_export_leds</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_lms_export_leds exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Effects (8/8 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>EffectLibrary Import</td>
+<td class='status-pass'>Pass</td>
+<td>EffectLibrary class imported successfully
+</td>
+</tr>
+<tr>
+<td>EffectsLibraryWidget Import</td>
+<td class='status-pass'>Pass</td>
+<td>EffectsLibraryWidget class imported successfully
+</td>
+</tr>
+<tr>
+<td>Effects Tab Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_effects_tab exists
+</td>
+</tr>
+<tr>
+<td>Effect Method: _on_effect_selection_changed</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_effect_selection_changed exists
+</td>
+</tr>
+<tr>
+<td>Effect Method: _on_effect_preview_requested</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_effect_preview_requested exists
+</td>
+</tr>
+<tr>
+<td>Effect Method: _on_effect_apply_requested</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_effect_apply_requested exists
+</td>
+</tr>
+<tr>
+<td>Effect Method: _on_effects_refresh_requested</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_effects_refresh_requested exists
+</td>
+</tr>
+<tr>
+<td>Effect Method: _refresh_effects_library</td>
+<td class='status-pass'>Pass</td>
+<td>Method _refresh_effects_library exists
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Export/Import (14/14 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>Export Method: _on_open_export_dialog</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_open_export_dialog exists
+</td>
+</tr>
+<tr>
+<td>Export Method: _emit_pattern</td>
+<td class='status-pass'>Pass</td>
+<td>Method _emit_pattern exists
+</td>
+</tr>
+<tr>
+<td>Export Method: _on_export_frame_as_image</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_export_frame_as_image exists
+</td>
+</tr>
+<tr>
+<td>Export Method: _on_export_animation_as_gif</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_export_animation_as_gif exists
+</td>
+</tr>
+<tr>
+<td>Export Method: _on_export_code_template</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_export_code_template exists
+</td>
+</tr>
+<tr>
+<td>Export Method: _on_optimize_pattern</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_optimize_pattern exists
+</td>
+</tr>
+<tr>
+<td>Import Method: _on_import_image</td>
+<td class='status-pass'>Pass</td>
+<td>Method _on_import_image exists
+</td>
+</tr>
+<tr>
+<td>Export Group: _create_pattern_export_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_pattern_export_group exists
+</td>
+</tr>
+<tr>
+<td>Export Group: _create_code_template_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_code_template_group exists
+</td>
+</tr>
+<tr>
+<td>Export Group: _create_import_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_import_group exists
+</td>
+</tr>
+<tr>
+<td>Export Group: _create_matrix_configuration_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_matrix_configuration_group exists
+</td>
+</tr>
+<tr>
+<td>Export Group: _create_export_summary_group</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_export_summary_group exists
+</td>
+</tr>
+<tr>
+<td>ImageImporter Import</td>
+<td class='status-pass'>Pass</td>
+<td>ImageImporter class imported successfully
+</td>
+</tr>
+<tr>
+<td>ImageExporter Import</td>
+<td class='status-pass'>Pass</td>
+<td>ImageExporter class imported successfully
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Scratchpads (6/6 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>Scratchpads Tab Creation</td>
+<td class='status-pass'>Pass</td>
+<td>Method _create_scratchpad_tab exists
+</td>
+</tr>
+<tr>
+<td>Scratchpad Method: _copy_to_scratchpad</td>
+<td class='status-pass'>Pass</td>
+<td>Method _copy_to_scratchpad exists
+</td>
+</tr>
+<tr>
+<td>Scratchpad Method: _paste_from_scratchpad</td>
+<td class='status-pass'>Pass</td>
+<td>Method _paste_from_scratchpad exists
+</td>
+</tr>
+<tr>
+<td>Scratchpad Method: _clear_scratchpad_slot</td>
+<td class='status-pass'>Pass</td>
+<td>Method _clear_scratchpad_slot exists
+</td>
+</tr>
+<tr>
+<td>Scratchpad Method: _refresh_scratchpad_status</td>
+<td class='status-pass'>Pass</td>
+<td>Method _refresh_scratchpad_status exists
+</td>
+</tr>
+<tr>
+<td>ScratchpadManager Import</td>
+<td class='status-pass'>Pass</td>
+<td>ScratchpadManager class imported successfully
+</td>
+</tr>
+</table>
+</div>
+<div class='category'>
+<div class='category-header'>Keyboard Shortcuts (1/9 passed)</div>
+<table>
+<tr><th>Feature</th><th>Status</th><th>Message</th></tr>
+<tr>
+<td>KeyPressEvent Handler</td>
+<td class='status-pass'>Pass</td>
+<td>Method keyPressEvent exists
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+Z</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+Y</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+D</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+R</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Space</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Delete</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+0</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+<tr>
+<td>Shortcut: Ctrl+1</td>
+<td class='status-fail'>Fail</td>
+<td>Failed to read source file: name 'Path' is not defined
+<br><span class='error'>Error: name 'Path' is not defined</span>
+</td>
+</tr>
+</table>
+</div>
+</body>
+</html>

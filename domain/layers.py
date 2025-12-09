@@ -438,3 +438,84 @@ class LayerManager(QObject):
         if 0 <= layer_index < len(layers):
             return layers[layer_index].mask
         return None
+    
+    def copy_layer_to_frames(self, source_frame: int, source_layer: int, target_frames: List[int]) -> None:
+        """
+        Copy a layer from one frame to multiple target frames.
+        
+        Args:
+            source_frame: Index of source frame
+            source_layer: Index of source layer
+            target_frames: List of target frame indices
+        """
+        # Get source layer
+        source_layers = self.get_layers(source_frame)
+        if source_layer < 0 or source_layer >= len(source_layers):
+            return
+        
+        source = source_layers[source_layer]
+        
+        # Copy to each target frame
+        for target_frame in target_frames:
+            if target_frame == source_frame:
+                continue  # Skip copying to same frame
+            
+            # Create new layer with copied properties
+            new_layer = Layer(
+                name=source.name,
+                pixels=source.pixels.copy() if source.pixels else [],
+                visible=source.visible,
+                opacity=source.opacity,
+                blend_mode=source.blend_mode,
+                group_id=source.group_id,
+                mask=source.mask.copy() if source.mask else None
+            )
+            
+            # Add to target frame
+            target_layers = self.get_layers(target_frame)
+            target_layers.append(new_layer)
+            
+            # Emit signals
+            self.layer_added.emit(target_frame, len(target_layers) - 1)
+            self.layers_changed.emit(target_frame)
+    
+    def are_layers_synced(self, frame_index: int) -> bool:
+        """
+        Check if layers are in sync with frame pixels.
+        
+        Returns True if composite of all visible layers matches frame.pixels,
+        False otherwise. Allows small tolerance for rounding differences.
+        
+        Args:
+            frame_index: Index of frame to check
+            
+        Returns:
+            True if synced, False otherwise
+        """
+        if not self._state.pattern() or frame_index >= len(self._state.pattern().frames):
+            return True  # Consider synced if no pattern/frame
+        
+        # Get composite from layers
+        composite = self.get_composite_pixels(frame_index)
+        
+        # Get frame pixels
+        frame = self._state.pattern().frames[frame_index]
+        frame_pixels = list(frame.pixels)
+        
+        # Ensure same length
+        expected = len(composite)
+        if len(frame_pixels) != expected:
+            return False
+        
+        # Compare pixel-by-pixel with tolerance for rounding
+        tolerance = 1  # Allow 1 pixel difference per channel for rounding
+        for i in range(expected):
+            comp_r, comp_g, comp_b = composite[i]
+            frame_r, frame_g, frame_b = frame_pixels[i]
+            
+            if (abs(comp_r - frame_r) > tolerance or
+                abs(comp_g - frame_g) > tolerance or
+                abs(comp_b - frame_b) > tolerance):
+                return False
+        
+        return True
