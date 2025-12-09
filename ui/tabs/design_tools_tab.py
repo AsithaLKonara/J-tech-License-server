@@ -1112,6 +1112,10 @@ class DesignToolsTab(QWidget):
                     metadata.ray_count = dialog.get_ray_count()
                     metadata.leds_per_ray = dialog.get_leds_per_ray()
                     metadata.ray_spacing_angle = dialog.get_ray_spacing_angle()
+                elif actual_shape == "custom_positions":
+                    metadata.layout_type = "custom_positions"
+                    metadata.custom_led_positions = dialog.get_custom_led_positions()
+                    metadata.led_position_units = dialog.get_led_position_units()
                 else:
                     # Standard circular layout (circle, ring, arc, radial)
                     metadata.layout_type = dialog.get_circular_layout_type()

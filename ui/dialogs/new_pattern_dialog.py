@@ -120,7 +120,7 @@ class NewPatternDialog(QDialog):
         
         # Shape dropdown
         self.shape_combo = QComboBox()
-        self.shape_combo.addItems(["Rectangular", "Circle", "Ring", "Arc", "Radial", "Multi-Ring", "Radial Rays"])
+        self.shape_combo.addItems(["Rectangular", "Circle", "Ring", "Arc", "Radial", "Multi-Ring", "Radial Rays", "Custom Positions"])
         self.shape_combo.setCurrentText("Circle")
         self.shape_combo.currentTextChanged.connect(self._on_shape_changed)
         matrix_layout.addWidget(self.shape_combo)
@@ -263,6 +263,43 @@ class NewPatternDialog(QDialog):
         self.radial_ray_params_group.setLayout(radial_ray_layout)
         self.radial_ray_params_group.setVisible(False)
         matrix_layout.addWidget(self.radial_ray_params_group)
+        
+        # Custom position parameters (initially hidden)
+        self.custom_position_params_group = QGroupBox("Custom LED Position Parameters")
+        custom_position_layout = QVBoxLayout()
+        custom_position_layout.setSpacing(8)
+        
+        # Import button
+        import_layout = QHBoxLayout()
+        self.import_positions_btn = QPushButton("Import LED Positions...")
+        self.import_positions_btn.setToolTip("Import LED positions from CSV or JSON file")
+        self.import_positions_btn.clicked.connect(self._on_import_positions)
+        import_layout.addWidget(self.import_positions_btn)
+        import_layout.addStretch()
+        custom_position_layout.addLayout(import_layout)
+        
+        # Units selection
+        units_layout = QHBoxLayout()
+        units_layout.addWidget(QLabel("Units:"))
+        self.position_units_combo = QComboBox()
+        self.position_units_combo.addItems(["mm", "inches", "grid"])
+        self.position_units_combo.setCurrentText("mm")
+        self.position_units_combo.setToolTip("Units for LED positions (mm, inches, or grid units)")
+        units_layout.addWidget(self.position_units_combo)
+        units_layout.addStretch()
+        custom_position_layout.addLayout(units_layout)
+        
+        # Status label
+        self.custom_position_status_label = QLabel("No positions imported")
+        self.custom_position_status_label.setStyleSheet("color: #888; font-size: 10px;")
+        custom_position_layout.addWidget(self.custom_position_status_label)
+        
+        # Store imported positions
+        self.imported_positions: List[Tuple[float, float]] = []
+        
+        self.custom_position_params_group.setLayout(custom_position_layout)
+        self.custom_position_params_group.setVisible(False)
+        matrix_layout.addWidget(self.custom_position_params_group)
         
         # Background: Color swatch with radio buttons
         bg_layout = QHBoxLayout()
@@ -496,11 +533,13 @@ class NewPatternDialog(QDialog):
         is_circular = shape_lower in ["circle", "ring", "arc", "radial"]
         is_multi_ring = shape_lower == "multi_ring"
         is_radial_rays = shape_lower == "radial_rays"
+        is_custom_positions = shape_lower == "custom_positions"
         
         # Show/hide parameter groups
         self.circular_params_group.setVisible(is_circular)
         self.multi_ring_params_group.setVisible(is_multi_ring)
         self.radial_ray_params_group.setVisible(is_radial_rays)
+        self.custom_position_params_group.setVisible(is_custom_positions)
         
         if is_circular:
             # Enable/disable specific fields based on shape
@@ -939,3 +978,73 @@ class NewPatternDialog(QDialog):
             angle = self.ray_spacing_angle_spin.value()
             return angle if angle > 0 else None
         return None
+    
+    def _on_import_positions(self):
+        """Handle import LED positions button click."""
+        from PySide6.QtWidgets import QFileDialog
+        from pathlib import Path
+        from core.io.custom_position_importer import import_positions_from_csv, import_positions_from_json
+        
+        # Open file dialog
+        file_path, selected_filter = QFileDialog.getOpenFileName(
+            self,
+            "Import LED Positions",
+            "",
+            "CSV Files (*.csv);;JSON Files (*.json);;All Files (*.*)"
+        )
+        
+        if not file_path:
+            return
+        
+        file_path_obj = Path(file_path)
+        
+        try:
+            # Import based on file extension
+            if file_path_obj.suffix.lower() == '.csv':
+                positions = import_positions_from_csv(
+                    file_path_obj,
+                    x_column=0,
+                    y_column=1,
+                    skip_header=True,
+                    units=self.position_units_combo.currentText()
+                )
+            elif file_path_obj.suffix.lower() == '.json':
+                positions = import_positions_from_json(
+                    file_path_obj,
+                    x_key="x",
+                    y_key="y",
+                    units=self.position_units_combo.currentText()
+                )
+            else:
+                QMessageBox.warning(self, "Invalid File", "Please select a CSV or JSON file.")
+                return
+            
+            # Store imported positions
+            self.imported_positions = positions
+            
+            # Update status label
+            self.custom_position_status_label.setText(
+                f"✓ Imported {len(positions)} LED positions from {file_path_obj.name}"
+            )
+            self.custom_position_status_label.setStyleSheet("color: #00FF78; font-size: 10px;")
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Import Error",
+                f"Failed to import LED positions:\n{str(e)}"
+            )
+            self.custom_position_status_label.setText("Import failed")
+            self.custom_position_status_label.setStyleSheet("color: #FF6B6B; font-size: 10px;")
+    
+    def get_custom_led_positions(self) -> Optional[List[Tuple[float, float]]]:
+        """Get imported custom LED positions."""
+        if self.get_shape() == "custom_positions" and self.imported_positions:
+            return self.imported_positions
+        return None
+    
+    def get_led_position_units(self) -> str:
+        """Get LED position units."""
+        if self.get_shape() == "custom_positions":
+            return self.position_units_combo.currentText()
+        return "grid"

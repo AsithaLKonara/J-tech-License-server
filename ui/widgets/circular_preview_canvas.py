@@ -92,6 +92,8 @@ class CircularPreviewCanvas(QWidget):
             self._paint_multi_ring_preview(painter, draw_rect)
         elif layout_type == "radial_rays":
             self._paint_radial_ray_preview(painter, draw_rect)
+        elif layout_type == "custom_positions":
+            self._paint_custom_position_preview(painter, draw_rect)
         else:
             self._paint_circular_preview(painter, draw_rect)
     
