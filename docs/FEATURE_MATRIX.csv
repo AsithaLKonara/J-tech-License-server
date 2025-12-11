@@ -1,0 +1,125 @@
+Category,Feature ID,Feature Name,Upload Bridge Status,Implementation File,Implementation Location,Linkage Points,Test Coverage,Notes
+Matrix Dimensions & Layout,1.1,Max Matrix Size (256×256),✅,core/pattern.py,PatternMetadata class,PatternRepository → Pattern → Frames,✅,Default max dimensions
+Matrix Dimensions & Layout,1.2,Rectangular Layout,✅,core/pattern.py,PatternMetadata layout_type,Pattern → Canvas → Preview,✅,Default layout
+Matrix Dimensions & Layout,1.3,Circular Layout,✅,core/mapping/circular_mapper.py,CircularMapper class,Pattern → CircularPreview → Canvas,✅,Full circular support
+Matrix Dimensions & Layout,1.4,Multi-Ring Layout (1-5 rings),✅,core/mapping/circular_mapper.py,Multi-ring calculation,Pattern → Budurasmala 3D Preview,✅,Budurasmala feature
+Matrix Dimensions & Layout,1.5,Radial Ray Layout,✅,core/mapping/circular_mapper.py,Radial ray calculation,Pattern → CircularPreview,✅,Radial pattern
+Matrix Dimensions & Layout,1.6,Custom LED Positions (CSV/JSON),✅,core/io/custom_position_importer.py,CustomPositionImporter,File → Parser → Pattern,✅,Custom import
+Matrix Dimensions & Layout,1.7,Arc/Ring Layouts,✅,core/mapping/circular_mapper.py,Arc calculation,Pattern → Preview,✅,Advanced arcs
+Color Support,2.1,Single Color,✅,ui/widgets/led_color_panel.py,LEDColorPanel,ColorPanel → Canvas → Pattern,✅,Color mode
+Color Support,2.2,Bi-Color,✅,ui/widgets/led_color_panel.py,Color mode selection,ColorPanel → Canvas,✅,Via color modes
+Color Support,2.3,RGB,✅,core/pattern.py,Frame.pixels RGB tuples,Pattern → All components,✅,Core RGB support
+Color Support,2.4,Color Palette,✅,ui/widgets/led_color_panel.py,Palette widget,ColorPanel → Drawing tools,✅,Palette UI
+Color Support,2.5,Color Picker (Eyedropper),✅,ui/widgets/matrix_design_canvas.py,Eyedropper tool,Canvas → ColorPanel,✅,Eyedropper mode
+Color Support,2.6,Gradient Support,✅,domain/drawing/tools.py,GradientTool class,Canvas → Layer → Frame,✅,Gradient tool
+Color Support,2.7,Color Effects (92+ effects),✅,ui/widgets/effects_library_widget.py,EffectsLibraryWidget,Effects → Frame → Pattern,✅,Effects library
+Drawing Tools,3.1,Freehand Drawing (Pixel tool),✅,domain/drawing/tools.py,PixelTool class,Canvas → LayerManager → Frame,✅,Pixel painting
+Drawing Tools,3.2,Rectangle Tool,✅,domain/drawing/tools.py,RectangleTool class,Canvas → Layer → Frame,✅,Rectangle drawing
+Drawing Tools,3.3,Circle Tool,✅,domain/drawing/tools.py,CircleTool class,Canvas → Layer → Frame,✅,Circle drawing
+Drawing Tools,3.4,Line Tool,✅,domain/drawing/tools.py,LineTool class,Canvas → Layer → Frame,✅,Bresenham algorithm
+Drawing Tools,3.5,Fill Tool (Bucket fill),✅,domain/drawing/tools.py,FillTool class,Canvas → Layer → Frame,✅,Flood fill
+Drawing Tools,3.6,Gradient Tool,✅,domain/drawing/tools.py,GradientTool class,Canvas → Layer → Frame,✅,Linear gradient
+Drawing Tools,3.7,Random Spray Tool,✅,domain/drawing/tools.py,RandomSprayTool class,Canvas → Layer → Frame,✅,Random spray
+Drawing Tools,3.8,Brush Size Control (1-50 pixels),✅,domain/drawing/brush.py,BrushSettings class,Brush → Canvas → Drawing,✅,Brush size
+Drawing Tools,3.9,Brush Shapes (Square/Circle),✅,domain/drawing/brush.py,BrushSettings shape,Brush → Canvas,✅,Brush shape
+Drawing Tools,3.10,Brush Hardness (0.0-1.0),✅,domain/drawing/brush.py,BrushSettings hardness,Brush → Canvas,✅,Edge falloff
+Drawing Tools,3.11,Text Tool (bitmap fonts),✅,domain/drawing/tools.py,TextTool class,Canvas → Layer → Frame,✅,Text rendering
+Animation Features,4.1,Multi-Frame Animation,✅,domain/frames.py,FrameManager class,Timeline → FrameManager → Pattern,✅,Frame management
+Animation Features,4.2,Frame-by-Frame Editing,✅,ui/widgets/timeline_widget.py,TimelineWidget,Timeline → FrameManager → Canvas,✅,Frame editing
+Animation Features,4.3,Frame Duration Control (1-65535ms),✅,domain/frames.py,Frame.duration_ms,Timeline → Frame → Playback,✅,Duration control
+Animation Features,4.4,Animation Preview (60 FPS),✅,ui/tabs/preview_tab.py,PreviewTab,Pattern → Preview → LED Simulator,✅,Real-time preview
+Animation Features,4.5,Frame Duplication,✅,domain/frames.py,FrameManager.duplicate(),Timeline → FrameManager → Pattern,✅,Frame copy
+Animation Features,4.6,Frame Insertion/Deletion,✅,domain/frames.py,FrameManager add/delete,Timeline → FrameManager → Pattern,✅,Frame ops
+Animation Features,4.7,Onion Skinning,✅,ui/widgets/matrix_design_canvas.py,Onion skin rendering,Canvas → FrameManager → Overlay,✅,Prev/next frames
+Animation Features,4.8,Keyframe Animation,✅,ui/widgets/keyframe_editor.py,KeyframeEditorWidget,Keyframes → Animation → Frames,✅,Keyframe system
+Animation Features,4.9,Animation Curves (ease-in/out/bounce),✅,domain/animation/,Animation curves,Keyframes → Interpolation,✅,Curve types
+Animation Features,4.10,Motion Paths,✅,domain/animation/,Motion path support,Keyframes → Motion,✅,Path animation
+Animation Features,4.11,Auto-Generate Frames,✅,core/automation/engine.py,AutomationEngine,Automation → Frame generation,✅,Auto frames
+Animation Features,4.12,Animation Templates (15+),✅,core/pattern_templates.py,Template library,Templates → Pattern creation,✅,Template system
+Editing Tools,5.1,Flip,✅,ui/tabs/design_tools_tab.py,Flip operations,Canvas → Frame → Pattern,✅,Flip transform
+Editing Tools,5.2,Mirror,✅,ui/tabs/design_tools_tab.py,Mirror operations,Canvas → Frame → Pattern,✅,Mirror transform
+Editing Tools,5.3,Invert,✅,ui/tabs/design_tools_tab.py,Invert operations,Canvas → Frame → Pattern,✅,Color invert
+Editing Tools,5.4,Rotate,✅,ui/tabs/design_tools_tab.py,Rotate operations,Canvas → Frame → Pattern,✅,Rotation
+Editing Tools,5.5,Scroll,✅,core/automation/instructions.py,Scroll automation,Automation → Frame generation,✅,Scroll action
+Editing Tools,5.6,Undo/Redo (unlimited history),✅,core/undo_redo_manager.py,UndoRedoManager,Canvas → History → Undo/Redo,✅,History system
+Editing Tools,5.7,Layer System (multi-layer),✅,domain/layers.py,LayerManager class,Canvas → LayerManager → Frame,✅,Multi-layer
+Editing Tools,5.8,Layer Blend Modes (normal/add/multiply/screen),✅,domain/layers.py,BlendMode enum,LayerManager → Composite,✅,Blend modes
+Editing Tools,5.9,Layer Opacity (0-100%),✅,domain/layers.py,Layer.opacity,LayerManager → Composite,✅,Opacity control
+Editing Tools,5.10,Layer Groups,✅,domain/layers.py,LayerGroup class,LayerManager → Groups,✅,Layer grouping
+Editing Tools,5.11,Layer Masks,✅,domain/layers.py,Layer mask support,LayerManager → Mask,✅,Mask support
+Preview Capabilities,6.1,Real-Time Preview (60 FPS),✅,ui/tabs/preview_tab.py,PreviewTab,Pattern → Preview → LED Simulator,✅,60 FPS playback
+Preview Capabilities,6.2,Semi-Circle Preview,✅,ui/widgets/circular_preview_canvas.py,CircularPreviewCanvas,Pattern → Circular Preview,✅,Semi-circle
+Preview Capabilities,6.3,Radial Preview,✅,ui/widgets/circular_preview_canvas.py,Radial rendering,Pattern → Circular Preview,✅,Radial view
+Preview Capabilities,6.4,Matrix Preview,✅,ui/widgets/led_simulator.py,LEDSimulator,Pattern → LED Simulator,✅,Matrix view
+Preview Capabilities,6.5,Multi-Ring Preview,✅,ui/widgets/circular_preview_canvas.py,Multi-ring rendering,Pattern → Circular Preview,✅,Multi-ring
+Preview Capabilities,6.6,Radial Ray Preview,✅,ui/widgets/circular_preview_canvas.py,Radial ray rendering,Pattern → Circular Preview,✅,Radial rays
+Preview Capabilities,6.7,Custom Position Preview,✅,ui/widgets/circular_preview_canvas.py,Custom position rendering,Pattern → Circular Preview,✅,Custom positions
+Preview Capabilities,6.8,3D Preview (Budurasmala),✅,ui/widgets/budurasmala_3d_preview.py,Budurasmala3DPreview,Pattern → 3D Preview,✅,3D visualization
+Preview Capabilities,6.9,Hardware Simulation,✅,ui/widgets/led_simulator.py,LEDSimulator,Pattern → Simulator,✅,Accurate simulation
+Preview Capabilities,6.10,Wiring Visualization,✅,ui/widgets/matrix_design_canvas.py,Wiring overlay,Canvas → Wiring display,✅,Wiring path
+Export Formats,7.1,Binary Export (.bin),✅,core/export/exporters.py,BinaryExporter,Pattern → ExportService → File,✅,Binary format
+Export Formats,7.2,Code Export (C header),✅,core/export_templates.py,Code templates,Pattern → Template → File,✅,C code
+Export Formats,7.3,DAT Format,✅,core/export/exporters.py,DATExporter,Pattern → ExportService → File,✅,DAT format
+Export Formats,7.4,LEDS Format,✅,core/io/lms_formats.py,LEDS format,Pattern → ExportService → File,✅,LEDS format
+Export Formats,7.5,JSON Export,✅,core/export/exporters.py,JSONExporter,Pattern → ExportService → File,✅,JSON format
+Export Formats,7.6,CSV Export,✅,core/export/exporters.py,CSVExporter,Pattern → ExportService → File,✅,CSV format
+Export Formats,7.7,Video Export (MP4/AVI/MOV),✅,core/video_exporter.py,VideoExporter,Pattern → Video → File,✅,Video formats
+Export Formats,7.8,WLED Export,✅,core/export/exporters.py,WLEDExporter,Pattern → ExportService → File,✅,WLED format
+Export Formats,7.9,Falcon Player Export,✅,core/export/exporters.py,FalconExporter,Pattern → ExportService → File,✅,Falcon format
+Export Formats,7.10,xLights Export,✅,core/export/exporters.py,xLightsExporter,Pattern → ExportService → File,✅,xLights format
+Export Formats,7.11,Project Files (.ledproj),✅,core/project/project_file.py,ProjectFile,Pattern → Project → File,✅,Project format
+Export Formats,7.12,Advanced Export Options (20+),✅,core/services/export_service.py,ExportService,Export → Options → File,✅,Export options
+Import Formats,8.1,Image Import (PNG/BMP/JPEG),✅,core/image_importer.py,ImageImporter,File → Parser → Pattern,✅,Image formats
+Import Formats,8.2,GIF Import,✅,core/image_importer.py,GIF support,File → Parser → Pattern,✅,GIF format
+Import Formats,8.3,SVG Import,✅,core/vector_importer.py,VectorImporter,File → Parser → Pattern,✅,SVG format
+Import Formats,8.4,PDF Import,✅,core/vector_importer.py,PDF support,File → Parser → Pattern,✅,PDF format
+Import Formats,8.5,Video Import,✅,core/media_converter.py,Video import,File → Converter → Pattern,✅,Video import
+Import Formats,8.6,CSV Import,✅,parsers/parser_registry.py,CSV parser,File → Parser → Pattern,✅,CSV import
+Import Formats,8.7,JSON Import,✅,parsers/parser_registry.py,JSON parser,File → Parser → Pattern,✅,JSON import
+Hardware Support,9.1,PICAXE Support,❌,N/A,Not implemented,N/A,❌,Missing feature
+Hardware Support,9.2,PIC Support (PIC16F877A/PIC18F4550),✅,uploaders/pic_uploader.py,PicUploader,FlashService → Uploader,✅,PIC chips
+Hardware Support,9.3,Arduino Support (ATmega328P/ATmega2560),✅,uploaders/arduino_uploader.py,ArduinoUploader,FlashService → Uploader,✅,Arduino chips
+Hardware Support,9.4,Parallax Support,❌,N/A,Not implemented,N/A,❌,Missing feature
+Hardware Support,9.5,ESP8266 Support,✅,uploaders/esp8266_uploader.py,Esp8266Uploader,FlashService → Uploader,✅,ESP8266 chip
+Hardware Support,9.6,ESP32 Support (ESP32/ESP32-S2/ESP32-C3),✅,uploaders/esp32_uploader.py,Esp32Uploader,FlashService → Uploader,✅,ESP32 variants
+Hardware Support,9.7,STM32 Support (STM32F103C8/STM32F407),✅,uploaders/stm32_uploader.py,Stm32Uploader,FlashService → Uploader,✅,STM32 chips
+Hardware Support,9.8,ATtiny Support (ATtiny85),✅,uploaders/attiny_uploader.py,AttinyUploader,FlashService → Uploader,✅,ATtiny chip
+Hardware Support,9.9,Nuvoton Support (M031/M051),✅,uploaders/nuvoton_uploader.py,NuvotonUploader,FlashService → Uploader,✅,Nuvoton chips
+Firmware Generation,10.1,Code Templates,✅,core/export_templates.py,Template system,Pattern → Template → Code,✅,Code generation
+Firmware Generation,10.2,Firmware Building,✅,core/services/flash_service.py,FlashService,Pattern → Firmware Builder,✅,Firmware build
+Firmware Generation,10.3,Automatic Upload (USB/WiFi),✅,core/services/flash_service.py,Upload support,FlashService → Uploader,✅,Auto upload
+Firmware Generation,10.4,OTA Updates,✅,core/services/ota_service.py,OTAService,WiFi → OTA → Device,✅,Over-the-air
+Firmware Generation,10.5,GPIO Configuration,✅,ui/widgets/gpio_selector_widget.py,GPIOSelectorWidget,FlashTab → GPIO → Config,✅,GPIO setup
+Firmware Generation,10.6,Brightness Control,✅,core/pattern.py,PatternMetadata,Pattern → Firmware,✅,Brightness
+Firmware Generation,10.7,Batch Flashing,✅,core/batch_flasher.py,BatchFlasher,Multiple devices → Flash,✅,Batch ops
+Firmware Generation,10.8,Build Manifest,✅,core/export/build_manifest.py,BuildManifest,Firmware → Manifest,✅,Build info
+Automation & Effects,11.1,Frame-by-Frame Actions,✅,core/automation/engine.py,AutomationEngine,Automation → Frame generation,✅,Action system
+Automation & Effects,11.2,Auto-Generate Frames,✅,core/automation/engine.py,Frame generation,Automation → Frames,✅,Auto frames
+Automation & Effects,11.3,Visual Effects (92+ effects),✅,ui/widgets/effects_library_widget.py,EffectsLibraryWidget,Effects → Frame → Pattern,✅,Effects library
+Automation & Effects,11.4,Procedural Effects,✅,core/automation/,Procedural generation,Effects → Generation,✅,Procedural
+Automation & Effects,11.5,Effect Library,✅,ui/widgets/effects_library_widget.py,Effect library UI,Effects → UI → Application,✅,Library UI
+Automation & Effects,11.6,Parametric Automation (8+ actions),✅,core/automation/instructions.py,Automation actions,Automation → Actions,✅,Action types
+User Interface,12.1,Modern UI (Qt-based),✅,ui/main_window.py,MainWindow,Qt → All UI,✅,PySide6/Qt
+User Interface,12.2,Dark Theme,✅,ui/tabs/design_tools_tab.py,Theme support,Theme → UI styling,✅,Theme system
+User Interface,12.3,Tabbed Interface,✅,ui/main_window.py,Tab widget,MainWindow → Tabs,✅,Tab system
+User Interface,12.4,Zoom Control (25%-300%),✅,ui/widgets/matrix_design_canvas.py,Zoom controls,Canvas → Zoom,✅,Zoom system
+User Interface,12.5,Pan Support,✅,ui/widgets/matrix_design_canvas.py,Pan support,Canvas → Pan,✅,Pan system
+User Interface,12.6,Grid Display,✅,ui/widgets/matrix_design_canvas.py,Grid overlay,Canvas → Grid,✅,Grid system
+User Interface,12.7,Status Bar,✅,ui/main_window.py,Status bar,MainWindow → Status,✅,Status display
+User Interface,12.8,Keyboard Shortcuts,✅,ui/main_window.py,Keyboard shortcuts,MainWindow → Actions,✅,Shortcuts
+User Interface,12.9,Multi-Language (i18n),✅,ui/i18n/translations.py,Translations,UI → i18n → Text,✅,i18n support
+Advanced Features,13.1,Project Management,✅,core/project/,Project system,Pattern → Project → File,✅,Project files
+Advanced Features,13.2,Pattern Library,✅,core/pattern_library.py,PatternLibrary,Library → Pattern loading,✅,Library system
+Advanced Features,13.3,Pattern Versioning,✅,core/pattern_versioning.py,VersionManager,Pattern → Versions,✅,Version control
+Advanced Features,13.4,Template Library (15+),✅,core/pattern_templates.py,Templates,Templates → Pattern,✅,Templates
+Advanced Features,13.5,Budurasmala Support,✅,core/services/device_manager.py,DeviceManager,Budurasmala → Device,✅,Budurasmala
+Advanced Features,13.6,3D Preview,✅,ui/widgets/budurasmala_3d_preview.py,Budurasmala3DPreview,Pattern → 3D,✅,3D view
+Advanced Features,13.7,PCB Design Tools,✅,core/pcb/pcb_exporter.py,PCBExporter,Pattern → PCB,✅,PCB export
+Advanced Features,13.8,Power Calculator,✅,core/power_calculator.py,PowerCalculator,Pattern → Power calc,✅,Power calc
+Advanced Features,13.9,Device Manager,✅,core/services/device_manager.py,DeviceManager,Devices → Manager,✅,Device mgmt
+Advanced Features,13.10,Pattern Sharing (marketplace),✅,core/services/pattern_sharing.py,PatternSharingService,Pattern → Sharing,✅,Sharing
+Advanced Features,13.11,REST API,✅,core/api/rest_api.py,RESTAPIServer,API → Services,✅,REST API
+Advanced Features,13.12,WebSocket API,✅,core/api/websocket_api.py,WebSocketAPIServer,API → WebSocket,✅,WebSocket
+Advanced Features,13.13,Mobile API Client,✅,core/mobile_api_client.py,MobileAPIClient,Mobile → API,✅,Mobile client
+Advanced Features,13.14,Multi-Device Coordination,✅,core/services/multi_device_coordinator.py,MultiDeviceCoordinator,Devices → Coordinator,✅,Multi-device
+
