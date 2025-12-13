@@ -24,12 +24,22 @@ def app():
 
 
 @pytest.fixture
-def main_window(app):
+def main_window(app, qtbot):
     """Create MainWindow instance"""
     window = UploadBridgeMainWindow()
     yield window
-    window.close()
-    window.deleteLater()
+    # Wait for any pending timers before cleanup
+    qtbot.wait(2500)  # Wait longer than any timers
+    try:
+        window.hide()
+        window.close()
+    except:
+        pass
+    try:
+        window.deleteLater()
+    except RuntimeError:
+        # Widget already deleted, ignore
+        pass
 
 
 @pytest.fixture
@@ -180,8 +190,14 @@ class TestPatternDistribution:
                 pass
             
             # Note: main_window uses 'design_tab' not 'design_tools_tab'
-            if hasattr(main_window, 'design_tab') and main_window.design_tab:
-                assert main_window.design_tab._pattern == sample_pattern
+            # Check that pattern was loaded into repository (single source of truth)
+            if hasattr(main_window, 'repository'):
+                repo_pattern = main_window.repository.get_current_pattern()
+                assert repo_pattern is not None
+                # Repository should have the loaded pattern with matching dimensions
+                assert repo_pattern.metadata.width == sample_pattern.metadata.width
+                assert repo_pattern.metadata.height == sample_pattern.metadata.height
+                assert len(repo_pattern.frames) == len(sample_pattern.frames)
     
     def test_pattern_loaded_signal_from_media_upload(self, main_window, qtbot, sample_pattern):
         """pattern_loaded signal from MediaUploadTab triggers distribution"""

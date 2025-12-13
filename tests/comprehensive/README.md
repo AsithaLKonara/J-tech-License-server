@@ -1,197 +1,199 @@
-# Comprehensive Deep Testing Suite
+# Comprehensive LED Matrix Testing Suite
 
-This directory contains comprehensive test suites covering all features documented in:
-- `docs/FEATURE_OVERVIEW.txt`
-- `docs/DESIGN_TOOLS_TAB_COMPLETE_OVERVIEW.md`
-- `docs/FEATURE_LINKAGE_DIAGRAM.md`
+This directory contains comprehensive test suites that systematically verify all user flows, features, and integrations in the Upload Bridge LED matrix application.
 
-## Test Suite Organization
+## Test Structure
 
-### Test Suite 1: Design Tools Tab Core Features
-**File**: `test_suite_1_design_tools_core.py`
+### Main Test Files
 
-Tests all 21 core features (DT-1 to DT-21) of the Design Tools Tab:
-- DT-1: Pattern Creation
-- DT-2: Pattern Loading
-- DT-3: Pattern Export
-- DT-4: Canvas Drawing
-- DT-5: Color Selection
-- DT-6: Brush Tools
-- DT-7: Frame Management
-- DT-8: Layer Management
-- DT-9: Timeline Navigation
-- DT-10: Playback Control
-- DT-11: Undo/Redo
-- DT-12: Matrix Configuration
-- DT-13: Automation Queue
-- DT-14: LMS Automation
-- DT-15: Effects Library
-- DT-16: Scratchpads
-- DT-17: Text Animation
-- DT-18: Image Import
-- DT-19: Gradient Tools
-- DT-20: Zoom Controls
-- DT-21: Preview Mode
+1. **test_comprehensive_led_matrix_flows.py** - Main test suite covering all 20 flows
+2. **test_detailed_drawing_tools.py** - Detailed drawing tools testing (8 tools)
+3. **test_detailed_automation.py** - Detailed automation actions testing (8 actions)
+4. **test_detailed_hardware.py** - Detailed hardware support testing (9 chips)
+5. **test_detailed_import_export.py** - Detailed import/export formats testing
 
-### Test Suite 2: Feature Overview Areas
-**File**: `test_suite_2_feature_overview.py`
+### Test Runner
 
-Tests all 12 major feature areas from FEATURE_OVERVIEW.txt:
-1. Canvas Authoring Toolbox
-2. Frame & Layer Management
-3. Automation Queue (Legacy Frame Baking Flow)
-4. LMS Automation Suite
-5. Custom Effects Engine
-6. File Importers, Exporters, and Metadata Guards
-7. Diagnostics & Hardware Support
-8. Theme & UX Facilities
-9. Package Creation & Distribution Scripts
-10. Documentation Set
-11. Testing & Validation
-12. Safety, Scratchpads & Template Tooling
+**run_comprehensive_tests.py** - Main test runner with reporting
 
-### Test Suite 3: All Tabs Integration
-**File**: `test_suite_3_all_tabs_integration.py`
+## Test Flows
 
-Tests integration between all 10 tabs and MainWindow:
-- MediaUploadTab
-- DesignToolsTab
-- PreviewTab
-- FlashTab
-- BatchFlashTab
-- PatternLibraryTab
-- AudioReactiveTab
-- WiFiUploadTab
-- ArduinoIDETab
-- ESP32SDCardTab
+The test suite covers 20 comprehensive flows:
 
-### Test Suite 4: Signal Connections & Linkages
-**File**: `test_suite_4_signal_connections.py`
+1. **Application Launch & Initialization** (TC-APP-001 to TC-APP-010)
+2. **Pattern Creation** (TC-DT-001 to TC-DT-010)
+3. **Drawing Tools** (TC-DT-010 to TC-DT-090) - 8 tools
+4. **Layer System** (TC-LAYER-001 to TC-LAYER-013)
+5. **Frame Management** (TC-FRAME-001 to TC-FRAME-014)
+6. **Automation Actions** (TC-AUTO-001 to TC-AUTO-090) - 8 actions
+7. **Effects Library** (TC-EFFECT-001 to TC-EFFECT-014) - 92 effects
+8. **Media Upload** (TC-MEDIA-001 to TC-MEDIA-020)
+9. **Preview Tab** (TC-PREV-001 to TC-PREV-024)
+10. **Flash Tab** (TC-FLASH-001 to TC-FLASH-100) - 9 chips
+11. **Batch Flash** (TC-BATCH-001 to TC-BATCH-014)
+12. **Pattern Library** (TC-LIB-001 to TC-LIB-015)
+13. **Audio Reactive** (TC-AUDIO-001 to TC-AUDIO-010)
+14. **WiFi Upload** (TC-WIFI-001 to TC-WIFI-012)
+15. **Arduino IDE** (TC-ARDUINO-001 to TC-ARDUINO-010)
+16. **Import Formats** (TC-IMPORT-001 to TC-IMPORT-020) - 17 formats
+17. **Export Formats** (TC-EXPORT-001 to TC-EXPORT-018) - 12 formats
+18. **Cross-Tab Integration** (TC-INTEG-001 to TC-INTEG-014)
+19. **Circular Layouts** (TC-CIRC-001 to TC-CIRC-014)
+20. **Error Handling** (TC-ERROR-001 to TC-ERROR-015)
 
-Tests all signal connections between components:
-- DesignToolsTab signals
-- FrameManager signals
-- LayerManager signals
-- AutomationQueueManager signals
-- Canvas widget signals
-- MainWindow signal connections
-- Missing signal connections (documented requirements)
+## Running Tests
 
-### Test Suite 5: Error Handling & Edge Cases
-**File**: `test_suite_5_error_handling.py`
+### Run All Tests
 
-Tests all error handling scenarios:
-- Pattern creation errors
-- Pattern loading errors
-- Canvas drawing errors
-- Frame management errors
-- Layer management errors
-- Playback errors
-- Export errors
-- Undo/redo errors
-
-### Test Suite 6: UI Components & Interactions
-**File**: `test_suite_6_ui_components.py`
-
-Tests all UI components and their interactions:
-- Header toolbar
-- Canvas panel
-- Toolbox tabs
-- Timeline dock
-- Brushes tab components
-- Layers tab components
-- Automation tab components
-- UI interactions
-
-### Test Suite 7: Manager Interactions
-**File**: `test_suite_7_manager_interactions.py`
-
-Tests interactions between different managers:
-- PatternState manager
-- FrameManager and LayerManager interactions
-- LayerManager and Canvas interactions
-- HistoryManager interactions
-- AutomationQueueManager interactions
-
-### Test Suite 8: File I/O & Export/Import
-**File**: `test_suite_8_file_io.py`
-
-Tests all file import/export functionality:
-- DAT file I/O
-- HEX file I/O
-- BIN file I/O
-- LEDS file I/O
-- JSON file I/O
-- Code template export
-- File format detection
-
-## Running the Tests
-
-### Run All Test Suites
 ```bash
-python tests/comprehensive/run_all_tests.py
+python tests/comprehensive/run_comprehensive_tests.py
 ```
 
-### Run Individual Test Suite
+### Run Specific Flow
+
 ```bash
-pytest tests/comprehensive/test_suite_1_design_tools_core.py -v
-pytest tests/comprehensive/test_suite_2_feature_overview.py -v
-# ... etc
+python tests/comprehensive/run_comprehensive_tests.py --flow 1
 ```
 
-### Run Specific Test Class
+### Run Specific Phase
+
 ```bash
-pytest tests/comprehensive/test_suite_1_design_tools_core.py::TestDT1_PatternCreation -v
+# Phase 1: Core Functionality
+python tests/comprehensive/run_comprehensive_tests.py --phase 1
+
+# Phase 2: Advanced Features
+python tests/comprehensive/run_comprehensive_tests.py --phase 2
+
+# Phase 3: Integration & Edge Cases
+python tests/comprehensive/run_comprehensive_tests.py --phase 3
+
+# Phase 4: User Acceptance
+python tests/comprehensive/run_comprehensive_tests.py --phase 4
 ```
 
-### Run Specific Test
+### With Verbose Output
+
 ```bash
-pytest tests/comprehensive/test_suite_1_design_tools_core.py::TestDT1_PatternCreation::test_create_default_pattern -v
+python tests/comprehensive/run_comprehensive_tests.py --verbose
 ```
 
-### Run with Coverage
+### With Coverage Report
+
 ```bash
-pytest tests/comprehensive/ --cov=ui.tabs.design_tools_tab --cov=domain --cov-report=html
+python tests/comprehensive/run_comprehensive_tests.py --coverage
 ```
 
-## Test Requirements
+### Save Report to File
 
-### Dependencies
-- pytest >= 8.0
-- pytest-qt >= 4.3
-- PySide6
-- All project dependencies
-
-### Environment Setup
 ```bash
-# Set Qt platform for headless testing
-export QT_QPA_PLATFORM=offscreen
-
-# Or on Windows
-set QT_QPA_PLATFORM=offscreen
+python tests/comprehensive/run_comprehensive_tests.py --report test_report.txt
 ```
 
-## Test Coverage Goals
+### Direct pytest
 
-- **Unit Tests**: Individual components and managers
-- **Integration Tests**: Component interactions
-- **UI Tests**: Widget interactions and signals
-- **Error Handling**: All error scenarios
-- **Edge Cases**: Boundary conditions and invalid inputs
+```bash
+# Run all comprehensive tests
+pytest tests/comprehensive/ -v
+
+# Run specific test class
+pytest tests/comprehensive/test_comprehensive_led_matrix_flows.py::TestFlow1_ApplicationLaunch -v
+
+# Run with coverage
+pytest tests/comprehensive/ --cov=core --cov=ui --cov=domain --cov-report=html
+```
+
+## Test Phases
+
+### Phase 1: Core Functionality (Priority: High)
+- Application launch and initialization
+- Design Tools - Pattern creation
+- Design Tools - Basic drawing tools
+- Preview tab - Basic preview
+- Flash tab - Basic upload
+- Import/Export - Core formats
+
+### Phase 2: Advanced Features (Priority: Medium)
+- Design Tools - Advanced drawing tools
+- Design Tools - Layer system
+- Design Tools - Automation actions
+- Design Tools - Effects library
+- Media Upload - All formats
+- All tabs - Full feature set
+
+### Phase 3: Integration & Edge Cases (Priority: Medium)
+- Cross-tab integration
+- Hardware support (all chips)
+- Advanced layouts (circular, multi-ring, radial rays)
+- Error handling
+- Performance testing
+- Edge cases
+
+### Phase 4: User Acceptance (Priority: Low)
+- Complete user workflows
+- Real-world scenarios
+- Usability testing
+- Documentation verification
+
+## Test Coverage
+
+The test suite aims for:
+- **120+ features** tested
+- **9 tabs** fully tested
+- **8 drawing tools** tested
+- **8 automation actions** tested
+- **92 effects** tested
+- **17 import formats** tested
+- **12 export formats** tested
+- **9 chip types** tested
+- **20 user flows** tested
+
+## Success Criteria
+
+### Functional Requirements
+- ✅ All 120+ features work as specified
+- ✅ All 9 tabs functional
+- ✅ All 8 drawing tools work
+- ✅ All 8 automation actions work
+- ✅ All 92 effects work
+- ✅ All 17 import formats work
+- ✅ All 12 export formats work
+- ✅ All 9 chip types supported
+
+### Performance Requirements
+- ✅ Application launches in <3 seconds
+- ✅ Pattern loads in <2 seconds (typical size)
+- ✅ Preview runs at 60 FPS
+- ✅ Drawing tools responsive (<50ms latency)
+- ✅ Export completes in <5 seconds (typical size)
+
+### Quality Requirements
+- ✅ No crashes during normal operation
+- ✅ Error messages are clear and actionable
+- ✅ Undo/redo works correctly
+- ✅ Data integrity maintained
+- ✅ Cross-tab synchronization works
+
+## Test Data
+
+Test data files are located in `tests/data/`:
+- Sample patterns (rectangular, circular, multi-ring, radial rays)
+- Test media files (images, GIFs, videos)
+- Test project files (.ledproj)
+
+## Reporting
+
+Test reports include:
+- Test execution summary
+- Pass/fail statistics
+- Coverage percentages
+- Execution time
+- Error details
+
+Reports can be saved to file using `--report` option.
 
 ## Notes
 
-- Some tests may be skipped if features are not yet implemented
-- Tests use `pytest.skip()` for missing implementations
-- Tests use mocks for file dialogs and external dependencies
-- All tests use `qtbot` fixture for Qt widget testing
-- Tests are designed to be run in CI/CD pipelines
-
-## Contributing
-
-When adding new features:
-1. Add corresponding test cases to the appropriate test suite
-2. Follow the existing test structure and naming conventions
-3. Ensure tests pass before submitting
-4. Update this README if adding new test suites
-
+- Tests use mocks for hardware interactions (no actual devices required)
+- Tests use temporary directories for file operations
+- Tests are designed to be independent and repeatable
+- GUI tests use QtBot for interaction simulation

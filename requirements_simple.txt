@@ -1,5 +1,17 @@
 # Simplified Upload Bridge Requirements
 # Core dependencies only - for basic functionality
+#
+# ⚠️ MINIMAL INSTALL - LIMITED FEATURES
+# This file provides only the core dependencies needed for basic functionality.
+# Missing features with minimal install:
+# - Media conversion (needs opencv-python, imageio, imageio-ffmpeg, numpy)
+# - License system (needs cryptography)
+# - Health monitoring (needs psutil)
+# - Schema validation (needs jsonschema)
+# - HTTP requests (needs requests)
+# - Path utilities for older Python (needs pathlib2)
+#
+# For full features, use requirements.txt instead.
 
 # GUI Framework
 PySide6>=6.5.0

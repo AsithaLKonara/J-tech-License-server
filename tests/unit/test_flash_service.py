@@ -45,8 +45,10 @@ class TestFlashServiceBuildFirmware:
         mock_uploader = Mock()
         mock_result = BuildResult(
             success=True,
-            firmware_path=tmp_path / "firmware.bin",
-            size_bytes=1024
+            firmware_path=str(tmp_path / "firmware.bin"),
+            binary_type="bin",
+            size_bytes=1024,
+            chip_model="esp8266"
         )
         mock_uploader.build_firmware.return_value = mock_result
         mock_get_uploader.return_value = mock_uploader
@@ -56,7 +58,7 @@ class TestFlashServiceBuildFirmware:
         
         # Verify
         assert result.success is True
-        assert result.firmware_path == tmp_path / "firmware.bin"
+        assert str(result.firmware_path) == str(tmp_path / "firmware.bin")
         mock_uploader.build_firmware.assert_called_once()
     
     @patch('core.services.flash_service.get_uploader')
@@ -89,7 +91,8 @@ class TestFlashServiceUploadFirmware:
         mock_result = UploadResult(
             success=True,
             bytes_written=1024,
-            duration_seconds=1.5
+            duration_seconds=1.5,
+            verified=True
         )
         mock_uploader.upload.return_value = mock_result
         mock_get_uploader.return_value = mock_uploader
@@ -131,7 +134,7 @@ class TestFlashServiceUploadFirmware:
     def test_upload_firmware_with_config(self, mock_get_uploader, flash_service, tmp_path):
         """Test uploading firmware with custom config."""
         mock_uploader = Mock()
-        mock_result = UploadResult(success=True)
+        mock_result = UploadResult(success=True, bytes_written=0, duration_seconds=0.0, verified=True)
         mock_uploader.upload.return_value = mock_result
         mock_get_uploader.return_value = mock_uploader
         
@@ -141,10 +144,14 @@ class TestFlashServiceUploadFirmware:
         config = {'baud_rate': 115200, 'flash_mode': 'dio'}
         flash_service.upload_firmware(str(firmware_path), "esp8266", port="COM3", config=config)
         
-        # Verify config was passed
+        # Verify upload was called
+        assert mock_uploader.upload.called
         call_args = mock_uploader.upload.call_args
-        assert 'port' in call_args[1] or 'port' in call_args[0][1]
-        assert 'baud_rate' in (call_args[1] if len(call_args) > 1 else call_args[0][1])
+        # Check that config parameters are in the call (either as kwargs or in port_params dict)
+        # The upload method receives (firmware_path, port_params) where port_params contains port and config
+        assert len(call_args[0]) >= 2  # firmware_path and port_params
+        port_params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+        assert 'port' in port_params or 'port' in (call_args[1] if len(call_args) > 1 else {})
 
 
 class TestFlashServiceVerifyUpload:

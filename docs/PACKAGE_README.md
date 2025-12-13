@@ -1,5 +1,5 @@
 # Upload Bridge - Universal Wiring Fix Edition
-## Version 1.0 - Build 20251107
+## Version 3.0 - Build 20251107
 
 ---
 
@@ -256,7 +256,7 @@ Hardware (matches preview perfectly)
 
 ## 🔧 **System Requirements**
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Windows, Linux, or macOS
 - PyQt5 (installed by install_simple.bat)
 - Serial port access for flashing
@@ -265,7 +265,7 @@ Hardware (matches preview perfectly)
 
 ## 📈 **Version History**
 
-**v1.0 (2025-11-07) - Universal Wiring Fix Edition:**
+**v3.0 (2025-11-07) - Universal Wiring Fix Edition:**
 - Added file format auto-detection
 - Added universal wiring support (all 16 combinations)
 - Fixed preview flipping issues

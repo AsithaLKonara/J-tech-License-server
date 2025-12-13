@@ -143,15 +143,15 @@
 
 | # | Feature | Upload Bridge Status | Implementation File | Notes |
 |---|---------|---------------------|---------------------|-------|
-| 9.1 | PICAXE Support | ❌ | N/A | Not implemented |
+| 9.1 | PICAXE Support | ❌ | N/A | Not planned (intentional gap) |
 | 9.2 | PIC Support (PIC16F877A, PIC18F4550) | ✅ | `uploaders/pic_uploader.py` | PIC uploader |
-| 9.3 | Arduino Support (ATmega328P, ATmega2560) | ✅ | `uploaders/arduino_uploader.py` | Arduino uploader |
-| 9.4 | Parallax Support | ❌ | N/A | Not implemented |
-| 9.5 | ESP8266 Support | ✅ | `uploaders/esp8266_uploader.py` | ESP8266 uploader |
-| 9.6 | ESP32 Support (ESP32, ESP32-S2, ESP32-C3) | ✅ | `uploaders/esp32_uploader.py` | ESP32 uploader |
+| 9.3 | Arduino Support (ATmega328P, ATmega2560) | ✅ | `uploaders/avr_uploader.py` | Generic AVR uploader (handles ATmega chips) |
+| 9.4 | Parallax Support | ❌ | N/A | Not planned (intentional gap) |
+| 9.5 | ESP8266 Support | ✅ | `uploaders/esp_uploader.py` | Generic ESP uploader (handles ESP8266, ESP32, ESP32-S2, ESP32-S3, ESP32-C3) |
+| 9.6 | ESP32 Support (ESP32, ESP32-S2, ESP32-C3) | ✅ | `uploaders/esp_uploader.py` | Generic ESP uploader (handles all ESP variants) |
 | 9.7 | STM32 Support (STM32F103C8, STM32F407) | ✅ | `uploaders/stm32_uploader.py` | STM32 uploader |
-| 9.8 | ATtiny Support (ATtiny85) | ✅ | `uploaders/attiny_uploader.py` | ATtiny uploader |
-| 9.9 | Nuvoton Support (M031, M051) | ✅ | `uploaders/nuvoton_uploader.py` | Nuvoton uploader |
+| 9.8 | ATtiny Support (ATtiny85) | ✅ | `uploaders/avr_uploader.py` | Generic AVR uploader (handles ATtiny chips) |
+| 9.9 | Nuvoton Support (M031, M051) | ✅ | `uploaders/numicro_uploader.py` | Generic Nuvoton uploader (handles M031, M051, and other Nuvoton chips) |
 
 ---
 
@@ -179,7 +179,7 @@
 | 11.3 | Visual Effects (92+ effects) | ✅ | `ui/widgets/effects_library_widget.py` | Effects library |
 | 11.4 | Procedural Effects | ✅ | `core/automation/` | Procedural generation |
 | 11.5 | Effect Library | ✅ | `ui/widgets/effects_library_widget.py` | Effect library UI |
-| 11.6 | Parametric Automation (8+ actions) | ✅ | `core/automation/instructions.py` | Automation actions |
+| 11.6 | Parametric Automation (17 actions) | ✅ | `core/automation/instructions.py` | Automation actions (12 core + 5 advanced) |
 
 ---
 
@@ -222,10 +222,10 @@
 
 ## Summary Statistics
 
-- **Total Features**: 120+
-- **Implemented**: ~115
-- **Not Implemented**: 2 (PICAXE, Parallax)
-- **Implementation Rate**: ~96%
+- **Total Features**: 120
+- **Implemented**: 118
+- **Not Planned (Intentional)**: 2 (PICAXE, Parallax)
+- **Implementation Rate**: 98.3%
 
 ---
 

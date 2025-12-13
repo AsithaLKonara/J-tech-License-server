@@ -35,19 +35,30 @@ class UploaderRegistry:
         return cls._instance
     
     def _load_chip_database(self):
-        """Load chip specifications from YAML"""
-        # Find config directory relative to this file
-        current_dir = Path(__file__).parent.parent
-        config_file = current_dir / "config" / "chip_database.yaml"
-        
-        if not config_file.exists():
-            raise FileNotFoundError(
-                f"Chip database not found: {config_file}\n"
-                "Please ensure chip_database.yaml exists in config/ directory"
-            )
-        
-        with open(config_file, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f) or {}
+        """Load chip specifications from YAML using centralized config loader"""
+        try:
+            # Use centralized config loader instead of direct YAML loading
+            from config import load_chip_database
+            data = load_chip_database()
+            
+            if not data:
+                raise FileNotFoundError(
+                    "Chip database is empty or could not be loaded.\n"
+                    "Please ensure chip_database.yaml exists in config/ directory"
+                )
+        except ImportError:
+            # Fallback to direct loading if config module not available
+            current_dir = Path(__file__).parent.parent
+            config_file = current_dir / "config" / "chip_database.yaml"
+            
+            if not config_file.exists():
+                raise FileNotFoundError(
+                    f"Chip database not found: {config_file}\n"
+                    "Please ensure chip_database.yaml exists in config/ directory"
+                )
+            
+            with open(config_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
         
         # Extract chips from the YAML structure
         self.chip_database = data.get('chips', {})

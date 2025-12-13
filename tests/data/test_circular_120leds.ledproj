@@ -1,0 +1,581 @@
+{
+  "project_version": "1.1",
+  "schema_version": "1.0",
+  "metadata": {
+    "project_version": "1.0",
+    "name": "Untitled Project",
+    "description": "",
+    "author": "",
+    "created_at": "2025-12-10T20:11:25.063431Z",
+    "modified_at": "2025-12-10T20:11:25.063431Z",
+    "tags": [],
+    "category": null,
+    "license": null,
+    "thumbnail_path": null,
+    "settings": {
+      "auto_save": true,
+      "auto_save_interval_seconds": 300,
+      "undo_history_depth": 50,
+      "default_zoom": 100,
+      "grid_enabled": true,
+      "snap_to_grid": false,
+      "show_frame_numbers": true,
+      "default_fps": 24.0,
+      "default_color_order": "RGB"
+    },
+    "custom_metadata": {},
+    "frame_presets": []
+  },
+  "pattern": {
+    "schema_version": "1.0",
+    "id": "53ce9b23-ab42-4536-b5e2-ea7d076d4089",
+    "name": "Test Circular 120LEDs",
+    "description": "",
+    "tags": [],
+    "created_at": "2025-12-10T20:11:25.063431Z",
+    "modified_at": "2025-12-10T20:11:25.063431Z",
+    "matrix": {
+      "width": 32,
+      "height": 32,
+      "layout": "row_major",
+      "wiring": "linear",
+      "default_color_order": "RGB",
+      "layout_type": "circle",
+      "circular_led_count": 120,
+      "circular_radius": 20,
+      "circular_inner_radius": null,
+      "circular_start_angle": 0.0,
+      "circular_end_angle": 360.0,
+      "circular_led_spacing": null,
+      "circular_mapping_table": [
+        [
+          31,
+          16
+        ],
+        [
+          31,
+          17
+        ],
+        [
+          31,
+          18
+        ],
+        [
+          31,
+          19
+        ],
+        [
+          31,
+          20
+        ],
+        [
+          31,
+          21
+        ],
+        [
+          31,
+          22
+        ],
+        [
+          31,
+          23
+        ],
+        [
+          31,
+          24
+        ],
+        [
+          31,
+          25
+        ],
+        [
+          31,
+          26
+        ],
+        [
+          31,
+          26
+        ],
+        [
+          31,
+          27
+        ],
+        [
+          31,
+          28
+        ],
+        [
+          30,
+          29
+        ],
+        [
+          30,
+          30
+        ],
+        [
+          29,
+          30
+        ],
+        [
+          28,
+          31
+        ],
+        [
+          27,
+          31
+        ],
+        [
+          26,
+          31
+        ],
+        [
+          25,
+          31
+        ],
+        [
+          24,
+          31
+        ],
+        [
+          23,
+          31
+        ],
+        [
+          22,
+          31
+        ],
+        [
+          21,
+          31
+        ],
+        [
+          20,
+          31
+        ],
+        [
+          19,
+          31
+        ],
+        [
+          18,
+          31
+        ],
+        [
+          17,
+          31
+        ],
+        [
+          16,
+          31
+        ],
+        [
+          15,
+          31
+        ],
+        [
+          14,
+          31
+        ],
+        [
+          13,
+          31
+        ],
+        [
+          12,
+          31
+        ],
+        [
+          11,
+          31
+        ],
+        [
+          10,
+          31
+        ],
+        [
+          9,
+          31
+        ],
+        [
+          8,
+          31
+        ],
+        [
+          7,
+          31
+        ],
+        [
+          6,
+          31
+        ],
+        [
+          5,
+          31
+        ],
+        [
+          4,
+          31
+        ],
+        [
+          3,
+          31
+        ],
+        [
+          3,
+          31
+        ],
+        [
+          2,
+          30
+        ],
+        [
+          1,
+          29
+        ],
+        [
+          0,
+          29
+        ],
+        [
+          0,
+          28
+        ],
+        [
+          0,
+          27
+        ],
+        [
+          0,
+          26
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          0,
+          23
+        ],
+        [
+          0,
+          22
+        ],
+        [
+          0,
+          21
+        ],
+        [
+          0,
+          20
+        ],
+        [
+          0,
+          19
+        ],
+        [
+          0,
+          18
+        ],
+        [
+          0,
+          17
+        ],
+        [
+          0,
+          16
+        ],
+        [
+          0,
+          15
+        ],
+        [
+          0,
+          14
+        ],
+        [
+          0,
+          13
+        ],
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          9
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          7,
+          0
+        ],
+        [
+          8,
+          0
+        ],
+        [
+          9,
+          0
+        ],
+        [
+          10,
+          0
+        ],
+        [
+          11,
+          0
+        ],
+        [
+          12,
+          0
+        ],
+        [
+          13,
+          0
+        ],
+        [
+          14,
+          0
+        ],
+        [
+          15,
+          0
+        ],
+        [
+          16,
+          0
+        ],
+        [
+          17,
+          0
+        ],
+        [
+          18,
+          0
+        ],
+        [
+          19,
+          0
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          21,
+          0
+        ],
+        [
+          22,
+          0
+        ],
+        [
+          23,
+          0
+        ],
+        [
+          24,
+          0
+        ],
+        [
+          25,
+          0
+        ],
+        [
+          26,
+          0
+        ],
+        [
+          27,
+          0
+        ],
+        [
+          28,
+          0
+        ],
+        [
+          29,
+          1
+        ],
+        [
+          30,
+          1
+        ],
+        [
+          30,
+          2
+        ],
+        [
+          31,
+          3
+        ],
+        [
+          31,
+          4
+        ],
+        [
+          31,
+          5
+        ],
+        [
+          31,
+          5
+        ],
+        [
+          31,
+          6
+        ],
+        [
+          31,
+          7
+        ],
+        [
+          31,
+          8
+        ],
+        [
+          31,
+          9
+        ],
+        [
+          31,
+          10
+        ],
+        [
+          31,
+          11
+        ],
+        [
+          31,
+          12
+        ],
+        [
+          31,
+          13
+        ],
+        [
+          31,
+          14
+        ],
+        [
+          31,
+          15
+        ]
+      ],
+      "multi_ring_count": null,
+      "ring_led_counts": [],
+      "ring_radii": [],
+      "ring_spacing": null,
+      "ray_count": null,
+      "leds_per_ray": null,
+      "ray_spacing_angle": null,
+      "custom_led_positions": null,
+      "led_position_units": "grid",
+      "custom_position_center_x": null,
+      "custom_position_center_y": null,
+      "matrix_style": null,
+      "text_content": null,
+      "text_font_size": null,
+      "text_color": null
+    },
+    "frames": [
+      {
+        "index": 0,
+        "duration_ms": 100,
+        "layers": [
+          {
+            "id": "595b7bef-5042-44ae-bf3d-abbb333b1201",
+            "name": "base",
+            "opacity": 1.0,
+            "blend_mode": "normal",
+            "visible": true,
+            "encoding": "rle+rgba8",
+            "pixels": "AwAAAAGlgFoBp4BYAamAVgGrgFQBrYBSAa+AUAGxgE4BtIBLAbaASQG4gEcBuoBFAbyAQwG+gEEBwIA/AcOAPAHFgDoBx4A4AcmANgHLgDQBzYAyAc+AMAHSgC0B1IArAdaAKQHYgCcB2oAlBQAAAAGggF8aAAAAAdyAIwHegCEBAAAAAZyAYwGegGEcAAAAAeGAHgEAAAABmoBlHgAAAAHjgBwBmIBnHgAAAAHlgBoBloBpHgAAAAHpgBYBk4BsHgAAAAHrgBQBkYBuHgAAAAHtgBIBj4BwHgAAAAHwgA8BjYByHgAAAAHygA0Bi4B0HgAAAAH0gAsBiYB2HgAAAAH2gAkBh4B4HgAAAAH4gAcBhIB7HgAAAAH6gAUBgoB9HgAAAAH8gAMBgIB/HgAAAAH/gAABfoCBHgAAAAEAgP8BfICDHgAAAAECgP0BeoCFHgAAAAEEgPsBeICHHgAAAAEGgPkBdYCKHgAAAAEIgPcBc4CMHgAAAAEKgPUBcYCOHgAAAAEMgPMBb4CQHgAAAAEPgPABbYCSHgAAAAERgO4Ba4CUHgAAAAETgOwBaYCWHgAAAAEXgOgBZoCZHgAAAAEZgOYBZICbHgAAAAEbgOQBYoCdAWCAnxwAAAABHoDhAwAAAAFegKEaAAAAASKA3QEggN8EAAAAAVyAowFXgKgBVYCqAVOArAFRgK4BT4CwAU2AsgFLgLQBSIC3AUaAuQFEgLsBQoC9AUCAvwE+gMEBPIDDATmAxgE3gMgBNYDKATOAzAExgM4BL4DQAS2A0gEqgNUBKIDXASaA2QEkgNsDAAAA"
+          }
+        ]
+      }
+    ],
+    "effects": [],
+    "metadata": {
+      "author": "",
+      "source_file": "",
+      "approx_memory_bytes": 3072,
+      "export_formats": [
+        "bin",
+        "leds",
+        "json",
+        "hex",
+        "dat",
+        "h",
+        "ledproj"
+      ]
+    }
+  }
+}

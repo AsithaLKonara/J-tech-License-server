@@ -52,8 +52,12 @@ class PreviewTab(QWidget):
         # Legacy pattern reference (for backward compatibility)
         self.pattern: Pattern = None
         self._original_file_pattern: Pattern = None  # Original file data (before unwrapping)
+        self._base_pattern: Pattern = None  # Base pattern for preview rebuild
+        self._preview_pattern: Pattern = None  # Processed preview pattern
+        self._lazy_loader = None  # Lazy frame loader for large patterns
         self._syncing_playback = False  # Flag to prevent signal loops
         self._syncing_frame = False  # Flag to prevent frame sync loops
+        self._updating_from_repository = False  # Flag to prevent circular updates from repository signals
         self.setup_ui()
     
     def setup_ui(self):
@@ -510,8 +514,21 @@ class PreviewTab(QWidget):
         if not pattern:
             return
         
-        # Store in repository and sync legacy reference
-        self.repository.set_current_pattern(pattern)
+        # Prevent infinite loop: if we're being called from repository signal, don't update repository again
+        if hasattr(self, '_updating_from_repository') and self._updating_from_repository:
+            # We're in a recursive call from repository signal, just update local state
+            self.pattern = pattern
+        else:
+            # Check if pattern is already current to avoid unnecessary updates
+            current_pattern = self.repository.get_current_pattern()
+            if current_pattern is not pattern:
+                # Only update repository if pattern is different and we're not in a recursive call
+                self._updating_from_repository = True
+                try:
+                    self.repository.set_current_pattern(pattern)
+                finally:
+                    self._updating_from_repository = False
+        
         self.pattern = pattern  # Legacy reference for backward compatibility
         
         # Rebuild preview pattern if needed

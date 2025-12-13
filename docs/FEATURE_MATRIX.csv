@@ -31,9 +31,9 @@ Animation Features,4.4,Animation Preview (60 FPS),✅,ui/tabs/preview_tab.py,Pre
 Animation Features,4.5,Frame Duplication,✅,domain/frames.py,FrameManager.duplicate(),Timeline → FrameManager → Pattern,✅,Frame copy
 Animation Features,4.6,Frame Insertion/Deletion,✅,domain/frames.py,FrameManager add/delete,Timeline → FrameManager → Pattern,✅,Frame ops
 Animation Features,4.7,Onion Skinning,✅,ui/widgets/matrix_design_canvas.py,Onion skin rendering,Canvas → FrameManager → Overlay,✅,Prev/next frames
-Animation Features,4.8,Keyframe Animation,✅,ui/widgets/keyframe_editor.py,KeyframeEditorWidget,Keyframes → Animation → Frames,✅,Keyframe system
-Animation Features,4.9,Animation Curves (ease-in/out/bounce),✅,domain/animation/,Animation curves,Keyframes → Interpolation,✅,Curve types
-Animation Features,4.10,Motion Paths,✅,domain/animation/,Motion path support,Keyframes → Motion,✅,Path animation
+Animation Features,4.8,Keyframe Animation,✅,ui/widgets/keyframe_editor.py,KeyframeEditorWidget,Keyframes → Animation → Frames,✅,Fully implemented - verified in KEYFRAME_ANIMATION_VERIFICATION.md
+Animation Features,4.9,Animation Curves (ease-in/out/bounce),✅,domain/animation/animation_curve.py,AnimationCurve class,Keyframes → Interpolation,✅,All 12 curve types - verified in ANIMATION_CURVES_VERIFICATION.md
+Animation Features,4.10,Motion Paths,✅,domain/animation/keyframe_animation.py,MotionPath class,Keyframes → Motion,✅,Linear paths implemented - verified in MOTION_PATHS_VERIFICATION.md
 Animation Features,4.11,Auto-Generate Frames,✅,core/automation/engine.py,AutomationEngine,Automation → Frame generation,✅,Auto frames
 Animation Features,4.12,Animation Templates (15+),✅,core/pattern_templates.py,Template library,Templates → Pattern creation,✅,Template system
 Editing Tools,5.1,Flip,✅,ui/tabs/design_tools_tab.py,Flip operations,Canvas → Frame → Pattern,✅,Flip transform
@@ -76,10 +76,10 @@ Import Formats,8.4,PDF Import,✅,core/vector_importer.py,PDF support,File → P
 Import Formats,8.5,Video Import,✅,core/media_converter.py,Video import,File → Converter → Pattern,✅,Video import
 Import Formats,8.6,CSV Import,✅,parsers/parser_registry.py,CSV parser,File → Parser → Pattern,✅,CSV import
 Import Formats,8.7,JSON Import,✅,parsers/parser_registry.py,JSON parser,File → Parser → Pattern,✅,JSON import
-Hardware Support,9.1,PICAXE Support,❌,N/A,Not implemented,N/A,❌,Missing feature
+Hardware Support,9.1,PICAXE Support,❌,N/A,Not planned (intentional gap),N/A,❌,Documented as intentional exclusion - see PICAXE_SUPPORT_DECISION.md
 Hardware Support,9.2,PIC Support (PIC16F877A/PIC18F4550),✅,uploaders/pic_uploader.py,PicUploader,FlashService → Uploader,✅,PIC chips
 Hardware Support,9.3,Arduino Support (ATmega328P/ATmega2560),✅,uploaders/arduino_uploader.py,ArduinoUploader,FlashService → Uploader,✅,Arduino chips
-Hardware Support,9.4,Parallax Support,❌,N/A,Not implemented,N/A,❌,Missing feature
+Hardware Support,9.4,Parallax Support,❌,N/A,Not planned (intentional gap),N/A,❌,Documented as intentional exclusion - see PARALLAX_SUPPORT_DECISION.md
 Hardware Support,9.5,ESP8266 Support,✅,uploaders/esp8266_uploader.py,Esp8266Uploader,FlashService → Uploader,✅,ESP8266 chip
 Hardware Support,9.6,ESP32 Support (ESP32/ESP32-S2/ESP32-C3),✅,uploaders/esp32_uploader.py,Esp32Uploader,FlashService → Uploader,✅,ESP32 variants
 Hardware Support,9.7,STM32 Support (STM32F103C8/STM32F407),✅,uploaders/stm32_uploader.py,Stm32Uploader,FlashService → Uploader,✅,STM32 chips

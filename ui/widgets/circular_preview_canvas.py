@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QWidget, QLabel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 from core.pattern import PatternMetadata
+from core.mapping.circular_mapper import CircularMapper
 
 RGB = Tuple[int, int, int]
 
@@ -84,6 +85,12 @@ class CircularPreviewCanvas(QWidget):
         
         layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
         
+        if layout_type == "irregular":
+            # Show message that circular preview is for circular layouts
+            painter.setPen(QColor(100, 100, 100))
+            painter.drawText(self.rect(), Qt.AlignCenter, "Irregular shapes use\nthe main canvas view")
+            return
+        
         if layout_type == "rectangular":
             # Show message that circular preview is for circular layouts
             painter.setPen(QColor(100, 100, 100))
@@ -104,12 +111,15 @@ class CircularPreviewCanvas(QWidget):
     
     def _paint_from_mapping_table(self, painter: QPainter, rect):
         """
-        Paint preview using mapping table only (passive rendering).
+        Paint preview using mapping table and actual LED positions from layout geometry.
         
-        This method does NOT know about layout types. It only knows:
-        - LED index -> grid coordinate mapping
+        This method uses the actual LED physical positions (like LED Matrix Studio would):
+        - LED index -> grid coordinate mapping (from mapping table)
         - Grid data (colors)
-        - Visual arrangement is calculated from LED index order (simple circular)
+        - Actual LED positions from layout geometry (angle, radius from layout parameters)
+        
+        This matches the LED Matrix Studio approach where LEDs are positioned at their
+        actual physical locations based on the layout configuration.
         """
         if not self._grid_data or not self._pattern_metadata:
             return
@@ -124,8 +134,16 @@ class CircularPreviewCanvas(QWidget):
         max_radius = min(rect.width(), rect.height()) / 2 - 10
         pixel_size = max(4, int(max_radius / max(len(mapping_table), 1) * 0.15))
         
-        # Render LEDs in index order (0, 1, 2, ...)
-        # Visual arrangement: simple circular layout based on LED index
+        # Get actual LED positions from layout geometry (LED Matrix Studio style)
+        # This uses the real physical positions based on layout parameters
+        led_positions = CircularMapper.generate_led_positions_for_preview(
+            metadata=self._pattern_metadata,
+            center_x=center_x,
+            center_y=center_y,
+            max_radius=max_radius
+        )
+        
+        # Render LEDs using actual positions
         led_count = len(mapping_table)
         
         for led_idx in range(led_count):
@@ -138,25 +156,17 @@ class CircularPreviewCanvas(QWidget):
             else:
                 r, g, b = (0, 0, 0)
             
-            # Calculate visual position from LED index (simple circular arrangement)
-            # This is a simple circular layout - LED index determines position
-            # Angle based on LED index order
-            angle = 2 * pi * (led_idx / led_count) if led_count > 0 else 0
+            # Get actual LED position from layout geometry
+            if led_idx < len(led_positions):
+                x, y = led_positions[led_idx]
+            else:
+                # Fallback: simple circular arrangement if positions not available
+                angle = 2 * pi * (led_idx / led_count) if led_count > 0 else 0
+                radius = max_radius * 0.8
+                x = center_x + radius * cos(angle)
+                y = center_y + radius * sin(angle)
             
-            # For multi-ring or complex layouts, the mapping table already encodes
-            # the correct grid positions. We just arrange them in a simple circle
-            # for preview purposes. The actual physical layout is encoded in the
-            # mapping table order.
-            
-            # Use a simple circular radius (could be enhanced to show structure)
-            # For now, use a single radius for all LEDs
-            radius = max_radius * 0.8
-            
-            # Calculate LED position
-            x = center_x + radius * cos(angle)
-            y = center_y + radius * sin(angle)
-            
-            # Draw LED
+            # Draw LED at actual position
             color = QColor(r, g, b)
             painter.setBrush(QBrush(color))
             painter.setPen(QPen(self._pixel_border_color, 1))

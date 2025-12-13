@@ -100,6 +100,166 @@ PATTERN_SCHEMA_V1 = {
                     "enum": ["RGB", "GRB", "BRG", "BGR", "RBG", "GBR"],
                     "default": "RGB",
                     "description": "Default color channel order"
+                },
+                # Circular layout support
+                "layout_type": {
+                    "type": "string",
+                    "enum": ["rectangular", "circle", "ring", "arc", "radial", "multi_ring", "radial_rays", "custom_positions"],
+                    "default": "rectangular",
+                    "description": "Layout type (rectangular or circular variants)"
+                },
+                "circular_led_count": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 1024,
+                    "description": "Number of LEDs in circular layout"
+                },
+                "circular_radius": {
+                    "type": ["number", "null"],
+                    "minimum": 0.0,
+                    "description": "Outer radius for circular layout"
+                },
+                "circular_inner_radius": {
+                    "type": ["number", "null"],
+                    "minimum": 0.0,
+                    "description": "Inner radius for ring layouts"
+                },
+                "circular_start_angle": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 360.0,
+                    "default": 0.0,
+                    "description": "Start angle in degrees (for arc layouts)"
+                },
+                "circular_end_angle": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 360.0,
+                    "default": 360.0,
+                    "description": "End angle in degrees (for arc layouts)"
+                },
+                "circular_led_spacing": {
+                    "type": ["number", "null"],
+                    "minimum": 0.0,
+                    "description": "Optional custom LED spacing"
+                },
+                "circular_mapping_table": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "description": "LED index to grid (x, y) mapping"
+                    },
+                    "description": "Precomputed mapping table: LED index -> (grid_x, grid_y)"
+                },
+                # Multi-ring layout support (Budurasmala)
+                "multi_ring_count": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "Number of concentric rings"
+                },
+                "ring_led_counts": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 512
+                    },
+                    "description": "LEDs per ring"
+                },
+                "ring_radii": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "number",
+                        "minimum": 0.0
+                    },
+                    "description": "Radius for each ring"
+                },
+                "ring_spacing": {
+                    "type": ["number", "null"],
+                    "minimum": 0.0,
+                    "description": "Spacing between rings"
+                },
+                # Radial ray support (Budurasmala)
+                "ray_count": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 64,
+                    "description": "Number of rays extending from center"
+                },
+                "leds_per_ray": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "LEDs along each ray"
+                },
+                "ray_spacing_angle": {
+                    "type": ["number", "null"],
+                    "minimum": 0.0,
+                    "maximum": 360.0,
+                    "description": "Angle between rays in degrees"
+                },
+                # Custom LED positions (for custom PCBs - Budurasmala)
+                "custom_led_positions": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                            "type": "number"
+                        },
+                        "description": "LED position (x, y) in mm or units"
+                    },
+                    "description": "Custom LED positions for custom PCBs"
+                },
+                "led_position_units": {
+                    "type": "string",
+                    "enum": ["grid", "mm", "inches"],
+                    "default": "grid",
+                    "description": "Units for LED positions"
+                },
+                "custom_position_center_x": {
+                    "type": ["number", "null"],
+                    "description": "Center X for custom positions"
+                },
+                "custom_position_center_y": {
+                    "type": ["number", "null"],
+                    "description": "Center Y for custom positions"
+                },
+                # Matrix-style Budurasmala (curved matrix, text rendering)
+                "matrix_style": {
+                    "type": ["string", "null"],
+                    "enum": ["curved", "hybrid_ring_matrix", None],
+                    "description": "Matrix style for Budurasmala layouts"
+                },
+                "text_content": {
+                    "type": ["string", "null"],
+                    "maxLength": 256,
+                    "description": "Text to render on circular matrix"
+                },
+                "text_font_size": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 128,
+                    "description": "Font size for text rendering"
+                },
+                "text_color": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "RGB color for text"
                 }
             },
             "additionalProperties": False

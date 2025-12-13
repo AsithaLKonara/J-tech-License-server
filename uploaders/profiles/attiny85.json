@@ -1,5 +1,5 @@
 {
-  "chip_id": "ATtiny85",
+  "chip_id": "attiny85",
   "chip_variant": null,
   "chip_name": "ATtiny85",
   "manufacturer": "Microchip",

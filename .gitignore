@@ -42,6 +42,10 @@ htmlcov/
 test_results*.json
 pattern_results.txt
 
+# Test reports (can be very large)
+tests/comprehensive/reports/*.json
+tests/gui/test_report_*.json
+
 # Docker
 *.dockerignore
 

@@ -1,0 +1,421 @@
+{
+  "project_version": "1.1",
+  "schema_version": "1.0",
+  "metadata": {
+    "project_version": "1.0",
+    "name": "Untitled Project",
+    "description": "",
+    "author": "",
+    "created_at": "2025-12-10T20:11:25.274379Z",
+    "modified_at": "2025-12-10T20:11:25.274379Z",
+    "tags": [],
+    "category": null,
+    "license": null,
+    "thumbnail_path": null,
+    "settings": {
+      "auto_save": true,
+      "auto_save_interval_seconds": 300,
+      "undo_history_depth": 50,
+      "default_zoom": 100,
+      "grid_enabled": true,
+      "snap_to_grid": false,
+      "show_frame_numbers": true,
+      "default_fps": 24.0,
+      "default_color_order": "RGB"
+    },
+    "custom_metadata": {},
+    "frame_presets": []
+  },
+  "pattern": {
+    "schema_version": "1.0",
+    "id": "463c2dba-5afa-4a9c-886b-4f96c6384cc1",
+    "name": "Test Radial Rays 8x10",
+    "description": "",
+    "tags": [],
+    "created_at": "2025-12-10T20:11:25.274379Z",
+    "modified_at": "2025-12-10T20:11:25.274379Z",
+    "matrix": {
+      "width": 30,
+      "height": 30,
+      "layout": "row_major",
+      "wiring": "linear",
+      "default_color_order": "RGB",
+      "layout_type": "radial_rays",
+      "circular_led_count": 80,
+      "circular_radius": null,
+      "circular_inner_radius": null,
+      "circular_start_angle": 0.0,
+      "circular_end_angle": 360.0,
+      "circular_led_spacing": null,
+      "circular_mapping_table": [
+        [
+          16,
+          14
+        ],
+        [
+          17,
+          14
+        ],
+        [
+          19,
+          14
+        ],
+        [
+          20,
+          14
+        ],
+        [
+          22,
+          14
+        ],
+        [
+          23,
+          14
+        ],
+        [
+          24,
+          14
+        ],
+        [
+          26,
+          14
+        ],
+        [
+          27,
+          14
+        ],
+        [
+          28,
+          14
+        ],
+        [
+          15,
+          15
+        ],
+        [
+          16,
+          16
+        ],
+        [
+          17,
+          17
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          19,
+          19
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          21,
+          21
+        ],
+        [
+          22,
+          22
+        ],
+        [
+          23,
+          23
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          14,
+          17
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          14,
+          20
+        ],
+        [
+          14,
+          22
+        ],
+        [
+          14,
+          23
+        ],
+        [
+          14,
+          24
+        ],
+        [
+          14,
+          26
+        ],
+        [
+          14,
+          27
+        ],
+        [
+          14,
+          28
+        ],
+        [
+          14,
+          15
+        ],
+        [
+          13,
+          16
+        ],
+        [
+          12,
+          17
+        ],
+        [
+          11,
+          18
+        ],
+        [
+          10,
+          19
+        ],
+        [
+          9,
+          20
+        ],
+        [
+          8,
+          21
+        ],
+        [
+          7,
+          22
+        ],
+        [
+          6,
+          23
+        ],
+        [
+          5,
+          24
+        ],
+        [
+          13,
+          14
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          10,
+          14
+        ],
+        [
+          9,
+          14
+        ],
+        [
+          8,
+          14
+        ],
+        [
+          6,
+          15
+        ],
+        [
+          5,
+          15
+        ],
+        [
+          3,
+          15
+        ],
+        [
+          2,
+          15
+        ],
+        [
+          0,
+          15
+        ],
+        [
+          14,
+          14
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          11,
+          11
+        ],
+        [
+          10,
+          10
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          14,
+          13
+        ],
+        [
+          14,
+          12
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          14,
+          9
+        ],
+        [
+          14,
+          8
+        ],
+        [
+          14,
+          6
+        ],
+        [
+          14,
+          5
+        ],
+        [
+          14,
+          3
+        ],
+        [
+          14,
+          2
+        ],
+        [
+          14,
+          0
+        ],
+        [
+          15,
+          14
+        ],
+        [
+          16,
+          13
+        ],
+        [
+          17,
+          12
+        ],
+        [
+          18,
+          11
+        ],
+        [
+          19,
+          10
+        ],
+        [
+          20,
+          9
+        ],
+        [
+          21,
+          8
+        ],
+        [
+          22,
+          7
+        ],
+        [
+          23,
+          6
+        ],
+        [
+          24,
+          5
+        ]
+      ],
+      "multi_ring_count": null,
+      "ring_led_counts": [],
+      "ring_radii": [],
+      "ring_spacing": null,
+      "ray_count": 8,
+      "leds_per_ray": 10,
+      "ray_spacing_angle": null,
+      "custom_led_positions": null,
+      "led_position_units": "grid",
+      "custom_position_center_x": null,
+      "custom_position_center_y": null,
+      "matrix_style": null,
+      "text_content": null,
+      "text_font_size": null,
+      "text_color": null
+    },
+    "frames": [
+      {
+        "index": 0,
+        "duration_ms": 100,
+        "layers": [
+          {
+            "id": "74994adf-feeb-4777-bdc5-3dafad9bbd89",
+            "name": "base",
+            "opacity": 1.0,
+            "blend_mode": "normal",
+            "visible": true,
+            "encoding": "rle+rgba8",
+            "pixels": "DgAAAAHa/4A7AAAAAdrigB0AAAAB2saAMgAAAAG2/4AIAAAAAdqqgAkAAAAB//+ACwAAAAG24oAHAAAAAdqNgAgAAAAB/+KADQAAAAG2xoAOAAAAAf/GgA8AAAABtqqABQAAAAHacYAGAAAAAf+qgBEAAAABto2ABAAAAAHaVYAFAAAAAf+NgBMAAAABtnGAAwAAAAHaOIAEAAAAAf9xgBUAAAABtlWABgAAAAH/VYAXAAAAAbY4gAEAAAAB2hyAAgAAAAH/OIAZAAAAAbYcgAHaAIABAAAAAf8cgBUAAAABkXGAAZFVgAGROIABAAAAAZEcgAGRAIABtgCAAf8AgAEAAIABAByAAQAAAAEAOIABAFWAAQAAAAEAcYABAI2AAQCqgAEAAAABAMaAAQDigAEA/4ABAAAAAZH/gAEAAAABkeKAAZHGgAEAAAABkaqAAZGNgAcAAAABbQCAASQAgBsAAAABbRyAAUgAgAEAAAABJByAGQAAAAFtOIABAAAAAUgcgAIAAAABJDiAFwAAAAFtVYAGAAAAASRVgBUAAAABbXGAAwAAAAFIOIAEAAAAASRxgBMAAAABbY2ABAAAAAFIVYAFAAAAASSNgBEAAAABbaqADAAAAAEkqoAPAAAAAW3GgAYAAAABSHGABwAAAAEkxoANAAAAAW3igAcAAAABSI2ACAAAAAEk4oALAAAAAW3/gAgAAAABSKqACQAAAAEk/4AxAAAAAUjGgB0AAAABSOKAHQAAAAFI/4AtAAAA"
+          }
+        ]
+      }
+    ],
+    "effects": [],
+    "metadata": {
+      "author": "",
+      "source_file": "",
+      "approx_memory_bytes": 2700,
+      "export_formats": [
+        "bin",
+        "leds",
+        "json",
+        "hex",
+        "dat",
+        "h",
+        "ledproj"
+      ]
+    }
+  }
+}

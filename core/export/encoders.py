@@ -56,9 +56,14 @@ def _expected_pixel_count(pattern: Pattern) -> int:
     For circular layouts: circular_led_count (physical LED count)
     For multi-ring layouts: sum of ring_led_counts
     For radial ray layouts: ray_count * leds_per_ray
+    For irregular shapes: count of active cells
     """
     layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
-    if layout_type == "rectangular":
+    if layout_type == "irregular" and getattr(pattern.metadata, 'irregular_shape_enabled', False):
+        # For irregular shapes, return count of active cells
+        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+        return IrregularShapeMapper.get_active_cell_count(pattern.metadata)
+    elif layout_type == "rectangular":
         return pattern.metadata.width * pattern.metadata.height
     elif layout_type == "multi_ring":
         # Multi-ring: sum of all ring LED counts
@@ -112,10 +117,35 @@ def encode_frame_bytes(pattern: Pattern, frame: Frame, options: ExportOptions) -
     to match physical LED wiring order. The mapping table is the single source
     of truth - no live calculations are performed.
     """
-    # Check if pattern has circular layout
+    # Check if pattern has circular layout or irregular shape
     layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
     
-    if layout_type != "rectangular" and pattern.metadata.circular_led_count:
+    # Handle irregular shapes - only export active cells
+    if layout_type == "irregular" and pattern.metadata.irregular_shape_enabled:
+        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+        pixels = prepare_frame_pixels(pattern, frame)
+        
+        # Only export active cells
+        active_pixels = []
+        if pattern.metadata.active_cell_coordinates:
+            # Export in coordinate order (maintains spatial relationship)
+            for x, y in pattern.metadata.active_cell_coordinates:
+                if 0 <= y < pattern.metadata.height and 0 <= x < pattern.metadata.width:
+                    grid_idx = y * pattern.metadata.width + x
+                    if grid_idx < len(pixels):
+                        active_pixels.append(pixels[grid_idx])
+                    else:
+                        active_pixels.append((0, 0, 0))
+        else:
+            # No active cells defined, export all (backward compatibility)
+            active_pixels = pixels
+        
+        ordered_pixels = options.reorder_pixels(
+            active_pixels,
+            len(active_pixels),  # Use active cell count as width
+            1,  # Height is 1 for linear strip
+        )
+    elif layout_type != "rectangular" and pattern.metadata.circular_led_count:
         # For circular layouts, reorder pixels using mapping table
         pixels = prepare_frame_pixels(pattern, frame)
         

@@ -6,6 +6,7 @@ Provides environment-based configuration with validation and secrets management.
 
 import os
 import json
+import yaml
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -54,11 +55,17 @@ class ConfigManager:
         # Load from environment variables
         self._load_from_environment()
         
-        # Load from config file if exists
-        config_file = Path("config") / f"{self.environment.value}.json"
-        if config_file.exists():
-            self._load_from_file(config_file)
-            self._config_file = config_file
+        # Try to load from YAML config first (preferred)
+        yaml_config = Path("config") / "app_config.yaml"
+        if yaml_config.exists():
+            self._load_from_file(yaml_config)
+            self._config_file = yaml_config
+        else:
+            # Fallback to JSON config if YAML doesn't exist
+            config_file = Path("config") / f"{self.environment.value}.json"
+            if config_file.exists():
+                self._load_from_file(config_file)
+                self._config_file = config_file
         
         # Load defaults
         self._load_defaults()
@@ -70,7 +77,7 @@ class ConfigManager:
         """Load configuration from environment variables."""
         # Application settings
         self._config['app_name'] = os.getenv('APP_NAME', 'Upload Bridge')
-        self._config['app_version'] = os.getenv('APP_VERSION', '1.0.0')
+        self._config['app_version'] = os.getenv('APP_VERSION', '3.0.0')
         self._config['debug'] = os.getenv('DEBUG', 'False').lower() == 'true'
         
         # Logging settings
@@ -89,10 +96,28 @@ class ConfigManager:
         self._config['enable_telemetry'] = os.getenv('ENABLE_TELEMETRY', 'False').lower() == 'true'
     
     def _load_from_file(self, config_file: Path) -> None:
-        """Load configuration from JSON file."""
+        """Load configuration from YAML or JSON file."""
         try:
-            with open(config_file, 'r') as f:
-                file_config = json.load(f)
+            with open(config_file, 'r', encoding='utf-8') as f:
+                # Check file extension to determine format
+                if config_file.suffix in ['.yaml', '.yml']:
+                    file_config = yaml.safe_load(f) or {}
+                    # Flatten YAML structure if needed (YAML may have nested structure)
+                    # For app_config.yaml, we expect a flat structure that matches our config keys
+                    if isinstance(file_config, dict):
+                        # Handle nested YAML structure - flatten common sections
+                        flattened = {}
+                        for key, value in file_config.items():
+                            if isinstance(value, dict):
+                                # Flatten nested dicts with dot notation or prefix
+                                for subkey, subvalue in value.items():
+                                    flattened[f"{key}_{subkey}"] = subvalue
+                            else:
+                                flattened[key] = value
+                        file_config = flattened
+                else:
+                    # Assume JSON format
+                    file_config = json.load(f)
                 self._config.update(file_config)
             logger.info(f"Loaded configuration from {config_file}")
         except Exception as e:
@@ -102,7 +127,7 @@ class ConfigManager:
         """Load default configuration values."""
         defaults = {
             'app_name': 'Upload Bridge',
-            'app_version': '1.0.0',
+            'app_version': '3.0.0',
             'debug': False,
             'log_level': 'INFO',
             'log_to_file': True,

@@ -521,8 +521,13 @@ class PatternExporter:
         layout_type = getattr(pattern.metadata, 'layout_type', 'rectangular')
         led_count = falcon_data["leds"]
         
+        # For irregular shapes, use active cell count
+        if layout_type == "irregular" and getattr(pattern.metadata, 'irregular_shape_enabled', False):
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+            led_count = IrregularShapeMapper.get_active_cell_count(pattern.metadata)
+            falcon_data["leds"] = led_count
         # For circular layouts, use circular_led_count
-        if layout_type != "rectangular" and pattern.metadata.circular_led_count:
+        elif layout_type != "rectangular" and pattern.metadata.circular_led_count:
             led_count = pattern.metadata.circular_led_count
             falcon_data["leds"] = led_count
         
@@ -530,8 +535,26 @@ class PatternExporter:
             # Get pixels from frame
             pixels = prepare_frame_pixels(pattern, frame)
             
+            # Handle irregular shapes - only export active cells
+            if layout_type == "irregular" and getattr(pattern.metadata, 'irregular_shape_enabled', False):
+                from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                # Only export active cells
+                active_pixels = []
+                if pattern.metadata.active_cell_coordinates:
+                    # Export in coordinate order (maintains spatial relationship)
+                    for x, y in pattern.metadata.active_cell_coordinates:
+                        if 0 <= y < pattern.metadata.height and 0 <= x < pattern.metadata.width:
+                            grid_idx = y * pattern.metadata.width + x
+                            if grid_idx < len(pixels):
+                                active_pixels.append(pixels[grid_idx])
+                            else:
+                                active_pixels.append((0, 0, 0))
+                else:
+                    # No active cells defined, export all (backward compatibility)
+                    active_pixels = pixels
+                pixels = active_pixels
             # For circular layouts, reorder pixels using mapping table
-            if layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
+            elif layout_type != "rectangular" and pattern.metadata.circular_mapping_table:
                 # Reorder pixels according to LED wiring order
                 reordered_pixels = []
                 for led_idx in range(led_count):

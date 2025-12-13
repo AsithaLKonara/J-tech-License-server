@@ -13,8 +13,8 @@ def test_python_version():
     version = sys.version_info
     print(f"Python version: {version.major}.{version.minor}.{version.micro}")
     
-    if version.major < 3 or (version.major == 3 and version.minor < 8):
-        print("❌ Python 3.8+ required")
+    if version.major < 3 or (version.major == 3 and version.minor < 10):
+        print("❌ Python 3.10+ required")
         return False
     else:
         print("✅ Python version OK")
@@ -124,7 +124,7 @@ def main():
         print("❌ Some tests failed. Please check the errors above.")
         print("\nTo fix issues:")
         print("1. Run: install_simple.bat")
-        print("2. Make sure Python 3.8+ is installed")
+        print("2. Make sure Python 3.10+ is installed")
         print("3. Check that all dependencies are installed")
     
     print("=" * 50)

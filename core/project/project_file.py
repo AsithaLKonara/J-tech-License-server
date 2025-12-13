@@ -90,7 +90,7 @@ class ProjectFile:
         pattern = PatternConverter.pattern_from_json(pattern_data)
         
         # Ensure mapping table exists for circular layouts (regenerate if missing or invalid)
-        if pattern.metadata.layout_type != "rectangular":
+        if pattern.metadata.layout_type != "rectangular" and pattern.metadata.layout_type != "irregular":
             from core.mapping.circular_mapper import CircularMapper
             is_valid, error_msg = CircularMapper.validate_mapping_table(pattern.metadata)
             if not is_valid:
@@ -107,6 +107,25 @@ class ProjectFile:
                         f"Failed to regenerate mapping table for circular layout. "
                         f"Pattern may not work correctly."
                     )
+        
+        # Ensure active cells are initialized for irregular shapes
+        if pattern.metadata.layout_type == "irregular" and getattr(pattern.metadata, 'irregular_shape_enabled', False):
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+            import logging
+            import os
+            
+            # Initialize active cells if not set
+            IrregularShapeMapper.ensure_active_cells_initialized(pattern.metadata)
+            
+            # Validate background image path if set
+            bg_path = getattr(pattern.metadata, 'background_image_path', None)
+            if bg_path and not os.path.exists(bg_path):
+                logging.warning(
+                    f"Background image not found for irregular shape: {bg_path}. "
+                    f"Image will not be displayed."
+                )
+                # Clear invalid path
+                pattern.metadata.background_image_path = None
         
         return cls(pattern=pattern, metadata=metadata)
     

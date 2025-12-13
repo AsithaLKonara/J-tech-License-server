@@ -116,6 +116,13 @@ class PatternMetadata:
     text_content: Optional[str] = None  # Text to render on circular matrix
     text_font_size: Optional[int] = None  # Font size for text rendering
     text_color: Optional[Tuple[int, int, int]] = None  # RGB color for text
+    # Irregular/custom shape support (LED Build-style)
+    irregular_shape_enabled: bool = False  # Enable irregular shape mode
+    active_cell_coordinates: Optional[List[Tuple[int, int]]] = None  # Sparse list of (x, y) active cell coordinates
+    background_image_path: Optional[str] = None  # Path to imported background template image
+    background_image_scale: float = 1.0  # Scale factor for background image
+    background_image_offset_x: float = 0.0  # X offset for background image
+    background_image_offset_y: float = 0.0  # Y offset for background image
     
     def __post_init__(self):
         """Validate metadata"""
@@ -130,10 +137,10 @@ class PatternMetadata:
         if not (0.0 <= self.dimension_confidence <= 1.0):
             raise ValueError(f"Dimension confidence must be 0.0-1.0: {self.dimension_confidence}")
         # Validate circular layout fields
-        valid_layouts = ["rectangular", "circle", "ring", "arc", "radial", "multi_ring", "radial_rays", "custom_positions"]
+        valid_layouts = ["rectangular", "circle", "ring", "arc", "radial", "multi_ring", "radial_rays", "custom_positions", "irregular"]
         if self.layout_type not in valid_layouts:
             raise ValueError(f"Invalid layout_type: {self.layout_type}, must be one of {valid_layouts}")
-        if self.layout_type != "rectangular":
+        if self.layout_type != "rectangular" and self.layout_type != "irregular":
             # For radial layouts, circular_led_count can be calculated from grid (height * width)
             # For multi_ring layouts, circular_led_count can be calculated from ring_led_counts
             # For radial_rays layouts, circular_led_count can be calculated from ray_count * leds_per_ray
@@ -195,8 +202,9 @@ class PatternMetadata:
                         raise ValueError(f"Either circular_led_count or custom_led_positions must be provided for {self.layout_type} layout")
                 elif self.circular_led_count < 1:
                     raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
-            else:
+            elif self.layout_type != "irregular":
                 # Standard circular/ring/arc layouts require circular_led_count
+                # Irregular shapes don't use circular_led_count
                 if self.circular_led_count is None or self.circular_led_count < 1:
                     raise ValueError(f"circular_led_count must be >= 1 for {self.layout_type} layout")
             if self.circular_radius is not None and self.circular_radius <= 0:
@@ -684,6 +692,13 @@ class Pattern:
                 "led_position_units": getattr(self.metadata, 'led_position_units', 'grid'),
                 "custom_position_center_x": getattr(self.metadata, 'custom_position_center_x', None),
                 "custom_position_center_y": getattr(self.metadata, 'custom_position_center_y', None),
+                # Irregular/custom shape support (LED Build-style)
+                "irregular_shape_enabled": getattr(self.metadata, 'irregular_shape_enabled', False),
+                "active_cell_coordinates": getattr(self.metadata, 'active_cell_coordinates', None),
+                "background_image_path": getattr(self.metadata, 'background_image_path', None),
+                "background_image_scale": getattr(self.metadata, 'background_image_scale', 1.0),
+                "background_image_offset_x": getattr(self.metadata, 'background_image_offset_x', 0.0),
+                "background_image_offset_y": getattr(self.metadata, 'background_image_offset_y', 0.0),
             },
             "frames": [
                 {
@@ -766,6 +781,13 @@ class Pattern:
             led_position_units=meta_dict.get('led_position_units', 'grid'),
             custom_position_center_x=meta_dict.get('custom_position_center_x'),
             custom_position_center_y=meta_dict.get('custom_position_center_y'),
+            # Irregular/custom shape support (LED Build-style)
+            irregular_shape_enabled=meta_dict.get('irregular_shape_enabled', False),
+            active_cell_coordinates=meta_dict.get('active_cell_coordinates'),
+            background_image_path=meta_dict.get('background_image_path'),
+            background_image_scale=meta_dict.get('background_image_scale', 1.0),
+            background_image_offset_x=meta_dict.get('background_image_offset_x', 0.0),
+            background_image_offset_y=meta_dict.get('background_image_offset_y', 0.0),
         )
         
         # Parse frames

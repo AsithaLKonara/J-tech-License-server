@@ -1,7 +1,7 @@
-# Release Notes - Upload Bridge v1.0.0
+# Release Notes - Upload Bridge v3.0.0
 
 **Release Date**: 2024  
-**Version**: 1.0.0  
+**Version**: 3.0.0  
 **Codename**: "Foundation"
 
 ---
@@ -12,7 +12,7 @@ Upload Bridge is a professional LED matrix pattern designer and firmware generat
 
 ---
 
-## ✨ What's New in v1.0.0
+## ✨ What's New in v3.0.0
 
 ### 🎨 Complete Pattern Design Suite
 
@@ -134,7 +134,7 @@ Upload Bridge is a professional LED matrix pattern designer and firmware generat
 - **RAM**: 4GB
 - **CPU**: Dual-core processor
 - **Disk Space**: 500MB
-- **Python**: 3.8 or higher (if running from source)
+- **Python**: 3.10 or higher (if running from source)
 
 ### Recommended Requirements
 - **RAM**: 8GB or more
@@ -145,7 +145,7 @@ Upload Bridge is a professional LED matrix pattern designer and firmware generat
 
 ## 🔄 Upgrading
 
-This is the first stable release (v1.0.0). If you're upgrading from a beta version:
+This is the first stable release (v3.0.0). If you're upgrading from a beta version:
 
 1. **Backup Your Patterns**
    - Export any important patterns
@@ -251,5 +251,5 @@ Thank you to all beta testers and contributors who helped make this release poss
 ---
 
 **Release Date**: 2024  
-**Version**: 1.0.0  
+**Version**: 3.0.0  
 **Build**: [Build Number]

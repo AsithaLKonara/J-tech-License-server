@@ -1,7 +1,7 @@
 {
-  "chip_id": "ESP32",
-  "chip_variant": "ESP32-S",
-  "chip_name": "ESP32-S",
+  "chip_id": "esp32s2",
+  "chip_variant": "ESP32-S2",
+  "chip_name": "ESP32-S2",
   "manufacturer": "Espressif",
   "architecture": "Xtensa",
   "flash_size_bytes": 4194304,

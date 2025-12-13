@@ -114,6 +114,174 @@ class TestPatternSchemaValidation:
         
         with pytest.raises(PatternSchemaError):
             validate_pattern_json(invalid_pattern)
+    
+    def test_circular_layout_schema(self):
+        """Test that circular layout fields pass validation"""
+        circular_pattern = {
+            "schema_version": "1.0",
+            "id": str(uuid.uuid4()),
+            "name": "Circular Pattern",
+            "description": "A circular layout pattern",
+            "tags": ["circular", "budurasmala"],
+            "created_at": datetime.utcnow().isoformat() + 'Z',
+            "modified_at": datetime.utcnow().isoformat() + 'Z',
+            "matrix": {
+                "width": 32,
+                "height": 32,
+                "layout": "row_major",
+                "wiring": "linear",
+                "default_color_order": "RGB",
+                "layout_type": "circle",
+                "circular_led_count": 60,
+                "circular_radius": 15.0,
+                "circular_start_angle": 0.0,
+                "circular_end_angle": 360.0,
+                "circular_mapping_table": [[16, 16], [17, 15], [18, 14]]  # Sample mapping
+            },
+            "frames": [
+                {
+                    "index": 0,
+                    "duration_ms": 100,
+                    "layers": [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "name": "base",
+                            "opacity": 1.0,
+                            "blend_mode": "normal",
+                            "visible": True,
+                            "pixels": [[255, 0, 0]] * 1024,
+                            "encoding": "raw+rgb8"
+                        }
+                    ]
+                }
+            ],
+            "effects": [],
+            "metadata": {}
+        }
+        
+        assert validate_pattern_json(circular_pattern) is True
+    
+    def test_multi_ring_layout_schema(self):
+        """Test that multi-ring layout fields pass validation"""
+        multi_ring_pattern = {
+            "schema_version": "1.0",
+            "id": str(uuid.uuid4()),
+            "name": "Multi-Ring Pattern",
+            "matrix": {
+                "width": 40,
+                "height": 40,
+                "layout": "row_major",
+                "wiring": "linear",
+                "default_color_order": "RGB",
+                "layout_type": "multi_ring",
+                "multi_ring_count": 3,
+                "ring_led_counts": [24, 36, 48],
+                "ring_radii": [8.0, 12.0, 16.0],
+                "ring_spacing": 4.0
+            },
+            "frames": [
+                {
+                    "index": 0,
+                    "duration_ms": 100,
+                    "layers": [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "name": "base",
+                            "opacity": 1.0,
+                            "blend_mode": "normal",
+                            "visible": True,
+                            "pixels": [[0, 255, 0]] * 1600,
+                            "encoding": "raw+rgb8"
+                        }
+                    ]
+                }
+            ],
+            "effects": [],
+            "metadata": {}
+        }
+        
+        assert validate_pattern_json(multi_ring_pattern) is True
+    
+    def test_radial_rays_layout_schema(self):
+        """Test that radial rays layout fields pass validation"""
+        radial_rays_pattern = {
+            "schema_version": "1.0",
+            "id": str(uuid.uuid4()),
+            "name": "Radial Rays Pattern",
+            "matrix": {
+                "width": 30,
+                "height": 30,
+                "layout": "row_major",
+                "wiring": "linear",
+                "default_color_order": "RGB",
+                "layout_type": "radial_rays",
+                "ray_count": 8,
+                "leds_per_ray": 10,
+                "ray_spacing_angle": 45.0
+            },
+            "frames": [
+                {
+                    "index": 0,
+                    "duration_ms": 100,
+                    "layers": [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "name": "base",
+                            "opacity": 1.0,
+                            "blend_mode": "normal",
+                            "visible": True,
+                            "pixels": [[0, 0, 255]] * 900,
+                            "encoding": "raw+rgb8"
+                        }
+                    ]
+                }
+            ],
+            "effects": [],
+            "metadata": {}
+        }
+        
+        assert validate_pattern_json(radial_rays_pattern) is True
+    
+    def test_custom_positions_layout_schema(self):
+        """Test that custom LED positions layout fields pass validation"""
+        custom_positions_pattern = {
+            "schema_version": "1.0",
+            "id": str(uuid.uuid4()),
+            "name": "Custom Positions Pattern",
+            "matrix": {
+                "width": 20,
+                "height": 20,
+                "layout": "row_major",
+                "wiring": "linear",
+                "default_color_order": "RGB",
+                "layout_type": "custom_positions",
+                "custom_led_positions": [[10.0, 10.0], [12.0, 10.0], [14.0, 10.0]],
+                "led_position_units": "mm",
+                "custom_position_center_x": 10.0,
+                "custom_position_center_y": 10.0
+            },
+            "frames": [
+                {
+                    "index": 0,
+                    "duration_ms": 100,
+                    "layers": [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "name": "base",
+                            "opacity": 1.0,
+                            "blend_mode": "normal",
+                            "visible": True,
+                            "pixels": [[255, 255, 0]] * 400,
+                            "encoding": "raw+rgb8"
+                        }
+                    ]
+                }
+            ],
+            "effects": [],
+            "metadata": {}
+        }
+        
+        assert validate_pattern_json(custom_positions_pattern) is True
 
 
 class TestPatternConverter:
@@ -248,6 +416,43 @@ class TestPatternConverter:
         # Decode and verify
         decoded_pattern = PatternConverter.pattern_from_json(json_data)
         assert decoded_pattern.frames[0].pixels == pattern.frames[0].pixels
+    
+    def test_circular_layout_round_trip(self):
+        """Test that circular layout patterns round-trip correctly"""
+        from core.mapping.circular_mapper import CircularMapper
+        
+        # Create a circular pattern with mapping table
+        metadata = PatternMetadata(
+            width=32,
+            height=32,
+            layout_type="circle",
+            circular_led_count=60,
+            circular_radius=15.0
+        )
+        
+        # Generate mapping table
+        mapping_table = CircularMapper.generate_mapping_table(metadata)
+        metadata.circular_mapping_table = mapping_table
+        
+        original_pattern = Pattern(
+            id="circular-round-trip-id",
+            name="Circular Round Trip",
+            metadata=metadata,
+            frames=[
+                Frame(pixels=[(255, 0, 0)] * (32 * 32), duration_ms=100)
+            ]
+        )
+        
+        # Convert to JSON and back
+        json_data = PatternConverter.pattern_to_json(original_pattern, use_rle=False)
+        converted_pattern = PatternConverter.pattern_from_json(json_data)
+        
+        # Verify circular layout fields are preserved
+        assert converted_pattern.metadata.layout_type == "circle"
+        assert converted_pattern.metadata.circular_led_count == 60
+        assert converted_pattern.metadata.circular_radius == 15.0
+        assert converted_pattern.metadata.circular_mapping_table is not None
+        assert len(converted_pattern.metadata.circular_mapping_table) == 60
 
 
 class TestSchemaMigration:

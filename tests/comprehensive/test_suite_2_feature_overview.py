@@ -25,11 +25,22 @@ def app():
 
 
 @pytest.fixture
-def design_tab(app):
+def design_tab(app, qtbot):
     """Create DesignToolsTab instance"""
     tab = DesignToolsTab()
     yield tab
-    tab.deleteLater()
+    # Wait for any pending timers before cleanup
+    qtbot.wait(2500)  # Wait longer than the 2000ms timer
+    try:
+        tab.hide()
+        tab.close()
+    except:
+        pass
+    try:
+        tab.deleteLater()
+    except RuntimeError:
+        # Widget already deleted, ignore
+        pass
 
 
 @pytest.fixture

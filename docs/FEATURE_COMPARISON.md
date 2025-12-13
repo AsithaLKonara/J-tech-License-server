@@ -12,19 +12,19 @@ This document compares features from LED Matrix Studio (as described in the refe
 | **Matrix Dimensions** | Up to 256×256 (1024×1024 beta) | 1-256×1-256 (configurable) | ✅ Implemented |
 | **Colour Modes** | Mono, Bi-colour, RGB (24-bit, 3-bit) | Mono, Bi-colour, RGB | ✅ Implemented |
 | **Freehand Pixel Drawing** | Left click on, right click off | Click to paint, right-click to erase | ✅ Implemented |
-| **Shapes (Rectangle)** | Filled/empty rectangle | ❌ Not implemented | ❌ Missing |
-| **Shapes (Circle)** | Filled/empty circle | ❌ Not implemented | ❌ Missing |
-| **Shapes (Lines)** | Line tool | ❌ Not implemented | ❌ Missing |
+| **Shapes (Rectangle)** | Filled/empty rectangle | ✅ RectangleTool with filled/outline modes | ✅ Implemented |
+| **Shapes (Circle)** | Filled/empty circle | ✅ CircleTool with filled/outline modes | ✅ Implemented |
+| **Shapes (Lines)** | Line tool | ✅ LineTool with Bresenham's algorithm | ✅ Implemented |
 | **Gradient Fill** | Gradient tool | ✅ Horizontal/Vertical/Radial gradients | ✅ Implemented |
-| **Custom Brush Sizes** | 1×1, 2×2, 3×3, custom shapes | ❌ Single pixel only | ❌ Missing |
+| **Custom Brush Sizes** | 1×1, 2×2, 3×3, custom shapes | ✅ Adjustable brush size (1-50 pixels), square/circle shape | ✅ Implemented |
 | **Transformations** | Flip, mirror, invert, rotate, scroll | ✅ Mirror, flip, invert, rotate, scroll | ✅ Implemented |
-| **Import Bitmaps/GIFs** | Import bitmap/GIF frames | ❌ Not implemented | ❌ Missing |
-| **Export Bitmaps/GIFs** | Export frames to bitmap/GIF | ❌ Not implemented | ❌ Missing |
+| **Import Bitmaps/GIFs** | Import bitmap/GIF frames | ✅ ImageImporter (PNG, BMP, JPEG), GIF frame extraction | ✅ Implemented |
+| **Export Bitmaps/GIFs** | Export frames to bitmap/GIF | ✅ ImageExporter (PNG, BMP), GIF animation export | ✅ Implemented |
 | **Font Designer** | Custom font creation | ✅ Text animation with bitmap fonts | ⚠️ Partial (text only) |
 | **Preview Modes** | Magnification (x1-x50), radial/semi-circle | ✅ Zoom (25-300%), Matrix/Radial/Circle layouts | ✅ Implemented |
 | **Layers** | Multiple layers/buffers | ✅ LayerManager exists | ⚠️ Partial (UI not exposed) |
 | **Frames** | Unlimited frames | ✅ Unlimited frames | ✅ Implemented |
-| **Undo/Redo** | Per-frame undo/redo | ❌ Not implemented | ❌ Missing |
+| **Undo/Redo** | Per-frame undo/redo | ✅ Full undo/redo system with history management | ✅ Implemented |
 
 ---
 

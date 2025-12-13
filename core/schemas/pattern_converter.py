@@ -169,6 +169,46 @@ class PatternConverter:
                 "circular_inner_radius": getattr(pattern.metadata, 'circular_inner_radius', None),
                 "circular_start_angle": getattr(pattern.metadata, 'circular_start_angle', 0.0),
                 "circular_end_angle": getattr(pattern.metadata, 'circular_end_angle', 360.0),
+                "circular_led_spacing": getattr(pattern.metadata, 'circular_led_spacing', None),
+                "circular_mapping_table": (
+                    [[int(x), int(y)] for x, y in mapping_table] 
+                    if (mapping_table := getattr(pattern.metadata, 'circular_mapping_table', None))
+                    else None
+                ),
+                # Multi-ring layout support (Budurasmala)
+                "multi_ring_count": getattr(pattern.metadata, 'multi_ring_count', None),
+                "ring_led_counts": getattr(pattern.metadata, 'ring_led_counts', None),
+                "ring_radii": getattr(pattern.metadata, 'ring_radii', None),
+                "ring_spacing": getattr(pattern.metadata, 'ring_spacing', None),
+                # Radial ray support (Budurasmala)
+                "ray_count": getattr(pattern.metadata, 'ray_count', None),
+                "leds_per_ray": getattr(pattern.metadata, 'leds_per_ray', None),
+                "ray_spacing_angle": getattr(pattern.metadata, 'ray_spacing_angle', None),
+                # Custom LED positions (for custom PCBs - Budurasmala)
+                "custom_led_positions": (
+                    [[float(x), float(y)] for x, y in positions] 
+                    if (positions := getattr(pattern.metadata, 'custom_led_positions', None))
+                    else None
+                ),
+                "led_position_units": getattr(pattern.metadata, 'led_position_units', 'grid'),
+                "custom_position_center_x": getattr(pattern.metadata, 'custom_position_center_x', None),
+                "custom_position_center_y": getattr(pattern.metadata, 'custom_position_center_y', None),
+                # Matrix-style Budurasmala (curved matrix, text rendering)
+                "matrix_style": getattr(pattern.metadata, 'matrix_style', None),
+                "text_content": getattr(pattern.metadata, 'text_content', None),
+                "text_font_size": getattr(pattern.metadata, 'text_font_size', None),
+                "text_color": getattr(pattern.metadata, 'text_color', None),
+                # Irregular/custom shape support (LED Build-style)
+                "irregular_shape_enabled": getattr(pattern.metadata, 'irregular_shape_enabled', False),
+                "active_cell_coordinates": (
+                    [[int(x), int(y)] for x, y in coords] 
+                    if (coords := getattr(pattern.metadata, 'active_cell_coordinates', None))
+                    else None
+                ),
+                "background_image_path": getattr(pattern.metadata, 'background_image_path', None),
+                "background_image_scale": getattr(pattern.metadata, 'background_image_scale', 1.0),
+                "background_image_offset_x": getattr(pattern.metadata, 'background_image_offset_x', 0.0),
+                "background_image_offset_y": getattr(pattern.metadata, 'background_image_offset_y', 0.0),
             },
             "frames": frames_json,
             "effects": effects_json,
@@ -219,6 +259,46 @@ class PatternConverter:
             circular_inner_radius=matrix.get("circular_inner_radius"),
             circular_start_angle=matrix.get("circular_start_angle", 0.0),
             circular_end_angle=matrix.get("circular_end_angle", 360.0),
+            circular_led_spacing=matrix.get("circular_led_spacing"),
+            circular_mapping_table=(
+                [tuple(map(int, pos)) for pos in mapping_table]
+                if (mapping_table := matrix.get("circular_mapping_table"))
+                else None
+            ),
+            # Multi-ring layout support (Budurasmala)
+            multi_ring_count=matrix.get("multi_ring_count"),
+            ring_led_counts=matrix.get("ring_led_counts"),
+            ring_radii=matrix.get("ring_radii"),
+            ring_spacing=matrix.get("ring_spacing"),
+            # Radial ray support (Budurasmala)
+            ray_count=matrix.get("ray_count"),
+            leds_per_ray=matrix.get("leds_per_ray"),
+            ray_spacing_angle=matrix.get("ray_spacing_angle"),
+            # Custom LED positions (for custom PCBs - Budurasmala)
+            custom_led_positions=(
+                [tuple(map(float, pos)) for pos in positions]
+                if (positions := matrix.get("custom_led_positions"))
+                else None
+            ),
+            led_position_units=matrix.get("led_position_units", "grid"),
+            custom_position_center_x=matrix.get("custom_position_center_x"),
+            custom_position_center_y=matrix.get("custom_position_center_y"),
+            # Matrix-style Budurasmala (curved matrix, text rendering)
+            matrix_style=matrix.get("matrix_style"),
+            text_content=matrix.get("text_content"),
+            text_font_size=matrix.get("text_font_size"),
+            text_color=matrix.get("text_color"),
+            # Irregular/custom shape support (LED Build-style)
+            irregular_shape_enabled=matrix.get("irregular_shape_enabled", False),
+            active_cell_coordinates=(
+                [tuple(map(int, pos)) for pos in coords]
+                if (coords := matrix.get("active_cell_coordinates"))
+                else None
+            ),
+            background_image_path=matrix.get("background_image_path"),
+            background_image_scale=matrix.get("background_image_scale", 1.0),
+            background_image_offset_x=matrix.get("background_image_offset_x", 0.0),
+            background_image_offset_y=matrix.get("background_image_offset_y", 0.0),
         )
         
         # Extract frames

@@ -129,9 +129,18 @@ Complete installation instructions for Windows, macOS, and Linux.
    ```
 
 4. **Install Dependencies**
+
+   **Full Installation** (recommended - all features):
    ```bash
    pip3 install -r requirements.txt
    ```
+   
+   **Minimal Installation** (basic features only):
+   ```bash
+   pip3 install -r requirements_simple.txt
+   ```
+   
+   See [Minimal vs Full Installation](#minimal-vs-full-installation) section for details.
 
 5. **Verify Installation**
    ```bash
@@ -141,6 +150,80 @@ Complete installation instructions for Windows, macOS, and Linux.
 6. **Create Application Bundle (Optional)**
    - Use Automator or create `.app` bundle
    - Or use `py2app` to create standalone app
+
+---
+
+## Minimal vs Full Installation
+
+Upload Bridge supports two installation modes:
+
+### Full Installation (Recommended)
+
+**Use**: `requirements.txt`
+
+**Includes**:
+- All core dependencies (GUI, serial communication, file handling)
+- Media conversion support (images, GIFs, videos)
+- License system security
+- Health monitoring
+- Schema validation
+- HTTP requests
+- All optional utilities
+
+**Installation**:
+```bash
+pip install -r requirements.txt
+```
+
+**Features Available**:
+- ✅ All drawing tools
+- ✅ All automation actions
+- ✅ Media import/export (images, GIFs, videos)
+- ✅ License activation
+- ✅ Health monitoring
+- ✅ Full pattern library
+- ✅ All hardware support
+
+### Minimal Installation
+
+**Use**: `requirements_simple.txt`
+
+**Includes**:
+- Core dependencies only (GUI, serial communication, file handling)
+- Basic ESP chip support
+
+**Installation**:
+```bash
+pip install -r requirements_simple.txt
+```
+
+**Missing Features** (compared to full install):
+- ❌ Media conversion (needs: opencv-python, imageio, imageio-ffmpeg, numpy)
+- ❌ License system (needs: cryptography)
+- ❌ Health monitoring (needs: psutil)
+- ❌ Schema validation (needs: jsonschema)
+- ❌ HTTP requests (needs: requests)
+- ❌ Path utilities for older Python (needs: pathlib2)
+
+**Features Still Available**:
+- ✅ All drawing tools
+- ✅ All automation actions
+- ✅ Pattern creation and editing
+- ✅ Basic import/export (without media conversion)
+- ✅ Hardware upload support
+- ✅ Frame and layer management
+
+**When to Use Minimal Install**:
+- Limited disk space
+- Quick testing/prototyping
+- Systems where media conversion isn't needed
+- Embedded systems with resource constraints
+
+**Upgrading from Minimal to Full**:
+```bash
+pip install -r requirements.txt
+```
+This will install all additional dependencies without removing existing ones.
 
 ---
 
@@ -274,11 +357,25 @@ sudo dnf install python3.10 python3-pip
 
 ## Dependency Installation
 
+### Installation Options
+
+**Full Installation** (recommended - all features):
+```bash
+pip install -r requirements.txt
+```
+
+**Minimal Installation** (basic features only):
+```bash
+pip install -r requirements_simple.txt
+```
+
+See [Minimal vs Full Installation](#minimal-vs-full-installation) section above for detailed comparison.
+
 ### Core Dependencies
-All dependencies are listed in `requirements.txt`:
+All dependencies are listed in `requirements.txt`. For minimal install, see `requirements_simple.txt`.
 
 ```bash
-# Install all dependencies
+# Install all dependencies (full install)
 pip install -r requirements.txt
 
 # Or install individually

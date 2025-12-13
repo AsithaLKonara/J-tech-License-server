@@ -24,10 +24,10 @@
 
 - 🎨 **Professional Pattern Editor** - Full-featured design tools with 8 drawing tools, multi-layer system, and timeline editor
 - 🎬 **Media Conversion** - Convert images, GIFs, and videos directly to LED patterns with advanced conversion options
-- 🔌 **Multi-Platform Hardware Support** - 9+ microcontroller types (ESP32, ATmega, ATtiny, STM32, PIC, Nuvoton)
+- 🔌 **Multi-Platform Hardware Support** - 29 total chips supported (9 fully tested with dedicated uploaders + 20 via generic uploaders). Supports ESP32, ATmega, ATtiny, STM32, PIC, Nuvoton and more.
 - ⚡ **Real-time Preview** - 60 FPS LED matrix visualization with hardware-accurate simulation
-- 🤖 **Automation Engine** - 8+ parametric automation actions for dynamic animations
-- ✨ **Effects Library** - 92+ procedural visual effects for stunning animations
+- 🤖 **Automation Engine** - 17 parametric automation actions for dynamic animations
+- ✨ **Effects Library** - 92 procedural visual effects for stunning animations
 - 💾 **Project Management** - Save/load projects with versioning, metadata, and pattern library
 - 📡 **WiFi Upload** - Over-the-air firmware updates for ESP chips
 - 🔄 **Batch Operations** - Flash multiple devices simultaneously
@@ -35,11 +35,11 @@
 
 ### Key Statistics
 
-- **Supported Chips**: 9+ microcontroller types
-- **File Formats**: 10+ import/export formats
+- **Supported Chips**: 29 total chips (9 fully supported with dedicated uploaders + 20 via generic uploaders)
+- **File Formats**: 17 import formats, 12 export formats
 - **Drawing Tools**: 8 professional tools
-- **Automation Actions**: 8+ parametric actions
-- **Visual Effects**: 92+ procedural effects
+- **Automation Actions**: 17 parametric actions (12 core + 5 advanced)
+- **Visual Effects**: 92 procedural effects
 - **Test Coverage**: 300+ tests (99.7%+ passing)
 - **Lines of Code**: 50,000+ production code
 - **Documentation**: 100+ pages
@@ -132,42 +132,40 @@
 
 ### ⚡ Automation & Effects Engine
 
-#### Automation Actions (8+ Actions)
+#### Automation Actions (17 Actions)
 
-1. **Scroll** - Directional scrolling animation
-   - Directions: Up, Down, Left, Right
-   - Speed control
-   - Distance control
-   - Frame range selection
+**Core Actions (12):**
+1. **Move Left** - Shift pixels left by one column
+2. **Move Right** - Shift pixels right by one column
+3. **Move Up** - Shift pixels up by one row
+4. **Move Down** - Shift pixels down by one row
+5. **Scroll Text** - Scroll the active text buffer
+6. **Rotate 90°** - Rotate the frame 90° clockwise
+7. **Mirror Horizontal** - Mirror horizontally (left/right)
+8. **Mirror Vertical** - Mirror vertically (top/bottom)
+9. **Invert** - Invert frame colours
+10. **Fade** - Apply fade effect using current palette
+11. **Brightness** - Adjust brightness by provided value
+12. **Randomize** - Randomize pixels (seed controlled)
 
-2. **Rotate** - 90° clockwise rotation
-   - Multiple rotations support
-   - Frame range selection
-
-3. **Mirror** - Horizontal or vertical axis mirroring
-   - Axis selection
-   - Frame range selection
-
-4. **Flip** - Same as mirror (alternative interface)
-
-5. **Invert** - Color inversion
-   - Full or selective inversion
-   - Frame range selection
-
-6. **Wipe** - Directional wipe effect
-   - Direction control
-   - Color selection
-   - Progression control
-
-7. **Reveal** - Directional reveal effect
-   - Direction control
-   - Progression control
-   - Frame range selection
-
-8. **Bounce** - Oscillating bounce animation
-   - Direction control
-   - Oscillation parameters
-   - Frame range selection
+**Advanced Actions (5):**
+13. **Wipe** - Directional wipe effect with fade
+   - Directions: Left-to-Right, Right-to-Left, Top-to-Bottom, Bottom-to-Top
+   - Offset control (pixels per frame)
+   - Fade intensity multiplier
+14. **Reveal** - Progressive reveal from direction
+   - Directions: Left, Right, Top, Bottom
+   - Offset control (pixels per frame)
+   - Edge softening
+15. **Bounce** - Ping-pong scroll animation
+   - Horizontal or vertical axis
+   - Oscillating motion
+16. **Colour Cycle** - Cycle color channels
+   - Modes: RGB, RYB, custom
+   - Channel rotation
+17. **Radial** - Radial effects from center
+   - Types: Spiral, Pulse, Sweep
+   - Center-based transformations
 
 #### Automation Features
 
@@ -178,7 +176,7 @@
 - **Automation Presets**: Save/load automation configurations
 - **Action Broadcasting**: Apply to all frames or selected range
 
-#### Effects Library (92+ Effects)
+#### Effects Library (92 Effects)
 
 - **Procedural Effects**: CPU-side image effects
 - **Preview Thumbnails**: Visual effect preview
@@ -261,17 +259,23 @@ Convert media files directly to LED patterns with advanced conversion options.
 
 ### 🔌 Hardware Support
 
-#### 9 Microcontroller Types
+#### Hardware Support Overview
 
-1. **ESP32** - Dual-core WiFi/Bluetooth microcontroller
-2. **ESP32-S** - ESP32 variant with enhanced features
-3. **ESP32-S3** - ESP32-S3 variant with advanced capabilities
-4. **ESP32-C3** - RISC-V based ESP32 variant
-5. **ATmega2560** - Arduino Mega compatible
-6. **ATtiny85** - Small AVR microcontroller
-7. **STM32F407** - ARM Cortex-M4 microcontroller
-8. **PIC18F4550** - PIC microcontroller
-9. **Nuvoton M051** - ARM Cortex-M0 microcontroller
+**29 Total Chips Supported:**
+- **9 Fully Tested** - These chips have dedicated uploader implementations and are fully tested:
+  1. **ESP32** - Dual-core WiFi/Bluetooth microcontroller
+  2. **ESP32-S2** - ESP32 variant with enhanced features
+  3. **ESP32-S3** - ESP32-S3 variant with advanced capabilities
+  4. **ESP32-C3** - RISC-V based ESP32 variant
+  5. **ATmega2560** - Arduino Mega compatible
+  6. **ATtiny85** - Small AVR microcontroller
+  7. **STM32F407** - ARM Cortex-M4 microcontroller
+  8. **PIC18F4550** - PIC microcontroller
+  9. **Nuvoton M051** - ARM Cortex-M0 microcontroller
+
+- **20 Additional Chips** - Supported via generic uploaders (AVR, ESP, STM32, PIC, Nuvoton families)
+
+See [Chip Support Matrix](docs/CHIP_SUPPORT_MATRIX.md) for complete details.
 
 #### Upload Methods
 
@@ -294,30 +298,43 @@ Convert media files directly to LED patterns with advanced conversion options.
 
 ### 📤 Import & Export System
 
-#### Import Formats (10+ Formats)
+#### Import Formats (17 Formats)
 
+**Pattern Files:**
 - **`.ledproj`** - LED Matrix Studio project files (with versioning)
 - **`.bin`** - Binary pattern files
 - **`.hex`** - Intel HEX files
 - **`.dat`** - LED Matrix Studio data files
 - **`.leds`** - LEDS format files
-- **`.ledadmin`** - LED Admin files
 - **`.json`** - JSON pattern files
-- **`.csv`** - CSV data files
-- **`.txt`** - Text-based pattern files
-- **Media Files**: PNG, JPG, BMP, GIF, MP4, AVI, MOV, MKV, WebM
 
-#### Export Formats (9+ Formats)
+**Media Files:**
+- **Images**: PNG, JPG/JPEG, BMP
+- **Animations**: GIF (animated)
+- **Videos**: MP4, AVI, MOV, MKV, WebM
+- **Vector Graphics**: SVG, PDF
 
+#### Export Formats (12 Formats)
+
+**Pattern Formats:**
 - **`.ledproj`** - Project format with metadata
 - **`.bin`** - Binary format
 - **`.hex`** - Intel HEX format
 - **`.dat`** - LED Matrix Studio format
 - **`.leds`** - LEDS format
-- **`.json`** - JSON pattern format
-- **`.csv`** - CSV data export
-- **`.txt`** - Text-based export
-- **Header Files** - C/C++ header files (`.h`)
+- **`.json`** - JSON pattern format (WLED compatible)
+
+**Code Formats:**
+- **`.h`** - C/C++ header files
+
+**Media Formats:**
+- **`.png`** - PNG sprite sheet
+- **`.gif`** - Animated GIF
+
+**Player Formats:**
+- **WLED** - WLED JSON format
+- **Falcon Player** - Falcon Player sequence format
+- **xLights** - xLights sequence format
 
 #### Advanced Export Options
 
@@ -551,11 +568,19 @@ git clone https://github.com/AsithaLKonara/J-Tech-Pixel-LED---Upload-Bridge.git
 cd upload_bridge
 
 # Install dependencies
+# For full features (recommended):
 pip install -r requirements.txt
+
+# For minimal install (basic functionality only):
+# pip install -r requirements_simple.txt
+# Note: Minimal install disables media conversion, license system, 
+# health monitoring, and schema validation features.
 
 # Run application
 python main.py
 ```
+<｜tool▁call▁begin｜>
+read_file
 
 ### Additional Tools Required
 
@@ -833,9 +858,9 @@ For development guidelines, see [Developer Migration Guide](docs/DEVELOPER_MIGRA
 ### Features Implemented
 
 - ✅ Complete Design Tools (8 drawing tools, layers, timeline)
-- ✅ 9 chip uploaders with firmware templates
-- ✅ Export pipeline (9+ formats)
-- ✅ Automation and effects engine (8+ actions, 92+ effects)
+- ✅ 29 chip support (9 fully tested + 20 via generic uploaders) with firmware templates
+- ✅ Export pipeline (12 formats)
+- ✅ Automation and effects engine (17 actions, 92 effects)
 - ✅ Project file format (.ledproj) with versioning
 - ✅ Comprehensive test suite (300+ tests)
 - ✅ Cross-platform installers (Windows, macOS, Linux)
@@ -889,9 +914,9 @@ For detailed status, see [Project Status](docs/PROJECT_STATUS.md).
 
 **Major Features:**
 - ✅ Complete Design Tools implementation (8 drawing tools, layers, timeline)
-- ✅ 9 chip uploaders with firmware templates
-- ✅ Export pipeline (9+ formats)
-- ✅ Automation and effects engine (8+ actions, 92+ effects)
+- ✅ 29 chip support (9 fully tested + 20 via generic uploaders) with firmware templates
+- ✅ Export pipeline (12 formats)
+- ✅ Automation and effects engine (17 actions, 92 effects)
 - ✅ Project file format (.ledproj) with versioning
 - ✅ Comprehensive test suite (300+ tests)
 - ✅ Cross-platform installers (Windows, macOS, Linux)

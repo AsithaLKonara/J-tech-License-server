@@ -1,0 +1,100 @@
+{
+  "project_version": "1.1",
+  "schema_version": "1.0",
+  "metadata": {
+    "project_version": "1.0",
+    "name": "Untitled Project",
+    "description": "",
+    "author": "",
+    "created_at": "2025-12-10T20:11:24.706395Z",
+    "modified_at": "2025-12-10T20:11:24.707389Z",
+    "tags": [],
+    "category": null,
+    "license": null,
+    "thumbnail_path": null,
+    "settings": {
+      "auto_save": true,
+      "auto_save_interval_seconds": 300,
+      "undo_history_depth": 50,
+      "default_zoom": 100,
+      "grid_enabled": true,
+      "snap_to_grid": false,
+      "show_frame_numbers": true,
+      "default_fps": 24.0,
+      "default_color_order": "RGB"
+    },
+    "custom_metadata": {},
+    "frame_presets": []
+  },
+  "pattern": {
+    "schema_version": "1.0",
+    "id": "274f1ec3-fe8f-4b4f-a0ed-792432f3a21e",
+    "name": "Test Rect 16x16",
+    "description": "",
+    "tags": [],
+    "created_at": "2025-12-10T20:11:24.707389Z",
+    "modified_at": "2025-12-10T20:11:24.707389Z",
+    "matrix": {
+      "width": 16,
+      "height": 16,
+      "layout": "row_major",
+      "wiring": "linear",
+      "default_color_order": "RGB",
+      "layout_type": "rectangular",
+      "circular_led_count": null,
+      "circular_radius": null,
+      "circular_inner_radius": null,
+      "circular_start_angle": 0.0,
+      "circular_end_angle": 360.0,
+      "circular_led_spacing": null,
+      "circular_mapping_table": null,
+      "multi_ring_count": null,
+      "ring_led_counts": [],
+      "ring_radii": [],
+      "ring_spacing": null,
+      "ray_count": null,
+      "leds_per_ray": null,
+      "ray_spacing_angle": null,
+      "custom_led_positions": null,
+      "led_position_units": "grid",
+      "custom_position_center_x": null,
+      "custom_position_center_y": null,
+      "matrix_style": null,
+      "text_content": null,
+      "text_font_size": null,
+      "text_color": null
+    },
+    "frames": [
+      {
+        "index": 0,
+        "duration_ms": 100,
+        "layers": [
+          {
+            "id": "78d9b6fd-6d9d-4337-8108-222562864f0c",
+            "name": "base",
+            "opacity": 1.0,
+            "blend_mode": "normal",
+            "visible": true,
+            "encoding": "rle+rgba8",
+            "pixels": "AQAAAAERAAABIgAAATMAAAFEAAABVQAAAWYAAAF3AAABiAAAAZkAAAGqAAABuwAAAcwAAAHdAAAB7gAAAf8AAAEAEQABEREAASIRAAEzEQABRBEAAVURAAFmEQABdxEAAYgRAAGZEQABqhEAAbsRAAHMEQAB3REAAe4RAAH/EQABACIAAREiAAEiIgABMyIAAUQiAAFVIgABZiIAAXciAAGIIgABmSIAAaoiAAG7IgABzCIAAd0iAAHuIgAB/yIAAQAzAAERMwABIjMAATMzAAFEMwABVTMAAWYzAAF3MwABiDMAAZkzAAGqMwABuzMAAcwzAAHdMwAB7jMAAf8zAAEARAABEUQAASJEAAEzRAABREQAAVVEAAFmRAABd0QAAYhEAAGZRAABqkQAAbtEAAHMRAAB3UQAAe5EAAH/RAABAFUAARFVAAEiVQABM1UAAURVAAFVVQABZlUAAXdVAAGIVQABmVUAAapVAAG7VQABzFUAAd1VAAHuVQAB/1UAAQBmAAERZgABImYAATNmAAFEZgABVWYAAWZmAAF3ZgABiGYAAZlmAAGqZgABu2YAAcxmAAHdZgAB7mYAAf9mAAEAdwABEXcAASJ3AAEzdwABRHcAAVV3AAFmdwABd3cAAYh3AAGZdwABqncAAbt3AAHMdwAB3XcAAe53AAH/dwABAIgAARGIAAEiiAABM4gAAUSIAAFViAABZogAAXeIAAGIiAABmYgAAaqIAAG7iAABzIgAAd2IAAHuiAAB/4gAAQCZAAERmQABIpkAATOZAAFEmQABVZkAAWaZAAF3mQABiJkAAZmZAAGqmQABu5kAAcyZAAHdmQAB7pkAAf+ZAAEAqgABEaoAASKqAAEzqgABRKoAAVWqAAFmqgABd6oAAYiqAAGZqgABqqoAAbuqAAHMqgAB3aoAAe6qAAH/qgABALsAARG7AAEiuwABM7sAAUS7AAFVuwABZrsAAXe7AAGIuwABmbsAAaq7AAG7uwABzLsAAd27AAHuuwAB/7sAAQDMAAERzAABIswAATPMAAFEzAABVcwAAWbMAAF3zAABiMwAAZnMAAGqzAABu8wAAczMAAHdzAAB7swAAf/MAAEA3QABEd0AASLdAAEz3QABRN0AAVXdAAFm3QABd90AAYjdAAGZ3QABqt0AAbvdAAHM3QAB3d0AAe7dAAH/3QABAO4AARHuAAEi7gABM+4AAUTuAAFV7gABZu4AAXfuAAGI7gABme4AAaruAAG77gABzO4AAd3uAAHu7gAB/+4AAQD/AAER/wABIv8AATP/AAFE/wABVf8AAWb/AAF3/wABiP8AAZn/AAGq/wABu/8AAcz/AAHd/wAB7v8AAf//AA=="
+          }
+        ]
+      }
+    ],
+    "effects": [],
+    "metadata": {
+      "author": "",
+      "source_file": "",
+      "approx_memory_bytes": 768,
+      "export_formats": [
+        "bin",
+        "leds",
+        "json",
+        "hex",
+        "dat",
+        "h",
+        "ledproj"
+      ]
+    }
+  }
+}

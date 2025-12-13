@@ -120,7 +120,7 @@ class NewPatternDialog(QDialog):
         
         # Shape dropdown
         self.shape_combo = QComboBox()
-        self.shape_combo.addItems(["Rectangular", "Circle", "Ring", "Arc", "Radial", "Multi-Ring", "Radial Rays", "Custom Positions"])
+        self.shape_combo.addItems(["Rectangular", "Circle", "Ring", "Arc", "Radial", "Multi-Ring", "Radial Rays", "Custom Positions", "Irregular"])
         self.shape_combo.setCurrentText("Circle")
         self.shape_combo.currentTextChanged.connect(self._on_shape_changed)
         matrix_layout.addWidget(self.shape_combo)
@@ -300,6 +300,63 @@ class NewPatternDialog(QDialog):
         self.custom_position_params_group.setLayout(custom_position_layout)
         self.custom_position_params_group.setVisible(False)
         matrix_layout.addWidget(self.custom_position_params_group)
+        
+        # Irregular shape parameters (initially hidden)
+        self.irregular_params_group = QGroupBox("Irregular Shape Parameters")
+        irregular_params_layout = QVBoxLayout()
+        irregular_params_layout.setSpacing(8)
+        
+        # Info label
+        info_label = QLabel(
+            "Define which grid cells contain LEDs (active) and which are empty (holes).\n"
+            "Use the shape editor to toggle cells on/off or import a background image."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #AAAAAA; padding: 5px;")
+        irregular_params_layout.addWidget(info_label)
+        
+        # Shape editor widget
+        from ui.widgets.irregular_shape_editor import IrregularShapeEditor
+        self.irregular_shape_editor = IrregularShapeEditor()
+        self.irregular_shape_editor.setMinimumHeight(200)
+        self.irregular_shape_editor.active_cells_changed.connect(self._on_irregular_cells_changed)
+        irregular_params_layout.addWidget(self.irregular_shape_editor)
+        
+        # Editor tools
+        tools_layout = QHBoxLayout()
+        self.clear_all_btn = QPushButton("Clear All")
+        self.clear_all_btn.setToolTip("Make all cells inactive")
+        self.clear_all_btn.clicked.connect(self.irregular_shape_editor.clear_all)
+        tools_layout.addWidget(self.clear_all_btn)
+        
+        self.fill_all_btn = QPushButton("Fill All")
+        self.fill_all_btn.setToolTip("Make all cells active")
+        self.fill_all_btn.clicked.connect(self.irregular_shape_editor.fill_all)
+        tools_layout.addWidget(self.fill_all_btn)
+        
+        tools_layout.addStretch()
+        irregular_params_layout.addLayout(tools_layout)
+        
+        # Import background image button
+        import_bg_layout = QHBoxLayout()
+        self.import_bg_image_btn = QPushButton("Import Background Image...")
+        self.import_bg_image_btn.setToolTip("Import PNG/BMP image as template for LED placement")
+        self.import_bg_image_btn.clicked.connect(self._on_import_background_image)
+        import_bg_layout.addWidget(self.import_bg_image_btn)
+        import_bg_layout.addStretch()
+        irregular_params_layout.addLayout(import_bg_layout)
+        
+        # Background image status
+        self.bg_image_status_label = QLabel("No background image")
+        self.bg_image_status_label.setStyleSheet("color: #888; font-size: 10px;")
+        irregular_params_layout.addWidget(self.bg_image_status_label)
+        
+        # Store background image path
+        self.background_image_path: Optional[str] = None
+        
+        self.irregular_params_group.setLayout(irregular_params_layout)
+        self.irregular_params_group.setVisible(False)
+        matrix_layout.addWidget(self.irregular_params_group)
         
         # Background: Color swatch with radio buttons
         bg_layout = QHBoxLayout()
@@ -534,12 +591,14 @@ class NewPatternDialog(QDialog):
         is_multi_ring = shape_lower == "multi_ring"
         is_radial_rays = shape_lower == "radial_rays"
         is_custom_positions = shape_lower == "custom_positions"
+        is_irregular = shape_lower == "irregular"
         
         # Show/hide parameter groups
         self.circular_params_group.setVisible(is_circular)
         self.multi_ring_params_group.setVisible(is_multi_ring)
         self.radial_ray_params_group.setVisible(is_radial_rays)
         self.custom_position_params_group.setVisible(is_custom_positions)
+        self.irregular_params_group.setVisible(is_irregular)
         
         if is_circular:
             # Enable/disable specific fields based on shape
@@ -817,7 +876,7 @@ class NewPatternDialog(QDialog):
         return self.rgb_combo.currentText() == "SINGLE"
     
     def get_shape(self) -> str:
-        """Get selected shape: 'rectangular', 'circle', 'ring', 'arc', 'radial', 'multi_ring', 'radial_rays'."""
+        """Get selected shape: 'rectangular', 'circle', 'ring', 'arc', 'radial', 'multi_ring', 'radial_rays', 'irregular'."""
         shape = self.shape_combo.currentText().lower().replace("-", "_").replace(" ", "_")
         if shape == "rectangular":
             return "rectangular"
@@ -825,6 +884,8 @@ class NewPatternDialog(QDialog):
             return "multi_ring"
         elif shape == "radial_rays":
             return "radial_rays"
+        elif shape == "irregular":
+            return "irregular"
         return shape
     
     def get_layout_type(self) -> str:
@@ -832,7 +893,13 @@ class NewPatternDialog(QDialog):
         shape = self.get_shape()
         if shape == "rectangular":
             return "rectangular"
+        elif shape == "irregular":
+            return "irregular"
         return "circular"
+    
+    def get_background_image_path(self) -> Optional[str]:
+        """Get background image path for irregular shapes."""
+        return getattr(self, 'background_image_path', None)
     
     def get_background_color(self) -> tuple:
         """Get background color as RGB tuple."""
@@ -1040,6 +1107,50 @@ class NewPatternDialog(QDialog):
             )
             self.custom_position_status_label.setText("Import failed")
             self.custom_position_status_label.setStyleSheet("color: #FF6B6B; font-size: 10px;")
+    
+    def _on_irregular_cells_changed(self):
+        """Handle irregular shape editor cell changes."""
+        # Update validation or preview when cells change
+        # The irregular shape editor handles the cell state internally
+        # This method is called to notify the dialog of changes
+        # Can be used for validation or UI updates if needed
+        pass
+    
+    def _on_import_background_image(self):
+        """Handle import background image button click."""
+        from PySide6.QtWidgets import QFileDialog
+        from pathlib import Path
+        
+        # Open file dialog
+        file_path, selected_filter = QFileDialog.getOpenFileName(
+            self,
+            "Import Background Image",
+            "",
+            "Image Files (*.png *.bmp *.jpg *.jpeg);;PNG Files (*.png);;BMP Files (*.bmp);;All Files (*.*)"
+        )
+        
+        if not file_path:
+            return
+        
+        file_path_obj = Path(file_path)
+        
+        # Validate file exists
+        if not file_path_obj.exists():
+            QMessageBox.warning(self, "File Not Found", f"Image file not found: {file_path}")
+            return
+        
+        # Store background image path
+        self.background_image_path = str(file_path_obj)
+        
+        # Set image in shape editor
+        if hasattr(self, 'irregular_shape_editor'):
+            self.irregular_shape_editor.set_background_image(self.background_image_path)
+        
+        # Update status label
+        self.bg_image_status_label.setText(
+            f"✓ Background image: {file_path_obj.name}"
+        )
+        self.bg_image_status_label.setStyleSheet("color: #00FF78; font-size: 10px;")
     
     def get_custom_led_positions(self) -> Optional[List[Tuple[float, float]]]:
         """Get imported custom LED positions."""

@@ -48,9 +48,8 @@ class PixelShape(Enum):
 class GeometryOverlay(Enum):
     """Preview overlays that mirror LMS visualizations."""
     MATRIX = "matrix"
-    CIRCLE = "circle"
     RING = "ring"
-    RADIAL = "radial"
+    IRREGULAR = "irregular"
 
 
 class MatrixDesignCanvas(QWidget):
@@ -331,6 +330,48 @@ class MatrixDesignCanvas(QWidget):
             self._pixel_size * self._matrix_height + 2,
         )
 
+    def _draw_background_image(self, painter: QPainter, bounds):
+        """Draw background image if available for irregular shapes."""
+        if not self._pattern_metadata or not self._pattern_metadata.irregular_shape_enabled:
+            return
+        
+        if not self._pattern_metadata.background_image_path:
+            return
+        
+        try:
+            from PySide6.QtGui import QPixmap
+            from pathlib import Path
+            
+            image_path = Path(self._pattern_metadata.background_image_path)
+            if not image_path.exists():
+                return
+            
+            pixmap = QPixmap(str(image_path))
+            if pixmap.isNull():
+                return
+            
+            # Apply scale and offset
+            scale = self._pattern_metadata.background_image_scale
+            offset_x = self._pattern_metadata.background_image_offset_x
+            offset_y = self._pattern_metadata.background_image_offset_y
+            
+            # Scale pixmap
+            if scale != 1.0:
+                scaled_size = pixmap.size() * scale
+                pixmap = pixmap.scaled(scaled_size.toSize(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            
+            # Draw semi-transparent background image
+            painter.setOpacity(0.3)
+            painter.drawPixmap(
+                int(bounds.x() + offset_x),
+                int(bounds.y() + offset_y),
+                pixmap
+            )
+            painter.setOpacity(1.0)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to draw background image: {e}")
+    
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, False)
@@ -340,6 +381,14 @@ class MatrixDesignCanvas(QWidget):
 
         # Apply pan offset translation
         painter.translate(self._pan_offset)
+        
+        # Calculate bounds for background image
+        width_px = self._matrix_width * self._pixel_size
+        height_px = self._matrix_height * self._pixel_size
+        bounds = painter.viewport().adjusted(0, 0, width_px, height_px)
+        
+        # Draw background image (before pixels, so it appears behind)
+        self._draw_background_image(painter, bounds)
 
         # Draw pixels (use preview grid if available, otherwise use actual grid)
         display_grid = self._preview_grid if self._preview_grid is not None else self._grid
@@ -411,6 +460,12 @@ class MatrixDesignCanvas(QWidget):
         if not (0 <= x < self._matrix_width and 0 <= y < self._matrix_height):
             return []
         
+        # Check if starting cell is active (for irregular shapes)
+        if self._pattern_metadata and self._pattern_metadata.irregular_shape_enabled:
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+            if not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                return []  # Can't fill inactive cell
+        
         # Check if colors are similar within tolerance
         def colors_match(c1: RGB, c2: RGB, tol: int) -> bool:
             if tol == 0:
@@ -445,16 +500,26 @@ class MatrixDesignCanvas(QWidget):
             if not colors_match(current_color, target_color, tolerance):
                 continue
             
+            # Check if cell is active (for irregular shapes)
+            if self._pattern_metadata and self._pattern_metadata.irregular_shape_enabled:
+                if not IrregularShapeMapper.is_cell_active(cx, cy, self._pattern_metadata):
+                    continue  # Skip inactive cells
+            
             # Fill this pixel
             self._grid[cy][cx] = fill_color
             filled_pixels.append((cx, cy, fill_color))
             visited.add((cx, cy))
             
-            # Add neighbors to queue
+            # Add neighbors to queue (only active cells for irregular shapes)
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = cx + dx, cy + dy
                 if (nx, ny) not in visited:
-                    queue.append((nx, ny))
+                    # For irregular shapes, only add active neighbors
+                    if self._pattern_metadata and self._pattern_metadata.irregular_shape_enabled:
+                        if IrregularShapeMapper.is_cell_active(nx, ny, self._pattern_metadata):
+                            queue.append((nx, ny))
+                    else:
+                        queue.append((nx, ny))
         
         return filled_pixels
 
@@ -656,6 +721,12 @@ class MatrixDesignCanvas(QWidget):
         x, y = cell
         if not (0 <= x < self._matrix_width and 0 <= y < self._matrix_height):
             return
+        
+        # Check if cell is active (for irregular shapes)
+        if self._pattern_metadata and self._pattern_metadata.irregular_shape_enabled:
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+            if not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                return  # Ignore clicks on inactive cells
 
         if button == Qt.RightButton:
             color = self._erase_color
@@ -750,11 +821,21 @@ class MatrixDesignCanvas(QWidget):
         x_min, x_max = min(x1, x2), max(x1, x2)
         y_min, y_max = min(y1, y2), max(y1, y2)
         
+        # Check for irregular shapes
+        check_active = (self._pattern_metadata and 
+                       self._pattern_metadata.irregular_shape_enabled and 
+                       not preview)
+        if check_active:
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+        
         if self._shape_filled:
             # Filled rectangle
             for y in range(y_min, y_max + 1):
                 for x in range(x_min, x_max + 1):
                     if 0 <= x < self._matrix_width and 0 <= y < self._matrix_height:
+                        # Check if cell is active (for irregular shapes)
+                        if check_active and not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                            continue
                         target_grid[y][x] = color
         else:
             # Empty rectangle (outline only)
@@ -763,6 +844,9 @@ class MatrixDesignCanvas(QWidget):
                     if 0 <= x < self._matrix_width and 0 <= y < self._matrix_height:
                         # Draw only border pixels
                         if y == y_min or y == y_max or x == x_min or x == x_max:
+                            # Check if cell is active (for irregular shapes)
+                            if check_active and not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                                continue
                             target_grid[y][x] = color
 
     def _draw_circle(self, x1: int, y1: int, x2: int, y2: int, color: RGB, preview: bool = False):
@@ -774,10 +858,18 @@ class MatrixDesignCanvas(QWidget):
         radius_x = abs(x2 - x1) // 2
         radius_y = abs(y2 - y1) // 2
         
+        # Check for irregular shapes
+        check_active = (self._pattern_metadata and 
+                       self._pattern_metadata.irregular_shape_enabled and 
+                       not preview)
+        if check_active:
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+        
         if radius_x == 0 and radius_y == 0:
             # Single pixel
             if 0 <= center_x < self._matrix_width and 0 <= center_y < self._matrix_height:
-                target_grid[center_y][center_x] = color
+                if not check_active or IrregularShapeMapper.is_cell_active(center_x, center_y, self._pattern_metadata):
+                    target_grid[center_y][center_x] = color
             return
         
         # Use ellipse approximation for non-square circles
@@ -790,6 +882,9 @@ class MatrixDesignCanvas(QWidget):
                     # Ellipse equation: (dx/rx)^2 + (dy/ry)^2 <= 1
                     if radius_x > 0 and radius_y > 0:
                         if (dx * dx) / (radius_x * radius_x) + (dy * dy) / (radius_y * radius_y) <= 1.0:
+                            # Check if cell is active (for irregular shapes)
+                            if check_active and not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                                continue
                             target_grid[y][x] = color
         else:
             # Empty circle (outline)
@@ -801,6 +896,9 @@ class MatrixDesignCanvas(QWidget):
                         dist = (dx * dx) / (radius_x * radius_x) + (dy * dy) / (radius_y * radius_y)
                         # Draw pixels near the border
                         if 0.8 <= dist <= 1.2:
+                            # Check if cell is active (for irregular shapes)
+                            if check_active and not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                                continue
                             target_grid[y][x] = color
 
     def _draw_line(self, x1: int, y1: int, x2: int, y2: int, color: RGB, preview: bool = False):
@@ -813,10 +911,19 @@ class MatrixDesignCanvas(QWidget):
         sy = 1 if y1 < y2 else -1
         err = dx - dy
         
+        # Check for irregular shapes
+        check_active = (self._pattern_metadata and 
+                       self._pattern_metadata.irregular_shape_enabled and 
+                       not preview)
+        if check_active:
+            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+        
         x, y = x1, y1
         while True:
             if 0 <= x < self._matrix_width and 0 <= y < self._matrix_height:
-                target_grid[y][x] = color
+                # Check if cell is active (for irregular shapes)
+                if not check_active or IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                    target_grid[y][x] = color
             
             if x == x2 and y == y2:
                 break
@@ -905,7 +1012,7 @@ class MatrixDesignCanvas(QWidget):
         if self._pattern_metadata:
             layout_type = getattr(self._pattern_metadata, 'layout_type', 'rectangular')
         
-        # For circular layouts, dim unmapped cells to show active vs inactive
+        # For circular layouts and irregular shapes, dim unmapped/inactive cells
         if layout_type and layout_type != "rectangular":
             from core.mapping.circular_mapper import CircularMapper
             
@@ -919,9 +1026,16 @@ class MatrixDesignCanvas(QWidget):
             
             for y in range(self._matrix_height):
                 for x in range(self._matrix_width):
-                    # Check if this cell is mapped
-                    if not CircularMapper.is_mapped(x, y, self._pattern_metadata):
-                        # Dim unmapped cell
+                    # Check if this cell is mapped/active
+                    is_active = True
+                    if layout_type == "irregular":
+                        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                        is_active = IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata)
+                    else:
+                        is_active = CircularMapper.is_mapped(x, y, self._pattern_metadata)
+                    
+                    if not is_active:
+                        # Dim inactive/unmapped cell
                         cell_x = bounds.x() + x * cell_width
                         cell_y = bounds.y() + y * cell_height
                         painter.drawRect(int(cell_x), int(cell_y), int(cell_width), int(cell_height))
@@ -961,9 +1075,7 @@ class MatrixDesignCanvas(QWidget):
                 
         painter.restore()
         
-        # Draw wiring path overlay if enabled
-        if self._pattern_metadata and hasattr(self._pattern_metadata, 'wiring_mode'):
-            self._draw_wiring_overlay(painter, bounds)
+        # Wiring overlay removed - only geometry overlays (radial rings, rectangular, irregular) are shown
     
     def _draw_wiring_overlay(self, painter: QPainter, bounds):
         """
@@ -1007,7 +1119,7 @@ class MatrixDesignCanvas(QWidget):
         wiring_pen = QPen(QColor(255, 200, 0, 150), 2, Qt.SolidLine)
         painter.setPen(wiring_pen)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        
+                
         # Draw path connecting LEDs in hardware order
         prev_x, prev_y = None, None
         for hw_idx in range(len(mapping)):
@@ -1054,7 +1166,7 @@ class MatrixDesignCanvas(QWidget):
         wiring_pen = QPen(QColor(255, 200, 0, 150), 2, Qt.SolidLine)
         painter.setPen(wiring_pen)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        
+                        
         # Draw path connecting LEDs in index order (0, 1, 2, ...)
         prev_x, prev_y = None, None
         for led_idx in range(len(mapping_table)):
@@ -1095,72 +1207,26 @@ class MatrixDesignCanvas(QWidget):
                 # Start point - green
                 start_brush = QBrush(QColor(0, 255, 0, 150))
                 painter.setBrush(start_brush)
+                painter.setPen(Qt.NoPen)
                 painter.drawEllipse(int(x - 4), int(y - 4), 8, 8)
+                painter.setPen(wiring_pen)
+                painter.setBrush(Qt.NoBrush)
             elif led_idx == len(mapping_table) - 1:
                 # End point - red
                 end_brush = QBrush(QColor(255, 0, 0, 150))
                 painter.setBrush(end_brush)
+                painter.setPen(Qt.NoPen)
                 painter.drawEllipse(int(x - 4), int(y - 4), 8, 8)
-                painter.setPen(inactive_pen)
-                painter.setBrush(inactive_brush)
-                
-                # Draw dimmed overlay for non-active cells
-                for y in range(self._matrix_height):
-                    for x in range(self._matrix_width):
-                        if (x, y) not in active_cells:
-                            rect_x = x * self._pixel_size + 1
-                            rect_y = y * self._pixel_size + 1
-                            rect_w = self._pixel_size - 2
-                            rect_h = self._pixel_size - 2
-                            painter.drawRect(rect_x, rect_y, rect_w, rect_h)
-                
-                # Then highlight active cells (those that map to LEDs)
-                highlight_pen = QPen(QColor(0, 255, 120, 120), 2, Qt.SolidLine)
-                highlight_brush = QBrush(QColor(0, 255, 120, 40))
-                painter.setPen(highlight_pen)
-                painter.setBrush(highlight_brush)
-                
-                for grid_x, grid_y in active_cells:
-                    if 0 <= grid_x < self._matrix_width and 0 <= grid_y < self._matrix_height:
-                        rect_x = grid_x * self._pixel_size + 1
-                        rect_y = grid_y * self._pixel_size + 1
-                        rect_w = self._pixel_size - 2
-                        rect_h = self._pixel_size - 2
-                        painter.drawRect(rect_x, rect_y, rect_w, rect_h)
-                        
-                        # Optionally show LED index on active cells (for debugging)
-                        # This helps users understand the mapping
-                        if hasattr(self, '_show_led_indices') and self._show_led_indices:
-                            # Find LED index for this grid cell
-                            led_idx = None
-                            for idx, (mx, my) in enumerate(self._pattern_metadata.circular_mapping_table):
-                                if mx == grid_x and my == grid_y:
-                                    led_idx = idx
-                                    break
-                            
-                            if led_idx is not None and self._pixel_size > 16:
-                                painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
-                                font = painter.font()
-                                font.setPointSize(max(6, self._pixel_size // 4))
-                                painter.setFont(font)
-                                text_rect = painter.boundingRect(
-                                    rect_x, rect_y, rect_w, rect_h,
-                                    Qt.AlignCenter, str(led_idx)
-                                )
-                                painter.fillRect(text_rect, QColor(0, 0, 0, 180))
-                                painter.drawText(
-                                    rect_x, rect_y, rect_w, rect_h,
-                                    Qt.AlignCenter, str(led_idx)
-                                )
+                painter.setPen(wiring_pen)
+                painter.setBrush(Qt.NoBrush)
         
         # Also draw manual overlay if set (for preview purposes)
         if self._geometry_overlay != GeometryOverlay.MATRIX:
             overlay_pen = QPen(QColor(255, 255, 255, 80), 2, Qt.DashLine)
             painter.setPen(overlay_pen)
             
-            if self._geometry_overlay == GeometryOverlay.CIRCLE:
-                painter.drawEllipse(bounds)
-            elif self._geometry_overlay == GeometryOverlay.RING:
+            if self._geometry_overlay == GeometryOverlay.RING:
+                # Draw radial rings (outer and inner circles)
                 painter.drawEllipse(bounds)
                 inner = bounds.adjusted(
                     bounds.width() * 0.2,
@@ -1169,17 +1235,20 @@ class MatrixDesignCanvas(QWidget):
                     -bounds.height() * 0.2,
                 )
                 painter.drawEllipse(inner)
-            elif self._geometry_overlay == GeometryOverlay.RADIAL:
-                # Draw semi-circle with spokes
-                painter.drawArc(bounds, 0, 180 * 16)
-                steps = 8
-                center = bounds.bottomLeft()
-                radius = bounds.width()
-                for i in range(steps + 1):
-                    angle = pi * (i / steps)
-                    x = center.x() + radius * cos(angle)
-                    y = center.y() - radius * sin(angle)
-                    painter.drawLine(center, QPoint(int(x), int(y)))
+            elif self._geometry_overlay == GeometryOverlay.IRREGULAR:
+                # Draw irregular shape overlay (if metadata has irregular shape info)
+                if self._pattern_metadata and self._pattern_metadata.irregular_shape_enabled:
+                    # Draw outline based on irregular shape mapping
+                    from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                    # Draw active cells as a visual guide
+                    for y in range(self._matrix_height):
+                        for x in range(self._matrix_width):
+                            if IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                                cell_x = bounds.x() + (x * bounds.width() / self._matrix_width)
+                                cell_y = bounds.y() + (y * bounds.height() / self._matrix_height)
+                                cell_w = bounds.width() / self._matrix_width
+                                cell_h = bounds.height() / self._matrix_height
+                                painter.drawRect(int(cell_x), int(cell_y), int(cell_w), int(cell_h))
 
         painter.restore()
 

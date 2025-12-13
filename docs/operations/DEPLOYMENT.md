@@ -22,14 +22,14 @@ This guide provides step-by-step instructions for deploying Upload Bridge to pro
 ### System Requirements
 
 - **Operating System**: Windows 10+, Linux, macOS
-- **Python**: 3.8 or higher
+- **Python**: 3.10 or higher
 - **Memory**: 4GB RAM minimum (8GB recommended)
 - **Disk Space**: 500MB for application + logs
 - **Dependencies**: See `requirements.txt`
 
 ### Pre-Deployment Checklist
 
-- [ ] Python 3.8+ installed
+- [ ] Python 3.10+ installed
 - [ ] System dependencies installed
 - [ ] Network access (if needed)
 - [ ] File permissions configured
@@ -144,7 +144,7 @@ chmod 755 config
    ```json
    {
      "app_name": "Upload Bridge",
-     "app_version": "1.0.0",
+     "app_version": "3.0.0",
      "debug": false,
      "max_pattern_size": 1000000,
      "cache_size": 100

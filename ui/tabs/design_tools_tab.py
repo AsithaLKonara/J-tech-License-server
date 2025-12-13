@@ -1094,8 +1094,31 @@ class DesignToolsTab(QWidget):
                 metadata.led_type = led_type
             metadata.is_single_color = is_single_color
             
+            # Handle irregular shapes
+            if layout_type == "irregular":
+                from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                
+                metadata.layout_type = "irregular"
+                metadata.irregular_shape_enabled = True
+                
+                # Get active cells from shape editor
+                active_cells = dialog.get_irregular_active_cells()
+                if active_cells:
+                    metadata.active_cell_coordinates = active_cells
+                else:
+                    # Initialize to all cells active
+                    IrregularShapeMapper.ensure_active_cells_initialized(metadata)
+                
+                # Get background image path if set
+                bg_image_path = dialog.get_background_image_path()
+                if bg_image_path:
+                    metadata.background_image_path = bg_image_path
+                    metadata.background_image_scale = 1.0
+                    metadata.background_image_offset_x = 0.0
+                    metadata.background_image_offset_y = 0.0
+            
             # Handle circular layouts (circular, multi_ring, radial_rays)
-            if layout_type != "rectangular":
+            elif layout_type != "rectangular":
                 from core.mapping.circular_mapper import CircularMapper
                 
                 # Get actual shape from dialog (may be multi_ring, radial_rays, or circular)
@@ -1545,10 +1568,9 @@ class DesignToolsTab(QWidget):
         geometry_row.addWidget(QLabel("Geometry Overlay:"))
         self.canvas_geometry_combo = QComboBox()
         overlay_options = [
-            ("Matrix", GeometryOverlay.MATRIX.value),
-            ("Circle", GeometryOverlay.CIRCLE.value),
-            ("Ring", GeometryOverlay.RING.value),
-            ("Radial", GeometryOverlay.RADIAL.value),
+            ("Rectangular", GeometryOverlay.MATRIX.value),
+            ("Radial Rings", GeometryOverlay.RING.value),
+            ("Irregular", GeometryOverlay.IRREGULAR.value),
         ]
         for label, value in overlay_options:
             self.canvas_geometry_combo.addItem(label, value)
@@ -5411,7 +5433,13 @@ class DesignToolsTab(QWidget):
                 self._set_canvas_status(f"Autosaved at {time_display} → {target.name}")
             # Clear the success message after 3 seconds
             if hasattr(self, "memory_status_label"):
-                QTimer.singleShot(3000, lambda: self.memory_status_label.setStyleSheet(""))
+                def clear_style():
+                    try:
+                        if hasattr(self, "memory_status_label") and self.memory_status_label:
+                            self.memory_status_label.setStyleSheet("")
+                    except (RuntimeError, AttributeError):
+                        pass  # Widget was deleted
+                QTimer.singleShot(3000, clear_style)
         except Exception as exc:
             # Show error notification
             if hasattr(self, "memory_status_label"):
@@ -5472,9 +5500,19 @@ class DesignToolsTab(QWidget):
             # Widget was deleted (e.g., during test cleanup)
             width_value = self._pattern.metadata.width if self._pattern else 0
             height_value = self._pattern.metadata.height if self._pattern else 0
+        # Safely get colour mode - handle case where widget might be deleted
         colour_mode = getattr(self, "color_mode_combo", None)
-        colour_text = colour_mode.currentText() if colour_mode else "RGB"
-        self.matrix_status_label.setText(f"Matrix: {width_value} × {height_value} ({colour_text})")
+        try:
+            colour_text = colour_mode.currentText() if colour_mode and hasattr(colour_mode, 'currentText') else "RGB"
+        except (RuntimeError, AttributeError):
+            # Widget was deleted (e.g., during test cleanup)
+            colour_text = "RGB"
+        try:
+            if hasattr(self, 'matrix_status_label') and self.matrix_status_label:
+                self.matrix_status_label.setText(f"Matrix: {width_value} × {height_value} ({colour_text})")
+        except (RuntimeError, AttributeError):
+            # Widget was deleted, skip update
+            pass
 
         total_frames = len(self._pattern.frames) if self._pattern and self._pattern.frames else 0
         current_index = self.frame_manager.current_index() if hasattr(self.frame_manager, "current_index") else 0
@@ -5494,21 +5532,27 @@ class DesignToolsTab(QWidget):
                 memory_text = f"Memory: {memory_bytes} B"
             
             # Add warning if approaching limits
-            if memory_bytes > 24576:  # >24KB (80% of 32KB)
-                memory_text += " ⚠"
-                self.memory_status_label.setStyleSheet("color: #ff4444;")
-            elif memory_bytes > 16384:  # >16KB (50% of 32KB)
-                memory_text += " ⚡"
-                self.memory_status_label.setStyleSheet("color: #ffaa00;")
-            else:
-                self.memory_status_label.setStyleSheet("")
+            try:
+                if memory_bytes > 24576:  # >24KB (80% of 32KB)
+                    memory_text += " ⚠"
+                    self.memory_status_label.setStyleSheet("color: #ff4444;")
+                elif memory_bytes > 16384:  # >16KB (50% of 32KB)
+                    memory_text += " ⚡"
+                    self.memory_status_label.setStyleSheet("color: #ffaa00;")
+                else:
+                    self.memory_status_label.setStyleSheet("")
+            except Exception:
+                pass  # Ignore errors in memory status update
             
-            self.memory_status_label.setText(memory_text)
-            self.memory_status_label.setToolTip(
-                f"Pattern size: {memory_bytes} bytes ({memory_kb:.2f} KB)\n"
-                f"Per frame: ~{memory_bytes // max(1, total_frames)} bytes\n"
-                f"Total frames: {total_frames}"
-            )
+            try:
+                self.memory_status_label.setText(memory_text)
+                self.memory_status_label.setToolTip(
+                    f"Pattern size: {memory_bytes} bytes ({memory_kb:.2f} KB)\n"
+                    f"Per frame: ~{memory_bytes // max(1, total_frames)} bytes\n"
+                )
+            except (RuntimeError, AttributeError):
+                # Widget was deleted (e.g., during test cleanup)
+                pass
         else:
             self.memory_status_label.setText("Memory: –")
             self.memory_status_label.setToolTip("No pattern loaded")
@@ -5651,6 +5695,26 @@ class DesignToolsTab(QWidget):
             height = getattr(self._pattern.metadata, 'height', 0)
             if width <= 0 or height <= 0:
                 return False, f"Invalid pattern dimensions ({width}x{height}). Fix dimensions before exporting."
+            
+            # Validate circular layout mapping table if needed
+            layout_type = getattr(self._pattern.metadata, 'layout_type', 'rectangular')
+            if layout_type != "rectangular":
+                from core.mapping.circular_mapper import CircularMapper
+                if not getattr(self._pattern.metadata, 'circular_mapping_table', None):
+                    # Try to regenerate mapping table
+                    try:
+                        CircularMapper.ensure_mapping_table(self._pattern.metadata)
+                    except Exception as e:
+                        return False, f"Circular layout mapping table is missing and could not be regenerated: {str(e)}"
+                else:
+                    # Validate existing mapping table
+                    is_valid, error = CircularMapper.validate_mapping_table(self._pattern.metadata)
+                    if not is_valid:
+                        # Try to regenerate
+                        try:
+                            CircularMapper.ensure_mapping_table(self._pattern.metadata)
+                        except Exception as e:
+                            return False, f"Circular layout mapping table is invalid and could not be regenerated: {str(e)}"
         
         return True, ""
 
@@ -6974,6 +7038,15 @@ class DesignToolsTab(QWidget):
             width = pattern_copy.metadata.width
             height = pattern_copy.metadata.height
             
+            # Validate and regenerate circular mapping table if needed
+            if hasattr(pattern_copy.metadata, 'layout_type') and pattern_copy.metadata.layout_type != "rectangular":
+                from core.mapping.circular_mapper import CircularMapper
+                try:
+                    CircularMapper.ensure_mapping_table(pattern_copy.metadata)
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Failed to ensure circular mapping table: {e}")
+            
             # Update pixel mapping widget if it exists
             if hasattr(self, "pixel_mapping_widget") and self.pixel_mapping_widget:
                 self.pixel_mapping_widget.set_matrix_size(width, height)
@@ -7246,7 +7319,12 @@ class DesignToolsTab(QWidget):
                 if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
                     self.canvas_status_label.setText("Broadcast paint applied to all frames. Use Undo to revert.")
                     # Reset after 3 seconds
-                    QTimer.singleShot(3000, lambda: self._update_status_labels())
+                    def safe_update():
+                        try:
+                            self._update_status_labels()
+                        except (RuntimeError, AttributeError):
+                            pass  # Widget was deleted
+                    QTimer.singleShot(3000, safe_update)
             
             self._pending_broadcast_states = None
         else:
@@ -7313,7 +7391,14 @@ class DesignToolsTab(QWidget):
             # Show feedback when nothing to undo
             if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
                 self.canvas_status_label.setText("Nothing to undo")
-                QTimer.singleShot(2000, lambda: self._update_status_labels())
+                # Use a closure that checks if widget still exists
+                def safe_update():
+                    try:
+                        if hasattr(self, '_update_status_labels'):
+                            self._update_status_labels()
+                    except (RuntimeError, AttributeError):
+                        pass  # Widget was deleted, ignore
+                QTimer.singleShot(2000, safe_update)
             return
         
         command = self.history_manager.undo(self._current_frame_index)
@@ -7339,7 +7424,12 @@ class DesignToolsTab(QWidget):
             # Show feedback when nothing to redo
             if hasattr(self, 'canvas_status_label') and self.canvas_status_label:
                 self.canvas_status_label.setText("Nothing to redo")
-                QTimer.singleShot(2000, lambda: self._update_status_labels())
+                def safe_update():
+                    try:
+                        self._update_status_labels()
+                    except (RuntimeError, AttributeError):
+                        pass  # Widget was deleted
+                QTimer.singleShot(2000, safe_update)
             return
         
         command = self.history_manager.redo(self._current_frame_index)
@@ -7643,7 +7733,8 @@ class DesignToolsTab(QWidget):
         # Update pixel mapping widget if it exists
         if hasattr(self, "pixel_mapping_widget") and self.pixel_mapping_widget:
             self.pixel_mapping_widget.set_matrix_size(width, height)
-        metadata.height = height
+        
+        # Update canvas size to match new dimensions
         self.canvas.set_matrix_size(width, height)
         self._update_canvas_group_height()
 

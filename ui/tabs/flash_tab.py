@@ -155,6 +155,10 @@ class FlashTab(QWidget):
         self.pattern: Pattern = None
         self.flash_thread: FlashThread = None
         self.last_build_result = None  # Store build result for save/view
+        
+        # Guard flag to prevent recursion during pattern loading
+        self._loading_pattern = False
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -435,10 +439,21 @@ class FlashTab(QWidget):
             self.log("⚠️ Warning: Pattern was modified/replaced during flash operation")
             self.log("⚠️ Flash will continue with original pattern")
         
-        # Store in repository and sync legacy reference
-        self.repository.set_current_pattern(pattern)
-        self.pattern = pattern  # Legacy reference for backward compatibility
-        self.log(f"Pattern loaded: {pattern.frame_count} frames, {pattern.led_count} LEDs")
+        # Prevent recursion: if already loading, just update local state
+        if self._loading_pattern:
+            self.pattern = pattern  # Legacy reference for backward compatibility
+            return
+        
+        # Set flag to prevent recursion
+        self._loading_pattern = True
+        try:
+            # Store in repository and sync legacy reference
+            self.repository.set_current_pattern(pattern)
+            self.pattern = pattern  # Legacy reference for backward compatibility
+            self.log(f"Pattern loaded: {pattern.frame_count} frames, {pattern.led_count} LEDs")
+        finally:
+            # Always clear flag, even if exception occurs
+            self._loading_pattern = False
         dim_source = getattr(pattern.metadata, 'dimension_source', 'unknown')
         dim_conf = getattr(pattern.metadata, 'dimension_confidence', None)
         if dim_conf is not None:
@@ -454,11 +469,17 @@ class FlashTab(QWidget):
     
     def refresh_preview(self, pattern: Pattern = None):
         """Refresh preview with updated pattern (called from pattern_changed signal)"""
+        # Prevent recursion: if already loading pattern, skip refresh
+        if self._loading_pattern:
+            return
+        
         if pattern is None:
             # Get from repository
             pattern = self.repository.get_current_pattern() or self.pattern
         if pattern:
-            self.load_pattern(pattern)
+            # Only update local state, don't trigger repository update (which would cause recursion)
+            self.pattern = pattern  # Legacy reference for backward compatibility
+            # Update UI/log if needed without calling load_pattern which would trigger repository
     
     def get_state(self):
         """Get current tab state for persistence"""

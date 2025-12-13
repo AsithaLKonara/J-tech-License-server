@@ -676,4 +676,206 @@ class CircularMapper:
             base_size = max(base_size, 16)
         
         return (base_size, base_size)
+    
+    @staticmethod
+    def generate_led_positions_for_preview(
+        metadata: PatternMetadata, 
+        center_x: float, 
+        center_y: float, 
+        max_radius: float
+    ) -> List[Tuple[float, float]]:
+        """
+        Generate LED positions in screen coordinates for preview rendering.
+        
+        This method generates the actual physical LED positions based on layout geometry,
+        matching how LED Matrix Studio would position LEDs in a circular view.
+        
+        Args:
+            metadata: PatternMetadata with layout configuration
+            center_x: Screen X coordinate of center
+            center_y: Screen Y coordinate of center
+            max_radius: Maximum radius available for rendering
+            
+        Returns:
+            List of (x, y) tuples in screen coordinates, indexed by LED index (0..N-1)
+            Each tuple represents the screen position where that LED should be rendered.
+        """
+        if metadata.layout_type == "rectangular":
+            # Rectangular layouts don't use circular preview
+            return []
+        
+        # Ensure mapping table exists
+        if not metadata.circular_mapping_table:
+            CircularMapper.ensure_mapping_table(metadata)
+        
+        if not metadata.circular_mapping_table:
+            return []
+        
+        led_count = len(metadata.circular_mapping_table)
+        positions = []
+        
+        # Handle multi-ring layout
+        if metadata.layout_type == "multi_ring":
+            if not metadata.multi_ring_count or not metadata.ring_radii:
+                return []
+            
+            # Scale radii to fit in max_radius
+            max_physical_radius = max(metadata.ring_radii) if metadata.ring_radii else 1.0
+            scale_factor = (max_radius * 0.8) / max_physical_radius if max_physical_radius > 0 else 1.0
+            
+            led_idx = 0
+            for ring_idx in range(metadata.multi_ring_count):
+                ring_led_count = metadata.ring_led_counts[ring_idx] if ring_idx < len(metadata.ring_led_counts) else 0
+                ring_radius = metadata.ring_radii[ring_idx] if ring_idx < len(metadata.ring_radii) else 0.0
+                
+                # Generate positions for this ring
+                ring_positions = CircularMapper.generate_circular_positions(
+                    led_count=ring_led_count,
+                    radius=ring_radius,
+                    start_angle=0.0,
+                    end_angle=360.0,
+                    inner_radius=None
+                )
+                
+                # Convert to screen coordinates
+                for angle, led_radius in ring_positions:
+                    scaled_radius = led_radius * scale_factor
+                    x = center_x + scaled_radius * math.cos(angle)
+                    y = center_y + scaled_radius * math.sin(angle)
+                    positions.append((x, y))
+                    led_idx += 1
+            
+            return positions
+        
+        # Handle radial ray layout
+        if metadata.layout_type == "radial_rays":
+            if not metadata.ray_count or not metadata.leds_per_ray:
+                return []
+            
+            # Calculate ray spacing angle
+            if metadata.ray_spacing_angle is not None:
+                ray_spacing_rad = math.radians(metadata.ray_spacing_angle)
+            else:
+                ray_spacing_rad = (2 * math.pi) / metadata.ray_count
+            
+            # Scale to fit in max_radius
+            max_physical_radius = max_radius * 0.8
+            
+            led_idx = 0
+            for ray_idx in range(metadata.ray_count):
+                ray_angle = ray_idx * ray_spacing_rad
+                
+                # Generate LEDs along this ray
+                for led_idx_in_ray in range(metadata.leds_per_ray):
+                    # Calculate distance from center (evenly spaced along ray)
+                    t = (led_idx_in_ray + 1) / metadata.leds_per_ray  # 0 to 1
+                    led_radius = t * max_physical_radius
+                    
+                    # Convert to screen coordinates
+                    x = center_x + led_radius * math.cos(ray_angle)
+                    y = center_y + led_radius * math.sin(ray_angle)
+                    positions.append((x, y))
+                    led_idx += 1
+            
+            return positions
+        
+        # Handle custom positions layout
+        if metadata.layout_type == "custom_positions" and metadata.custom_led_positions:
+            # Scale custom positions to fit in max_radius
+            if not metadata.custom_led_positions:
+                return []
+            
+            # Find bounding box of custom positions
+            x_coords = [pos[0] for pos in metadata.custom_led_positions]
+            y_coords = [pos[1] for pos in metadata.custom_led_positions]
+            if not x_coords or not y_coords:
+                return []
+            
+            min_x, max_x = min(x_coords), max(x_coords)
+            min_y, max_y = min(y_coords), max(y_coords)
+            width_physical = max_x - min_x
+            height_physical = max_y - min_y
+            
+            # Scale to fit in max_radius
+            max_dimension = max(width_physical, height_physical)
+            scale_factor = (max_radius * 1.6) / max_dimension if max_dimension > 0 else 1.0
+            
+            # Center the positions
+            center_x_physical = (min_x + max_x) / 2.0
+            center_y_physical = (min_y + max_y) / 2.0
+            
+            # Convert each position to screen coordinates
+            for led_pos in metadata.custom_led_positions:
+                # Convert position units if needed
+                if metadata.led_position_units == "inches":
+                    pos_x = led_pos[0] * 25.4  # Convert to mm
+                    pos_y = led_pos[1] * 25.4
+                elif metadata.led_position_units == "mm":
+                    pos_x = led_pos[0]
+                    pos_y = led_pos[1]
+                else:  # grid units
+                    pos_x = led_pos[0]
+                    pos_y = led_pos[1]
+                
+                # Scale and center
+                x = center_x + (pos_x - center_x_physical) * scale_factor
+                y = center_y + (pos_y - center_y_physical) * scale_factor
+                positions.append((x, y))
+            
+            return positions
+        
+        # Handle radial layout (rows = circles, columns = LEDs per circle)
+        if metadata.layout_type == "radial":
+            num_circles = metadata.height
+            leds_per_circle = metadata.width
+            
+            # Calculate radius range
+            outer_radius = max_radius * 0.8
+            inner_radius = outer_radius * 0.15
+            radius_delta = (outer_radius - inner_radius) / max(1, num_circles - 1) if num_circles > 1 else 0
+            
+            # Generate positions for each circle
+            for row in range(num_circles):
+                radius = inner_radius + radius_delta * row
+                
+                for col in range(leds_per_circle):
+                    angle = 2 * math.pi * (col / max(1, leds_per_circle))
+                    x = center_x + radius * math.cos(angle)
+                    y = center_y + radius * math.sin(angle)
+                    positions.append((x, y))
+            
+            return positions
+        
+        # Handle standard circular layouts (circle, ring, arc)
+        # Get layout parameters
+        led_count = metadata.circular_led_count or len(metadata.circular_mapping_table)
+        radius = metadata.circular_radius
+        if radius is None:
+            # Auto-calculate radius to fit grid
+            radius = min(metadata.width, metadata.height) / 2.0 - 1.0
+            if radius < 0.5:
+                radius = 0.5
+        
+        # Scale radius to fit in max_radius
+        # Use a reasonable scale factor to fit the layout
+        grid_max_dimension = max(metadata.width, metadata.height)
+        scale_factor = (max_radius * 0.8) / (grid_max_dimension / 2.0) if grid_max_dimension > 0 else 1.0
+        scaled_radius = radius * scale_factor
+        
+        # Generate LED positions in polar coordinates
+        polar_positions = CircularMapper.generate_circular_positions(
+            led_count=led_count,
+            radius=scaled_radius,
+            start_angle=metadata.circular_start_angle,
+            end_angle=metadata.circular_end_angle,
+            inner_radius=metadata.circular_inner_radius
+        )
+        
+        # Convert polar to screen coordinates
+        for angle, led_radius in polar_positions:
+            x = center_x + led_radius * math.cos(angle)
+            y = center_y + led_radius * math.sin(angle)
+            positions.append((x, y))
+        
+        return positions
 

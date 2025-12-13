@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2024
+## [Unreleased]
+
+### Added
+- **JSON Schema Support for Circular Layouts**
+  - Added comprehensive schema validation for all circular layout types
+  - Support for circle, ring, arc, radial, multi-ring, radial rays, and custom position layouts
+  - Full Budurasmala feature schema support (20+ new fields)
+  - Circular mapping table validation and serialization
+  - Multi-ring layout parameters (ring counts, radii, spacing)
+  - Radial ray parameters (ray count, LEDs per ray, spacing angle)
+  - Custom LED position support with unit specification
+  - Matrix-style circular layouts with text rendering support
+
+### Fixed
+- Fixed circular mapping table serialization (tuples to arrays for JSON compatibility)
+- Fixed custom LED positions serialization for JSON schema validation
+- Fixed indentation error in export encoders circular layout handling
+
+### Changed
+- Enhanced pattern JSON schema to include all circular layout fields
+- Updated pattern converter to properly serialize/deserialize circular layout data
+- Improved schema validation with comprehensive test coverage
+
+---
+
+## [3.0.0] - 2024
 
 ### Added
 

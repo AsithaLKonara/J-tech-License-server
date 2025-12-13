@@ -21,6 +21,11 @@ KNOWN_LMS_ACTIONS: Dict[str, str] = {
     "fade": "Apply fade effect using current palette",
     "brightness": "Adjust brightness by provided value",
     "randomize": "Randomize pixels (seed controlled)",
+    "wipe": "Wipe effect with directional fade (left-to-right, right-to-left, top-to-bottom, bottom-to-top)",
+    "reveal": "Reveal effect showing pixels progressively from a direction (left, right, top, bottom)",
+    "bounce": "Bounce effect with ping-pong scroll (horizontal or vertical)",
+    "colour_cycle": "Cycle color channels (RGB, RYB, or custom)",
+    "radial": "Radial effect (spiral, pulse, or sweep from center)",
 }
 
 
