@@ -8639,60 +8639,78 @@ class DesignToolsTab(QWidget):
             return
 
         # Get frame range with validation
-        start = max(0, self.frame_start_spin.value() - 1 if hasattr(self, "frame_start_spin") else 0)
-        end = min(len(self._pattern.frames) - 1, self.frame_end_spin.value() - 1 if hasattr(self, "frame_end_spin") else len(self._pattern.frames) - 1)
-        
-        if start > end:
-            QMessageBox.warning(
+        try:
+            start = max(0, self.frame_start_spin.value() - 1 if hasattr(self, "frame_start_spin") else 0)
+            end = min(len(self._pattern.frames) - 1, self.frame_end_spin.value() - 1 if hasattr(self, "frame_end_spin") else len(self._pattern.frames) - 1)
+            
+            # Enhanced validation
+            if start < 0:
+                start = 0
+            if end >= len(self._pattern.frames):
+                end = len(self._pattern.frames) - 1
+            if end < 0:
+                end = 0
+            
+            if start > end:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Range",
+                    f"Frame range is invalid: Frame {start + 1} to Frame {end + 1}.\n"
+                    f"Please select a valid frame range."
+                )
+                return
+
+            frame_indices = list(range(start, end + 1))
+            
+            if not frame_indices:
+                QMessageBox.warning(self, "No Frames Selected", "No frames in the selected range.")
+                return
+
+            # Use AutomationEngine to apply actions to existing frames
+            from core.automation.engine import AutomationEngine
+            engine = AutomationEngine()
+            executor = lambda frame, action: self._perform_action(frame, action)
+            
+            # Show progress for many frames
+            if len(frame_indices) > 10:
+                progress = QProgressDialog(f"Applying actions to {len(frame_indices)} frames...", "Cancel", 0, len(frame_indices), self)
+                progress.setWindowModality(Qt.WindowModal)
+                progress.show()
+                
+                def progress_callback(idx, frame_index, result):
+                    progress.setValue(idx + 1)
+                    QApplication.processEvents()
+                    return not progress.wasCanceled()
+                
+                summary = engine.apply_to_frames(
+                    self._pattern,
+                    frame_indices,
+                    actions,
+                    executor,
+                    progress_callback=progress_callback
+                )
+                progress.close()
+            else:
+                summary = engine.apply_to_frames(
+                    self._pattern,
+                    frame_indices,
+                    actions,
+                    executor
+                )
+            
+            # Update UI and notify
+            self._refresh_timeline()
+            self._load_current_frame_into_canvas()
+            self.pattern_modified.emit()
+            
+        except Exception as e:
+            QMessageBox.critical(
                 self,
-                "Invalid Range",
-                f"Frame range is invalid: Frame {start + 1} to Frame {end + 1}.\n"
-                f"Please select a valid frame range."
+                "Automation Error",
+                f"An error occurred while applying automation actions:\n\n{str(e)}\n\nPlease check your pattern and try again."
             )
-            return
-
-        frame_indices = list(range(start, end + 1))
-        
-        if not frame_indices:
-            QMessageBox.warning(self, "No Frames Selected", "No frames in the selected range.")
-            return
-
-        # Use AutomationEngine to apply actions to existing frames
-        from core.automation.engine import AutomationEngine
-        engine = AutomationEngine()
-        executor = lambda frame, action: self._perform_action(frame, action)
-        
-        # Show progress for many frames
-        if len(frame_indices) > 10:
-            progress = QProgressDialog(f"Applying actions to {len(frame_indices)} frames...", "Cancel", 0, len(frame_indices), self)
-            progress.setWindowModality(Qt.WindowModal)
-            progress.show()
-            
-            def progress_callback(idx, frame_index, result):
-                progress.setValue(idx + 1)
-                QApplication.processEvents()
-                return not progress.wasCanceled()
-            
-            summary = engine.apply_to_frames(
-                self._pattern,
-                frame_indices,
-                actions,
-                executor,
-                progress_callback=progress_callback
-            )
-            progress.close()
-        else:
-            summary = engine.apply_to_frames(
-                self._pattern,
-                frame_indices,
-                actions,
-                executor
-            )
-        
-        # Update UI and notify
-        self._refresh_timeline()
-        self._load_current_frame_into_canvas()
-        self.pattern_modified.emit()
+            import logging
+            logging.exception("Error in _apply_actions_to_frames")
         self._update_layer_sync_warning()  # Check sync after automation
         
         QMessageBox.information(
@@ -8900,41 +8918,60 @@ class DesignToolsTab(QWidget):
         Returns:
             Transformed pixel list or None if action not supported
         """
-        action_type = action.action_type
-        
-        if action_type == "scroll":
-            direction = action.params.get("direction", "Right")
-            offset = action.params.get("offset", 1)
-            return self._transform_scroll(pixels, width, height, direction, offset)
-        elif action_type == "rotate":
-            mode = action.params.get("mode", "90° Clockwise")
-            return self._transform_rotate(pixels, width, height, mode)
-        elif action_type == "mirror":
-            axis = action.params.get("axis", "horizontal")
-            return self._transform_mirror(pixels, width, height, axis)
-        elif action_type == "flip":
-            axis = action.params.get("axis", "vertical")
-            return self._transform_flip(pixels, width, height, axis)
-        elif action_type == "invert":
-            return self._transform_invert(pixels)
-        elif action_type == "wipe":
-            mode = action.params.get("mode", "Left to Right")
-            offset = action.params.get("offset", 1)
-            return self._transform_wipe(pixels, width, height, mode, offset)
-        elif action_type == "reveal":
-            direction = action.params.get("direction", "Left")
-            offset = action.params.get("offset", 1)
-            return self._transform_reveal(pixels, width, height, direction, offset)
-        elif action_type == "bounce":
-            axis = action.params.get("axis", "Horizontal")
-            return self._transform_bounce(pixels, width, height, axis)
-        elif action_type == "colour_cycle":
-            mode = action.params.get("mode", "RGB")
-            return self._transform_colour_cycle(pixels, mode)
-        elif action_type == "radial":
-            type_str = action.params.get("type", "Spiral")
-            return self._transform_radial(pixels, width, height, type_str)
-        else:
+        try:
+            # Validate inputs
+            if not pixels:
+                return None
+            
+            if width <= 0 or height <= 0:
+                return None
+            
+            expected_count = width * height
+            if len(pixels) != expected_count:
+                return None
+            
+            if not action or not hasattr(action, 'action_type'):
+                return None
+            
+            action_type = action.action_type
+            
+            if action_type == "scroll":
+                direction = action.params.get("direction", "Right")
+                offset = max(1, int(action.params.get("offset", 1)))
+                return self._transform_scroll(pixels, width, height, direction, offset)
+            elif action_type == "rotate":
+                mode = action.params.get("mode", "90° Clockwise")
+                return self._transform_rotate(pixels, width, height, mode)
+            elif action_type == "mirror":
+                axis = action.params.get("axis", "horizontal")
+                return self._transform_mirror(pixels, width, height, axis)
+            elif action_type == "flip":
+                axis = action.params.get("axis", "vertical")
+                return self._transform_flip(pixels, width, height, axis)
+            elif action_type == "invert":
+                return self._transform_invert(pixels)
+            elif action_type == "wipe":
+                mode = action.params.get("mode", "Left to Right")
+                offset = max(1, int(action.params.get("offset", 1)))
+                return self._transform_wipe(pixels, width, height, mode, offset)
+            elif action_type == "reveal":
+                direction = action.params.get("direction", "Left")
+                offset = max(1, int(action.params.get("offset", 1)))
+                return self._transform_reveal(pixels, width, height, direction, offset)
+            elif action_type == "bounce":
+                axis = action.params.get("axis", "Horizontal")
+                return self._transform_bounce(pixels, width, height, axis)
+            elif action_type == "colour_cycle":
+                mode = action.params.get("mode", "RGB")
+                return self._transform_colour_cycle(pixels, mode)
+            elif action_type == "radial":
+                type_str = action.params.get("type", "Spiral")
+                return self._transform_radial(pixels, width, height, type_str)
+            else:
+                return None
+        except Exception as e:
+            import logging
+            logging.exception(f"Error in _transform_pixels for action {action_type}")
             return None
 
     def _perform_action(self, frame: Frame, action: DesignAction) -> bool:
@@ -8949,40 +8986,96 @@ class DesignToolsTab(QWidget):
         
         This preserves original layers and makes automation non-destructive.
         """
-        # Find frame index
-        if not self._pattern or not self._pattern.frames:
+        try:
+            # Validate pattern and frames
+            if not self._pattern or not self._pattern.frames:
+                QMessageBox.warning(self, "No Pattern", "No pattern loaded. Create or load a pattern first.")
+                return False
+            
+            # Find frame index
+            frame_index = None
+            for idx, f in enumerate(self._pattern.frames):
+                if f is frame:
+                    frame_index = idx
+                    break
+            
+            if frame_index is None:
+                # Fallback: use current frame index
+                frame_index = self._current_frame_index
+            
+            # Validate frame index
+            if frame_index < 0 or frame_index >= len(self._pattern.frames):
+                QMessageBox.warning(self, "Invalid Frame", f"Frame index {frame_index} is out of bounds.")
+                return False
+            
+            # Validate layer manager
+            if not hasattr(self, 'layer_manager') or self.layer_manager is None:
+                QMessageBox.warning(self, "Layer Manager Error", "Layer manager is not initialized.")
+                return False
+            
+            # Validate metadata
+            if not hasattr(self._pattern, 'metadata') or self._pattern.metadata is None:
+                QMessageBox.warning(self, "Pattern Error", "Pattern metadata is missing.")
+                return False
+            
+            width = self._pattern.metadata.width
+            height = self._pattern.metadata.height
+            
+            if width <= 0 or height <= 0:
+                QMessageBox.warning(self, "Invalid Dimensions", f"Pattern dimensions are invalid: {width}x{height}")
+                return False
+            
+            # Get current composite (what user sees)
+            composite = self.layer_manager.get_composite_pixels(frame_index)
+            
+            # Validate composite pixels
+            if composite is None:
+                QMessageBox.warning(self, "Layer Error", "Failed to get composite pixels from layers.")
+                return False
+            
+            expected_pixel_count = width * height
+            if len(composite) != expected_pixel_count:
+                QMessageBox.warning(
+                    self, 
+                    "Pixel Count Mismatch", 
+                    f"Composite pixel count ({len(composite)}) doesn't match pattern dimensions ({expected_pixel_count})."
+                )
+                return False
+            
+            # Transform composite pixels
+            transformed = self._transform_pixels(composite, action, width, height, frame_index)
+            
+            if transformed is None:
+                self._show_not_implemented(action.name)
+                return False
+            
+            # Validate transformed pixels
+            if len(transformed) != expected_pixel_count:
+                QMessageBox.warning(
+                    self,
+                    "Transformation Error",
+                    f"Transformed pixel count ({len(transformed)}) doesn't match expected count ({expected_pixel_count})."
+                )
+                return False
+            
+            # Create new layer for automation result
+            layer_name = f"Auto: {action.name}"
+            layer_index = self.layer_manager.add_layer(frame_index, layer_name)
+            self.layer_manager.replace_pixels(frame_index, transformed, layer_index)
+            
+            # Sync frame from layers
+            self.layer_manager.sync_frame_from_layers(frame_index)
+            return True
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Automation Error",
+                f"An error occurred while applying automation action '{action.name}':\n\n{str(e)}\n\nPlease check your pattern and try again."
+            )
+            import logging
+            logging.exception("Error in _perform_action")
             return False
-        
-        frame_index = None
-        for idx, f in enumerate(self._pattern.frames):
-            if f is frame:
-                frame_index = idx
-                break
-        
-        if frame_index is None:
-            # Fallback: use current frame index
-            frame_index = self._current_frame_index
-        
-        # Get current composite (what user sees)
-        composite = self.layer_manager.get_composite_pixels(frame_index)
-        
-        # Transform composite pixels
-        width = self._pattern.metadata.width
-        height = self._pattern.metadata.height
-        transformed = self._transform_pixels(composite, action, width, height, frame_index)
-        
-        if transformed is None:
-            self._show_not_implemented(action.name)
-            return False
-        
-        # Create new layer for automation result
-        layer_name = f"Auto: {action.name}"
-        layer_index = self.layer_manager.add_layer(frame_index, layer_name)
-        self.layer_manager.replace_pixels(frame_index, transformed, layer_index)
-        
-        # Sync frame from layers
-        self.layer_manager.sync_frame_from_layers(frame_index)
-        return True
 
     def _show_not_implemented(self, feature_name: str):
         QMessageBox.information(

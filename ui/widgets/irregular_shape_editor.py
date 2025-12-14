@@ -35,12 +35,12 @@ class IrregularShapeEditor(QWidget):
     # Signal emitted when active cells change
     active_cells_changed = Signal()
     
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, width: int = 12, height: int = 12, parent: Optional[QWidget] = None):
         super().__init__(parent)
         
         # Grid dimensions
-        self._grid_width: int = 12
-        self._grid_height: int = 12
+        self._grid_width: int = max(1, width)
+        self._grid_height: int = max(1, height)
         
         # Active cell coordinates (sparse list)
         self._active_cells: List[Tuple[int, int]] = []

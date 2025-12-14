@@ -28,16 +28,29 @@ class NewPatternDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Create")
         self.setModal(True)
-        self.resize(600, 750)
+        self.setMinimumSize(600, 500)
         
         # Initialize template library
         self.template_library = TemplateLibrary()
         self.selected_template = None
         self.template_param_widgets: Dict[str, Any] = {}
         
-        layout = QVBoxLayout(self)
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Create scroll area for dialog content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        # Content widget
+        content_widget = QWidget()
+        layout = QVBoxLayout(content_widget)
         layout.setSpacing(15)
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # Tabs: Custom and From Preset
         self.tabs = QTabWidget()
@@ -54,8 +67,12 @@ class NewPatternDialog(QDialog):
         self.tabs.currentChanged.connect(self._on_tab_changed)
         
         layout.addWidget(self.tabs)
+        layout.addStretch()
         
-        # Buttons
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area, 1)
+        
+        # Buttons (outside scroll area)
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
@@ -68,7 +85,7 @@ class NewPatternDialog(QDialog):
         self.create_btn.clicked.connect(self._on_create_clicked)
         button_layout.addWidget(self.create_btn)
         
-        layout.addLayout(button_layout)
+        main_layout.addLayout(button_layout)
     
     def _create_custom_tab(self, default_width: int, default_height: int) -> QWidget:
         """Create the Custom tab content."""
@@ -120,65 +137,10 @@ class NewPatternDialog(QDialog):
         
         # Shape dropdown
         self.shape_combo = QComboBox()
-        self.shape_combo.addItems(["Rectangular", "Circle", "Ring", "Arc", "Radial", "Multi-Ring", "Radial Rays", "Custom Positions", "Irregular"])
-        self.shape_combo.setCurrentText("Circle")
+        self.shape_combo.addItems(["Rectangular", "Multi-Ring", "Radial Rays", "Irregular"])
+        self.shape_combo.setCurrentText("Rectangular")
         self.shape_combo.currentTextChanged.connect(self._on_shape_changed)
         matrix_layout.addWidget(self.shape_combo)
-        
-        # Circular shape parameters (initially hidden)
-        self.circular_params_group = QGroupBox("Circular Layout Parameters")
-        circular_params_layout = QFormLayout()
-        circular_params_layout.setSpacing(8)
-        
-        # LED count
-        self.led_count_spin = QSpinBox()
-        self.led_count_spin.setRange(1, 512)
-        self.led_count_spin.setValue(60)
-        self.led_count_spin.setToolTip("Number of LEDs in circular layout")
-        circular_params_layout.addRow("LED Count:", self.led_count_spin)
-        
-        # Outer radius
-        self.radius_spin = QDoubleSpinBox()
-        self.radius_spin.setRange(1.0, 1000.0)
-        self.radius_spin.setValue(10.0)
-        self.radius_spin.setDecimals(1)
-        self.radius_spin.setSuffix(" units")
-        self.radius_spin.setToolTip("Outer radius for circular layout")
-        circular_params_layout.addRow("Outer Radius:", self.radius_spin)
-        
-        # Inner radius (for Ring)
-        self.inner_radius_spin = QDoubleSpinBox()
-        self.inner_radius_spin.setRange(0.0, 999.0)
-        self.inner_radius_spin.setValue(5.0)
-        self.inner_radius_spin.setDecimals(1)
-        self.inner_radius_spin.setSuffix(" units")
-        self.inner_radius_spin.setToolTip("Inner radius (for ring layouts only)")
-        self.inner_radius_spin.setEnabled(False)
-        circular_params_layout.addRow("Inner Radius:", self.inner_radius_spin)
-        
-        # Start angle (for Arc)
-        self.start_angle_spin = QDoubleSpinBox()
-        self.start_angle_spin.setRange(0.0, 359.0)
-        self.start_angle_spin.setValue(0.0)
-        self.start_angle_spin.setDecimals(1)
-        self.start_angle_spin.setSuffix("°")
-        self.start_angle_spin.setToolTip("Start angle in degrees (for arc layouts)")
-        self.start_angle_spin.setEnabled(False)
-        circular_params_layout.addRow("Start Angle:", self.start_angle_spin)
-        
-        # End angle (for Arc)
-        self.end_angle_spin = QDoubleSpinBox()
-        self.end_angle_spin.setRange(1.0, 360.0)
-        self.end_angle_spin.setValue(360.0)
-        self.end_angle_spin.setDecimals(1)
-        self.end_angle_spin.setSuffix("°")
-        self.end_angle_spin.setToolTip("End angle in degrees (for arc layouts)")
-        self.end_angle_spin.setEnabled(False)
-        circular_params_layout.addRow("End Angle:", self.end_angle_spin)
-        
-        self.circular_params_group.setLayout(circular_params_layout)
-        self.circular_params_group.setVisible(False)  # Hidden by default
-        matrix_layout.addWidget(self.circular_params_group)
         
         # Multi-ring parameters (initially hidden)
         self.multi_ring_params_group = QGroupBox("Multi-Ring Layout Parameters")
@@ -264,43 +226,6 @@ class NewPatternDialog(QDialog):
         self.radial_ray_params_group.setVisible(False)
         matrix_layout.addWidget(self.radial_ray_params_group)
         
-        # Custom position parameters (initially hidden)
-        self.custom_position_params_group = QGroupBox("Custom LED Position Parameters")
-        custom_position_layout = QVBoxLayout()
-        custom_position_layout.setSpacing(8)
-        
-        # Import button
-        import_layout = QHBoxLayout()
-        self.import_positions_btn = QPushButton("Import LED Positions...")
-        self.import_positions_btn.setToolTip("Import LED positions from CSV or JSON file")
-        self.import_positions_btn.clicked.connect(self._on_import_positions)
-        import_layout.addWidget(self.import_positions_btn)
-        import_layout.addStretch()
-        custom_position_layout.addLayout(import_layout)
-        
-        # Units selection
-        units_layout = QHBoxLayout()
-        units_layout.addWidget(QLabel("Units:"))
-        self.position_units_combo = QComboBox()
-        self.position_units_combo.addItems(["mm", "inches", "grid"])
-        self.position_units_combo.setCurrentText("mm")
-        self.position_units_combo.setToolTip("Units for LED positions (mm, inches, or grid units)")
-        units_layout.addWidget(self.position_units_combo)
-        units_layout.addStretch()
-        custom_position_layout.addLayout(units_layout)
-        
-        # Status label
-        self.custom_position_status_label = QLabel("No positions imported")
-        self.custom_position_status_label.setStyleSheet("color: #888; font-size: 10px;")
-        custom_position_layout.addWidget(self.custom_position_status_label)
-        
-        # Store imported positions
-        self.imported_positions: List[Tuple[float, float]] = []
-        
-        self.custom_position_params_group.setLayout(custom_position_layout)
-        self.custom_position_params_group.setVisible(False)
-        matrix_layout.addWidget(self.custom_position_params_group)
-        
         # Irregular shape parameters (initially hidden)
         self.irregular_params_group = QGroupBox("Irregular Shape Parameters")
         irregular_params_layout = QVBoxLayout()
@@ -317,10 +242,17 @@ class NewPatternDialog(QDialog):
         
         # Shape editor widget
         from ui.widgets.irregular_shape_editor import IrregularShapeEditor
-        self.irregular_shape_editor = IrregularShapeEditor()
+        self.irregular_shape_editor = IrregularShapeEditor(
+            width=self.width_spin.value(),
+            height=self.height_spin.value()
+        )
         self.irregular_shape_editor.setMinimumHeight(200)
         self.irregular_shape_editor.active_cells_changed.connect(self._on_irregular_cells_changed)
         irregular_params_layout.addWidget(self.irregular_shape_editor)
+        
+        # Connect width/height changes to update irregular editor
+        self.width_spin.valueChanged.connect(self._update_irregular_dimensions)
+        self.height_spin.valueChanged.connect(self._update_irregular_dimensions)
         
         # Editor tools
         tools_layout = QHBoxLayout()
@@ -585,41 +517,28 @@ class NewPatternDialog(QDialog):
         self._validate_inputs()
     
     def _on_shape_changed(self, shape_text: str):
-        """Handle shape selection change - show/hide circular parameters."""
+        """Handle shape selection change - show/hide parameter groups."""
         shape_lower = shape_text.lower().replace("-", "_").replace(" ", "_")
-        is_circular = shape_lower in ["circle", "ring", "arc", "radial"]
         is_multi_ring = shape_lower == "multi_ring"
         is_radial_rays = shape_lower == "radial_rays"
-        is_custom_positions = shape_lower == "custom_positions"
         is_irregular = shape_lower == "irregular"
         
         # Show/hide parameter groups
-        self.circular_params_group.setVisible(is_circular)
         self.multi_ring_params_group.setVisible(is_multi_ring)
         self.radial_ray_params_group.setVisible(is_radial_rays)
-        self.custom_position_params_group.setVisible(is_custom_positions)
         self.irregular_params_group.setVisible(is_irregular)
-        
-        if is_circular:
-            # Enable/disable specific fields based on shape
-            if shape_lower == "ring":
-                self.inner_radius_spin.setEnabled(True)
-            else:
-                self.inner_radius_spin.setEnabled(False)
-            
-            if shape_lower == "arc":
-                self.start_angle_spin.setEnabled(True)
-                self.end_angle_spin.setEnabled(True)
-            else:
-                self.start_angle_spin.setEnabled(False)
-                self.end_angle_spin.setEnabled(False)
-                if shape_lower == "circle":
-                    self.start_angle_spin.setValue(0.0)
-                    self.end_angle_spin.setValue(360.0)
         
         if is_multi_ring:
             # Update ring configuration UI when multi-ring is selected
             self._update_ring_config_ui()
+    
+    def _update_irregular_dimensions(self):
+        """Update irregular shape editor dimensions when width/height change."""
+        if hasattr(self, 'irregular_shape_editor') and self.irregular_shape_editor:
+            width = self.width_spin.value()
+            height = self.height_spin.value()
+            # Update the irregular shape editor grid size
+            self.irregular_shape_editor.set_grid_size(width, height)
     
     def _on_multi_ring_count_changed(self, count: int):
         """Handle multi-ring count change - update ring configuration UI."""
@@ -789,17 +708,6 @@ class NewPatternDialog(QDialog):
         frames = self.frames_spin.value()
         if frames < 1 or frames > 1000:
             errors.append("Frame count must be between 1 and 1000")
-        
-        # Validate circular parameters if circular shape is selected
-        if self.circular_params_group.isVisible():
-            led_count = self.led_count_spin.value()
-            if led_count < 1 or led_count > 512:
-                errors.append("LED count must be between 1 and 512")
-            
-            radius = self.radius_spin.value()
-            inner_radius = self.inner_radius_spin.value()
-            if inner_radius >= radius:
-                errors.append("Inner radius must be less than outer radius")
         
         # Validate multi-ring parameters
         if self.multi_ring_params_group.isVisible():
@@ -1050,64 +958,6 @@ class NewPatternDialog(QDialog):
             return angle if angle > 0 else None
         return None
     
-    def _on_import_positions(self):
-        """Handle import LED positions button click."""
-        from PySide6.QtWidgets import QFileDialog
-        from pathlib import Path
-        from core.io.custom_position_importer import import_positions_from_csv, import_positions_from_json
-        
-        # Open file dialog
-        file_path, selected_filter = QFileDialog.getOpenFileName(
-            self,
-            "Import LED Positions",
-            "",
-            "CSV Files (*.csv);;JSON Files (*.json);;All Files (*.*)"
-        )
-        
-        if not file_path:
-            return
-        
-        file_path_obj = Path(file_path)
-        
-        try:
-            # Import based on file extension
-            if file_path_obj.suffix.lower() == '.csv':
-                positions = import_positions_from_csv(
-                    file_path_obj,
-                    x_column=0,
-                    y_column=1,
-                    skip_header=True,
-                    units=self.position_units_combo.currentText()
-                )
-            elif file_path_obj.suffix.lower() == '.json':
-                positions = import_positions_from_json(
-                    file_path_obj,
-                    x_key="x",
-                    y_key="y",
-                    units=self.position_units_combo.currentText()
-                )
-            else:
-                QMessageBox.warning(self, "Invalid File", "Please select a CSV or JSON file.")
-                return
-            
-            # Store imported positions
-            self.imported_positions = positions
-            
-            # Update status label
-            self.custom_position_status_label.setText(
-                f"✓ Imported {len(positions)} LED positions from {file_path_obj.name}"
-            )
-            self.custom_position_status_label.setStyleSheet("color: #00FF78; font-size: 10px;")
-            
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Import Error",
-                f"Failed to import LED positions:\n{str(e)}"
-            )
-            self.custom_position_status_label.setText("Import failed")
-            self.custom_position_status_label.setStyleSheet("color: #FF6B6B; font-size: 10px;")
-    
     def _on_irregular_cells_changed(self):
         """Handle irregular shape editor cell changes."""
         # Update validation or preview when cells change
@@ -1153,13 +1003,9 @@ class NewPatternDialog(QDialog):
         self.bg_image_status_label.setStyleSheet("color: #00FF78; font-size: 10px;")
     
     def get_custom_led_positions(self) -> Optional[List[Tuple[float, float]]]:
-        """Get imported custom LED positions."""
-        if self.get_shape() == "custom_positions" and self.imported_positions:
-            return self.imported_positions
+        """Get imported custom LED positions (deprecated - always returns None)."""
         return None
     
     def get_led_position_units(self) -> str:
-        """Get LED position units."""
-        if self.get_shape() == "custom_positions":
-            return self.position_units_combo.currentText()
+        """Get LED position units (deprecated - always returns 'grid')."""
         return "grid"

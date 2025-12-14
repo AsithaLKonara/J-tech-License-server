@@ -60,13 +60,12 @@
 - ✅ FEATURE_INVENTORY.md file references corrected
 - ✅ README.md updated with correct chip count
 
-**Remaining (Low Priority)**:
-- ⚠️ 2 chips in profiles but not in database:
-  - `stm32f407.json` - chip_id "STM32F407" not in database
-  - `nuvoton_m051.json` - chip_id "NuvotonM051" not in database
-  - **Note**: These may still work via generic uploaders. Can be addressed if users report issues.
+**Remaining (Low Priority)**: ✅ **FIXED**
+- ✅ Added `stm32f407` to chip_database.yaml
+- ✅ Added `nuvoton_m051` to chip_database.yaml
+- ✅ Verified with test suite: All chip support tests pass
 
-**Action**: Mark PR 2 as complete (critical items fixed). Low-priority items can be addressed later.
+**Action**: ✅ **COMPLETE** - All chip database alignment issues resolved.
 
 ---
 

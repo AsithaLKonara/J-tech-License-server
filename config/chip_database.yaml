@@ -125,6 +125,17 @@ chips:
     bootloader_instructions: "Connect ST-Link debugger"
     default_gpio: "PA7"
     max_leds: 180
+    
+  stm32f407:
+    name: "STM32F407"
+    family: "STM32"
+    flash_size: "1MB"
+    ram_size: "192KB"
+    uploader: "stm32_uploader"
+    requirements: ["stm32flash", "arm-none-eabi-gcc"]
+    bootloader_instructions: "Connect ST-Link debugger"
+    default_gpio: "PA0"
+    max_leds: 1000
 
   # PIC Family
   pic16f876a:
@@ -325,6 +336,17 @@ chips:
     bootloader_instructions: "Connect Nu-Link debugger"
     default_gpio: 0
     max_leds: 120
+    
+  nuvoton_m051:
+    name: "Nuvoton M051"
+    family: "Nuvoton"
+    flash_size: "64KB"
+    ram_size: "4KB"
+    uploader: "numicro_uploader"
+    requirements: ["nu-link"]
+    bootloader_instructions: "Connect Nu-Link debugger"
+    default_gpio: 0
+    max_leds: 200
 
 # Uploader configurations
 uploaders:

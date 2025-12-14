@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QWidget,
     QMessageBox,
+    QScrollArea,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -48,7 +49,21 @@ class CreateAnimationDialog(QDialog):
     
     def _setup_ui(self):
         """Setup UI components."""
-        layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Create scroll area for dialog content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        # Content widget
+        content_widget = QWidget()
+        layout = QVBoxLayout(content_widget)
+        layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # Title
         title = QLabel("✨ Create Animation")
@@ -89,13 +104,18 @@ class CreateAnimationDialog(QDialog):
         size_group.setLayout(size_layout)
         layout.addWidget(size_group)
         
-        # Buttons
+        layout.addStretch()
+        
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area, 1)
+        
+        # Buttons (outside scroll area)
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
         buttons.accepted.connect(self._on_generate)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        main_layout.addWidget(buttons)
     
     def _create_templates_tab(self) -> QWidget:
         """Create templates tab."""
