@@ -185,4 +185,20 @@ class HistoryManager:
         if frame_index >= len(self._redo_stacks):
             return 0
         return len(self._redo_stacks[frame_index])
+    
+    def save_state(self, frame_index: Optional[int] = None):
+        """
+        Save current state for undo (convenience method).
+        
+        Note: This is a no-op placeholder. State is actually saved when
+        commands are pushed via push_command(). This method exists for
+        backward compatibility with code that calls save_state() before
+        operations.
+        
+        Args:
+            frame_index: Frame index (uses current frame if None)
+        """
+        # No-op: State saving happens when commands are pushed
+        # This method exists for API compatibility
+        pass
 

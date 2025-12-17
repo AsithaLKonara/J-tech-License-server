@@ -55,13 +55,15 @@ class CircularPreviewCanvas(QWidget):
     def set_pattern_metadata(self, metadata: Optional[PatternMetadata]):
         """Set pattern metadata for layout information."""
         self._pattern_metadata = metadata
-        # Validate mapping table exists for circular layouts
-        if metadata and metadata.layout_type != "rectangular":
-            if not metadata.circular_mapping_table:
+        # Always regenerate mapping table for circular layouts to ensure latest logic
+        if metadata and metadata.layout_type not in ["rectangular", "irregular"]:
+            try:
+                # Force regeneration - don't rely on ensure_mapping_table which may skip if valid
+                metadata.circular_mapping_table = CircularMapper.generate_mapping_table(metadata)
+            except Exception as e:
                 import logging
                 logging.warning(
-                    f"CircularPreviewCanvas: No mapping table for layout type {metadata.layout_type}. "
-                    f"Preview will not render correctly."
+                    f"CircularPreviewCanvas: Failed to generate mapping table for layout type {metadata.layout_type}: {e}"
                 )
         self.update()
     
@@ -145,6 +147,18 @@ class CircularPreviewCanvas(QWidget):
         
         # Render LEDs using actual positions
         led_count = len(mapping_table)
+        
+        # Debug logging to verify mapping table order
+        if led_count > 0:
+            import logging
+            logger = logging.getLogger(__name__)
+            # Log first few mappings to verify order
+            for i in range(min(3, led_count)):
+                grid_x, grid_y = mapping_table[i]
+                logger.debug(f"LED {i} -> grid({grid_x}, {grid_y}) = row {grid_y}")
+            if led_count > 3:
+                grid_x, grid_y = mapping_table[led_count - 1]
+                logger.debug(f"LED {led_count-1} -> grid({grid_x}, {grid_y}) = row {grid_y}")
         
         for led_idx in range(led_count):
             # Get grid coordinate from mapping table (single source of truth)

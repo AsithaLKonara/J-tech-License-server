@@ -89,24 +89,22 @@ class ProjectFile:
         pattern_data = data.get("pattern", data)  # Fallback to entire data if no pattern key
         pattern = PatternConverter.pattern_from_json(pattern_data)
         
-        # Ensure mapping table exists for circular layouts (regenerate if missing or invalid)
+        # Ensure mapping table exists for circular layouts (always regenerate to pick up latest logic)
         if pattern.metadata.layout_type != "rectangular" and pattern.metadata.layout_type != "irregular":
             from core.mapping.circular_mapper import CircularMapper
-            is_valid, error_msg = CircularMapper.validate_mapping_table(pattern.metadata)
-            if not is_valid:
+            # Always regenerate mapping table to ensure we have the latest mapping logic
+            # This is important when mapping logic changes (e.g., row order fixes)
+            try:
+                pattern.metadata.circular_mapping_table = CircularMapper.generate_mapping_table(pattern.metadata)
                 import logging
                 logging.info(
-                    f"Mapping table missing or invalid for circular layout (type: {pattern.metadata.layout_type}). "
-                    f"Regenerating mapping table. Error: {error_msg}"
+                    f"Regenerated mapping table for circular layout (type: {pattern.metadata.layout_type})"
                 )
-                # Regenerate mapping table
-                if CircularMapper.ensure_mapping_table(pattern.metadata):
-                    logging.info("Mapping table successfully regenerated.")
-                else:
-                    logging.warning(
-                        f"Failed to regenerate mapping table for circular layout. "
-                        f"Pattern may not work correctly."
-                    )
+            except Exception as e:
+                import logging
+                logging.warning(
+                    f"Failed to regenerate mapping table for circular layout (type: {pattern.metadata.layout_type}): {e}"
+                )
         
         # Ensure active cells are initialized for irregular shapes
         if pattern.metadata.layout_type == "irregular" and getattr(pattern.metadata, 'irregular_shape_enabled', False):

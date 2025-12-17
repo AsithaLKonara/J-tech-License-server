@@ -26,6 +26,13 @@ from core.errors import get_error_handler
 
 logger = logging.getLogger(__name__)
 
+# #region agent log
+try:
+    from core.debug_logger import debug_log, debug_log_error, debug_log_function_entry, debug_log_function_exit
+except Exception:
+    debug_log = debug_log_error = debug_log_function_entry = debug_log_function_exit = lambda *args, **kwargs: None
+# #endregion
+
 
 def _get_enterprise_logger():
     """Get enterprise logger for audit and performance logging."""
@@ -73,15 +80,44 @@ class FlashService:
             ValueError: If chip is not supported
             RuntimeError: If build fails
         """
+        # #region agent log
+        try:
+            debug_log_function_entry("FlashService.build_firmware", "flash_service.py:53", {
+                "chip_id": chip_id,
+                "chip_variant": chip_variant,
+                "has_config": config is not None,
+                "pattern_led_count": pattern.led_count if pattern else None
+            }, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         logger.info(f"Building firmware for chip: {chip_id}")
         start_time = time.time()
         
         # Publish build started event
+        # #region agent log
+        try:
+            debug_log("flash_service.py:80", "Publishing build started event", {"chip_id": chip_id}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         self.event_bus.publish(FirmwareBuildStartedEvent(pattern, chip_id, source="FlashService"))
         
         # Get uploader from registry
+        # #region agent log
+        try:
+            debug_log("flash_service.py:85", "Getting uploader from registry", {"chip_id": chip_id}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         uploader = get_uploader(chip_id)
         if not uploader:
+            # #region agent log
+            try:
+                debug_log("flash_service.py:88", "Unsupported chip - no uploader found", {"chip_id": chip_id}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             error = ValueError(f"Unsupported chip: {chip_id}")
             self.error_handler.handle_flash_error(error, chip_id)
             self.event_bus.publish(FirmwareBuildFailedEvent(pattern, chip_id, error, source="FlashService"))
@@ -89,10 +125,25 @@ class FlashService:
         
         # Prepare build options
         build_opts = config or {}
+        # #region agent log
+        try:
+            debug_log("flash_service.py:95", "Before build_firmware call", {"chip_id": chip_id, "has_build_opts": bool(build_opts)}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         
         # Build firmware
         try:
             result = uploader.build_firmware(pattern, build_opts)
+            # #region agent log
+            try:
+                debug_log("flash_service.py:99", "Firmware build completed", {
+                    "chip_id": chip_id,
+                    "firmware_path": str(result.firmware_path) if result else None
+                }, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             
             # Audit and performance logging
             duration_ms = (time.time() - start_time) * 1000
@@ -114,8 +165,20 @@ class FlashService:
             ))
             
             logger.info(f"Firmware built successfully: {result.firmware_path}")
+            # #region agent log
+            try:
+                debug_log_function_exit("FlashService.build_firmware", "flash_service.py:117", {"success": True, "firmware_path": str(result.firmware_path)}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             return result
         except Exception as e:
+            # #region agent log
+            try:
+                debug_log_error("flash_service.py:122", e, {"chip_id": chip_id, "build_failed": True}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             duration_ms = (time.time() - start_time) * 1000
             self.error_handler.handle_flash_error(e, chip_id)
             self.event_bus.publish(FirmwareBuildFailedEvent(pattern, chip_id, e, source="FlashService"))
@@ -147,15 +210,44 @@ class FlashService:
             ValueError: If chip is not supported
             RuntimeError: If upload fails
         """
+        # #region agent log
+        try:
+            debug_log_function_entry("FlashService.upload_firmware", "flash_service.py:132", {
+                "chip_id": chip_id,
+                "port": port,
+                "firmware_path": firmware_path,
+                "has_config": config is not None
+            }, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         logger.info(f"Uploading firmware to chip: {chip_id} on port: {port}")
         start_time = time.time()
         
         # Publish upload started event
+        # #region agent log
+        try:
+            debug_log("flash_service.py:161", "Publishing upload started event", {"chip_id": chip_id, "port": port}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         self.event_bus.publish(FirmwareUploadStartedEvent(chip_id, firmware_path, port, source="FlashService"))
         
         # Get uploader from registry
+        # #region agent log
+        try:
+            debug_log("flash_service.py:165", "Getting uploader from registry", {"chip_id": chip_id}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         uploader = get_uploader(chip_id)
         if not uploader:
+            # #region agent log
+            try:
+                debug_log("flash_service.py:168", "Unsupported chip - no uploader found", {"chip_id": chip_id}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             error = ValueError(f"Unsupported chip: {chip_id}")
             self.error_handler.handle_flash_error(error, chip_id, port)
             self.event_bus.publish(FirmwareUploadFailedEvent(chip_id, firmware_path, port, error, source="FlashService"))
@@ -165,10 +257,26 @@ class FlashService:
         port_params = config or {}
         if port:
             port_params['port'] = port
+        # #region agent log
+        try:
+            debug_log("flash_service.py:178", "Before upload call", {"chip_id": chip_id, "port": port, "has_port_params": bool(port_params)}, hypothesis_id="F")
+        except Exception:
+            pass
+        # #endregion
         
         # Upload firmware
         try:
             result = uploader.upload(firmware_path, port_params)
+            # #region agent log
+            try:
+                debug_log("flash_service.py:183", "Upload completed", {
+                    "chip_id": chip_id,
+                    "port": port,
+                    "success": result.success if result else None
+                }, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             
             # Audit and performance logging
             duration_ms = (time.time() - start_time) * 1000
@@ -191,8 +299,20 @@ class FlashService:
             ))
             
             logger.info(f"Firmware uploaded successfully: {result.success}")
+            # #region agent log
+            try:
+                debug_log_function_exit("FlashService.upload_firmware", "flash_service.py:201", {"success": result.success}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             return result
         except Exception as e:
+            # #region agent log
+            try:
+                debug_log_error("flash_service.py:205", e, {"chip_id": chip_id, "port": port, "upload_failed": True}, hypothesis_id="F")
+            except Exception:
+                pass
+            # #endregion
             duration_ms = (time.time() - start_time) * 1000
             self.error_handler.handle_flash_error(e, chip_id, port)
             self.event_bus.publish(FirmwareUploadFailedEvent(chip_id, firmware_path, port, e, source="FlashService"))

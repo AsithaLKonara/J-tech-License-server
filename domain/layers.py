@@ -26,7 +26,8 @@ class Layer:
         opacity: float = 1.0,
         blend_mode: str = "normal",
         group_id: Optional[str] = None,
-        mask: Optional[List[float]] = None  # Mask values 0.0-1.0 per pixel
+        mask: Optional[List[float]] = None,  # Mask values 0.0-1.0 per pixel
+        locked: bool = False  # Lock layer to prevent editing
     ):
         self.name = name
         self.pixels = pixels or []
@@ -35,6 +36,7 @@ class Layer:
         self.blend_mode = blend_mode  # "normal", "add", "multiply", "screen"
         self.group_id = group_id  # ID of layer group this layer belongs to
         self.mask = mask  # Per-pixel mask (0.0 = transparent, 1.0 = opaque)
+        self.locked = locked  # Lock layer to prevent editing
     
     def copy(self) -> Layer:
         """Create a deep copy of this layer."""
@@ -45,7 +47,8 @@ class Layer:
             opacity=self.opacity,
             blend_mode=self.blend_mode,
             group_id=self.group_id,
-            mask=deepcopy(self.mask) if self.mask else None
+            mask=deepcopy(self.mask) if self.mask else None,
+            locked=self.locked
         )
     
     def apply_mask(self, width: int, height: int) -> List[Color]:
@@ -195,6 +198,20 @@ class LayerManager(QObject):
         if 0 <= layer_index < len(layers):
             layers[layer_index].opacity = max(0.0, min(1.0, opacity))
             self.layers_changed.emit(frame_index)
+    
+    def set_layer_locked(self, frame_index: int, layer_index: int, locked: bool) -> None:
+        """Set layer lock state."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            layers[layer_index].locked = locked
+            self.layers_changed.emit(frame_index)
+    
+    def is_layer_locked(self, frame_index: int, layer_index: int) -> bool:
+        """Check if layer is locked."""
+        layers = self.get_layers(frame_index)
+        if 0 <= layer_index < len(layers):
+            return layers[layer_index].locked
+        return False
 
     def set_layer_name(self, frame_index: int, layer_index: int, name: str) -> None:
         """Set layer name."""

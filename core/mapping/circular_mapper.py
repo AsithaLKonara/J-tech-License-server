@@ -362,15 +362,42 @@ class CircularMapper:
         if metadata.layout_type == "multi_ring":
             return CircularMapper.generate_multi_ring_mapping(metadata)
         
-        # Handle radial ray layout (Budurasmala)
+        # Handle radial ray layout: ray count = columns, LED per ray = rows
+        # Outer ring = top row (row 0), inner ring = bottom row (row height-1)
         if metadata.layout_type == "radial_rays":
-            return CircularMapper.generate_radial_ray_mapping(metadata)
+            # Use row/column interpretation: columns = rays, rows = LEDs per ray
+            ray_count = metadata.width  # columns = ray count
+            leds_per_ray = metadata.height  # rows = LEDs per ray
+            total_leds = ray_count * leds_per_ray
+            
+            # Set circular_led_count if not already set
+            if metadata.circular_led_count is None:
+                metadata.circular_led_count = total_leds
+            
+            # Auto-set ray_count and leds_per_ray from width/height if not set
+            if metadata.ray_count is None:
+                metadata.ray_count = ray_count
+            if metadata.leds_per_ray is None:
+                metadata.leds_per_ray = leds_per_ray
+            
+            mapping = []
+            # Generate mapping: ray by ray, LED by LED
+            # Outer ring (row=0) = top row, inner ring (row=height-1) = bottom row
+            for ray_idx in range(ray_count):
+                for row in range(leds_per_ray):  # row 0 = outer, row height-1 = inner
+                    # Map to grid: (ray_idx, row) -> (col, row)
+                    # Outer ring (row=0) = top row, inner ring (row=height-1) = bottom row
+                    grid_x = ray_idx  # column = ray index
+                    grid_y = row  # row 0 = outer circle (top row), row height-1 = inner circle (bottom row)
+                    mapping.append((grid_x, grid_y))
+            return mapping
         
         # Handle custom LED positions (for custom PCBs)
         if metadata.layout_type == "custom_positions" and metadata.custom_led_positions:
             return CircularMapper.generate_custom_position_mapping(metadata)
         
         # Handle radial layout: rows = circles, columns = LEDs per circle
+        # Left column = arch start angle, right column = arch end angle
         if metadata.layout_type == "radial":
             # Row/column interpretation (LMS-style)
             num_circles = metadata.height
@@ -382,13 +409,80 @@ class CircularMapper:
             if metadata.circular_led_count is None:
                 metadata.circular_led_count = total_leds
             
+            # Calculate center
+            center_x = (metadata.width - 1) / 2.0
+            center_y = (metadata.height - 1) / 2.0
+            
+            # Calculate radius range (inner to outer)
+            outer_radius = min(metadata.width, metadata.height) / 2.0 - 1.0
+            inner_radius = outer_radius * 0.15
+            radius_delta = (outer_radius - inner_radius) / max(1, num_circles - 1) if num_circles > 1 else 0
+            
+            # Get start/end angles for arch
+            start_angle = metadata.circular_start_angle
+            end_angle = metadata.circular_end_angle
+            angle_range = end_angle - start_angle
+            
             mapping = []
-            # Generate mapping in row-major order: (col, row) for each LED
-            # This enables canvas overlay to highlight active cells
-            # Export will use this same order (rectangular, unchanged)
-            for row in range(num_circles):
-                for col in range(leds_per_circle):
-                    mapping.append((col, row))  # Direct grid mapping
+            for row in range(num_circles):  # Each row = different circle
+                radius = inner_radius + radius_delta * row
+                
+                for col in range(leds_per_circle):  # Each col = arc position
+                    # Interpret column as arc position
+                    # Left column (0) = start angle, right column (width-1) = end angle
+                    t = col / max(1, leds_per_circle - 1) if leds_per_circle > 1 else 0.0  # 0 to 1
+                    angle_deg = start_angle + t * angle_range
+                    angle_rad = math.radians(angle_deg)
+                    
+                    # Convert to cartesian
+                    x_rel = radius * math.cos(angle_rad)
+                    y_rel = radius * math.sin(angle_rad)
+                    grid_x = int(round(center_x + x_rel))
+                    grid_y = int(round(center_y + y_rel))
+                    
+                    # Clamp to grid bounds
+                    grid_x = max(0, min(metadata.width - 1, grid_x))
+                    grid_y = max(0, min(metadata.height - 1, grid_y))
+                    
+                    mapping.append((grid_x, grid_y))
+            
+            return mapping
+        
+        # Handle circular layout: ray = column, led_per_ray = row
+        # Top row (row 0) = outer circle, bottom row (height-1) = inner circle
+        if metadata.layout_type == "circle" or metadata.layout_type == "ring":
+            # Use row/column interpretation: columns are rays, rows are LEDs per ray
+            ray_count = metadata.width  # Number of columns (rays)
+            leds_per_ray = metadata.height  # Number of rows (LEDs per ray)
+            total_leds = ray_count * leds_per_ray
+            
+            # Set circular_led_count if not already set
+            if metadata.circular_led_count is None:
+                metadata.circular_led_count = total_leds
+            
+            mapping = []
+            # Generate mapping: for each ray (column), map LEDs from outer (top row) to inner (bottom row)
+            # LED index order: ray 0 (all LEDs), ray 1 (all LEDs), ..., ray N-1 (all LEDs)
+            # Within each ray: outer (row=0) to inner (row=height-1)
+            for col in range(ray_count):  # For each ray (column)
+                for row in range(leds_per_ray):  # For each LED along the ray
+                    # Map from outer (top row) to inner (bottom row)
+                    # row=0 -> outer circle (top row)
+                    # row=height-1 -> inner circle (bottom row)
+                    mapping.append((col, row))
+            
+            # Verify mapping order: LED 0 should map to row 0 (outer), LED N-1 should map to row height-1 (inner)
+            if len(mapping) > 0:
+                first_x, first_y = mapping[0]
+                last_x, last_y = mapping[-1]
+                # For ray-based interpretation: first LED should be row 0, last should be row height-1
+                if first_y != 0 or last_y != leds_per_ray - 1:
+                    import logging
+                    logging.warning(
+                        f"Mapping order validation: LED 0 -> row {first_y} (expected 0), "
+                        f"LED {len(mapping)-1} -> row {last_y} (expected {leds_per_ray-1})"
+                    )
+            
             return mapping
         
         if metadata.circular_led_count is None:
@@ -747,35 +841,44 @@ class CircularMapper:
             
             return positions
         
-        # Handle radial ray layout
+        # Handle radial ray layout: ray count = columns, LED per ray = rows
+        # Outer ring = top row (row 0), inner ring = bottom row (row height-1)
         if metadata.layout_type == "radial_rays":
-            if not metadata.ray_count or not metadata.leds_per_ray:
+            # Use row/column interpretation
+            ray_count = metadata.width  # columns = ray count
+            leds_per_ray = metadata.height  # rows = LEDs per ray
+            
+            if ray_count < 1 or leds_per_ray < 1:
                 return []
             
             # Calculate ray spacing angle
             if metadata.ray_spacing_angle is not None:
                 ray_spacing_rad = math.radians(metadata.ray_spacing_angle)
             else:
-                ray_spacing_rad = (2 * math.pi) / metadata.ray_count
+                ray_spacing_rad = (2 * math.pi) / ray_count
             
             # Scale to fit in max_radius
-            max_physical_radius = max_radius * 0.8
+            outer_radius = max_radius * 0.8
+            inner_radius = outer_radius * 0.15
+            radius_delta = (outer_radius - inner_radius) / max(1, leds_per_ray - 1) if leds_per_ray > 1 else 0
             
-            led_idx = 0
-            for ray_idx in range(metadata.ray_count):
-                ray_angle = ray_idx * ray_spacing_rad
+            # Generate positions: ray by ray, from outer (row 0) to inner (row height-1)
+            for ray_idx in range(ray_count):
+                # Offset angle so Ray 0 is at bottom (π/2 radians = 90° = 6 o'clock)
+                # In Qt coordinates: 0° = right, 90° = bottom, 180° = left, 270° = top
+                ray_angle = ray_idx * ray_spacing_rad + math.pi / 2
                 
-                # Generate LEDs along this ray
-                for led_idx_in_ray in range(metadata.leds_per_ray):
-                    # Calculate distance from center (evenly spaced along ray)
-                    t = (led_idx_in_ray + 1) / metadata.leds_per_ray  # 0 to 1
-                    led_radius = t * max_physical_radius
+                for row in range(leds_per_ray):
+                    # Row 0 = outer circle, row height-1 = inner circle
+                    # Calculate radius: row 0 has largest radius, row height-1 has smallest
+                    # Invert row index so row 0 maps to outer_radius and last row maps to inner_radius
+                    inverted_row = leds_per_ray - 1 - row
+                    radius = inner_radius + radius_delta * inverted_row
                     
                     # Convert to screen coordinates
-                    x = center_x + led_radius * math.cos(ray_angle)
-                    y = center_y + led_radius * math.sin(ray_angle)
+                    x = center_x + radius * math.cos(ray_angle)
+                    y = center_y + radius * math.sin(ray_angle)
                     positions.append((x, y))
-                    led_idx += 1
             
             return positions
         
@@ -846,7 +949,50 @@ class CircularMapper:
             
             return positions
         
-        # Handle standard circular layouts (circle, ring, arc)
+        # Handle circular/ring layout with ray interpretation: columns = rays, rows = LEDs per ray
+        # Top row (row 0) = outer circle, bottom row (height-1) = inner circle
+        if metadata.layout_type == "circle" or metadata.layout_type == "ring":
+            # Check if this uses ray interpretation (columns=rays, rows=LEDs per ray)
+            # This is the case when width and height represent ray structure
+            ray_count = metadata.width  # Number of columns (rays)
+            leds_per_ray = metadata.height  # Number of rows (LEDs per ray)
+            
+            if ray_count > 0 and leds_per_ray > 0:
+                # Calculate ray spacing angle (evenly spaced around circle)
+                ray_spacing_rad = (2 * math.pi) / ray_count if ray_count > 0 else 0
+                
+                # Scale to fit in max_radius
+                outer_radius = max_radius * 0.8
+                inner_radius = outer_radius * 0.15
+                radius_delta = (outer_radius - inner_radius) / max(1, leds_per_ray - 1) if leds_per_ray > 1 else 0
+                
+                # Generate positions: ray by ray, from outer (row 0) to inner (row height-1)
+                for ray_idx in range(ray_count):
+                    # Offset angle so Ray 0 is at bottom (π/2 radians = 90° = 6 o'clock)
+                    # In Qt coordinates: 0° = right, 90° = bottom, 180° = left, 270° = top
+                    # Note: cos(π/2) = 0, sin(π/2) = 1 → (x=0, y=1) = bottom in screen coords
+                    ray_angle = ray_idx * ray_spacing_rad + math.pi / 2
+                    
+                    # Debug: Log first ray angle to verify offset is applied
+                    if ray_idx == 0:
+                        import logging
+                        logging.debug(f"Ray 0 angle: {math.degrees(ray_angle):.1f}° (should be 90° for bottom)")
+                    
+                    for row in range(leds_per_ray):
+                        # Row 0 = outer circle, row height-1 = inner circle
+                        # Calculate radius: row 0 has largest radius, row height-1 has smallest
+                        # Invert row index so row 0 maps to outer_radius and last row maps to inner_radius
+                        inverted_row = leds_per_ray - 1 - row
+                        radius = inner_radius + radius_delta * inverted_row
+                        
+                        # Convert to screen coordinates
+                        x = center_x + radius * math.cos(ray_angle)
+                        y = center_y + radius * math.sin(ray_angle)
+                        positions.append((x, y))
+                
+                return positions
+        
+        # Handle standard circular layouts (circle, ring, arc) - single circle/ring
         # Get layout parameters
         led_count = metadata.circular_led_count or len(metadata.circular_mapping_table)
         radius = metadata.circular_radius

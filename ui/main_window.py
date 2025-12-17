@@ -16,6 +16,13 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 import logging
 
+# #region agent log
+try:
+    from core.debug_logger import debug_log, debug_log_error, debug_log_function_entry, debug_log_function_exit
+except Exception:
+    debug_log = debug_log_error = debug_log_function_entry = debug_log_function_exit = lambda *args, **kwargs: None
+# #endregion
+
 from core.pattern import Pattern
 from parsers.parser_registry import parse_pattern_file, ParserRegistry
 from core.pattern_clipboard import PatternClipboard
@@ -58,11 +65,29 @@ class UploadBridgeMainWindow(QMainWindow):
     save_state_changed = Signal(bool)
     
     def __init__(self):
+        # #region agent log
+        try:
+            debug_log_function_entry("UploadBridgeMainWindow.__init__", "main_window.py:60", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         super().__init__()
         
         # Initialize services and repository
+        # #region agent log
+        try:
+            debug_log("main_window.py:65", "Before repository initialization", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         self.repository = PatternRepository.instance()
         self.pattern_service = PatternService()
+        # #region agent log
+        try:
+            debug_log("main_window.py:68", "Repository and service initialized", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         
         # Legacy attributes (kept for backward compatibility during migration)
         # These will be removed once all code is migrated to use repository
@@ -75,16 +100,46 @@ class UploadBridgeMainWindow(QMainWindow):
         self.tab_state_manager = TabStateManager(self.settings)  # Tab state persistence
         self.undo_redo_manager = SharedUndoRedoManager(max_history=50)  # Cross-tab undo/redo
         self.workspace = WorkspaceManager()  # Multi-pattern workspace
+        # #region agent log
+        try:
+            debug_log("main_window.py:78", "Managers initialized", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         
         # Connect repository signals
         self.repository.pattern_changed.connect(self._on_repository_pattern_changed)
         self.repository.pattern_cleared.connect(self._on_repository_pattern_cleared)
+        # #region agent log
+        try:
+            debug_log("main_window.py:83", "Repository signals connected", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         
+        # #region agent log
+        try:
+            debug_log("main_window.py:86", "Before setup_ui", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         self.setup_ui()
+        # #region agent log
+        try:
+            debug_log("main_window.py:89", "After setup_ui, before load_settings", {}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         self.load_settings()
         
         # Sync legacy attributes with repository
         self._sync_legacy_attributes()
+        # #region agent log
+        try:
+            debug_log_function_exit("UploadBridgeMainWindow.__init__", "main_window.py:95", None, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
     
     def setup_ui(self):
         """Create UI elements"""
@@ -204,21 +259,79 @@ class UploadBridgeMainWindow(QMainWindow):
     def load_file(self, file_path: str):
         """Load a pattern file passed via command-line or file association.
         Supports: .bin, .dat, .leds (pattern formats)."""
+        # #region agent log
+        try:
+            debug_log_function_entry("UploadBridgeMainWindow.load_file", "main_window.py:204", {"file_path": file_path}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         try:
             if not file_path:
+                # #region agent log
+                try:
+                    debug_log("main_window.py:210", "Empty file path, returning", {}, hypothesis_id="E")
+                except Exception:
+                    pass
+                # #endregion
                 return
             lower = file_path.lower()
+            # #region agent log
+            try:
+                debug_log("main_window.py:214", "Checking file extension", {"file_path": file_path, "lower": lower}, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             if not any(lower.endswith(ext) for ext in (".bin", ".dat", ".leds", ".hex")):
+                # #region agent log
+                try:
+                    debug_log("main_window.py:217", "Unsupported file type", {"file_path": file_path}, hypothesis_id="E")
+                except Exception:
+                    pass
+                # #endregion
                 QMessageBox.information(self, "Open", f"Unsupported file type: {os.path.basename(file_path)}")
                 return
             # Use PatternService to load pattern
+            # #region agent log
+            try:
+                debug_log("main_window.py:222", "Before pattern_service.load_pattern", {"file_path": file_path}, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             pattern, format_name = self.pattern_service.load_pattern(file_path)
+            # #region agent log
+            try:
+                debug_log("main_window.py:225", "Pattern loaded successfully", {
+                    "format_name": format_name,
+                    "led_count": pattern.led_count if pattern else None,
+                    "frame_count": pattern.frame_count if pattern else None
+                }, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             try:
                 print(f"[DEBUG] Parsed {file_path} as {format_name}: leds={pattern.led_count}, frames={pattern.frame_count}, {pattern.metadata.width}x{pattern.metadata.height}")
             except Exception:
                 pass
+            # #region agent log
+            try:
+                debug_log("main_window.py:231", "Before load_pattern_to_all_tabs", {"file_path": file_path}, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             self.load_pattern_to_all_tabs(pattern, file_path)
+            # #region agent log
+            try:
+                debug_log_function_exit("UploadBridgeMainWindow.load_file", "main_window.py:234", True, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
         except Exception as e:
+            # #region agent log
+            try:
+                debug_log_error("main_window.py:238", e, {"file_path": file_path, "load_file_failed": True}, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             QMessageBox.critical(self, "Open", f"Failed to open {os.path.basename(file_path)}:\n{e}")
     
     def create_placeholder_tab(self, title: str):
@@ -234,14 +347,38 @@ class UploadBridgeMainWindow(QMainWindow):
     
     def on_tab_changed(self, index: int):
         """Handle tab change - initialize tab if not already initialized"""
+        # #region agent log
+        try:
+            debug_log("main_window.py:235", "Tab changed", {"index": index}, hypothesis_id="E")
+        except Exception:
+            pass
+        # #endregion
         tab_names = ['media_upload', 'design_tools', 'preview', 'flash', 'batch_flash', 'pattern_library', 'audio_reactive', 'wifi_upload', 'arduino_ide']
         
         if 0 <= index < len(tab_names):
             tab_name = tab_names[index]
+            # #region agent log
+            try:
+                debug_log("main_window.py:241", "Tab name resolved", {"tab_name": tab_name, "is_initialized": self._tabs_initialized.get(tab_name, False)}, hypothesis_id="E")
+            except Exception:
+                pass
+            # #endregion
             
             # Initialize tab if not already initialized
             if not self._tabs_initialized[tab_name]:
+                # #region agent log
+                try:
+                    debug_log("main_window.py:246", "Initializing tab", {"tab_name": tab_name}, hypothesis_id="E")
+                except Exception:
+                    pass
+                # #endregion
                 self.initialize_tab(tab_name)
+                # #region agent log
+                try:
+                    debug_log("main_window.py:250", "Tab initialization completed", {"tab_name": tab_name}, hypothesis_id="E")
+                except Exception:
+                    pass
+                # #endregion
     
     def initialize_tab(self, tab_name: str):
         """Initialize a specific tab (lazy loading)"""

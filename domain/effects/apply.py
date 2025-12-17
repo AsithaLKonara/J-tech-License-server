@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Sequence, Tuple, Callable, Optional
 
 from core.pattern import Frame, Pattern
 
@@ -33,18 +33,27 @@ def apply_effect_to_frames(
     effect: EffectDefinition,
     frame_indices: Iterable[int],
     intensity: float,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> None:
     """Apply the procedural effect to the provided frames.
 
     The implementation purposefully produces visually pleasing (yet lightweight)
     overlays so we can honour legacy effect names without depending on SWF
     parsing.  The behaviour is deterministic for a given effect identifier.
+    
+    Args:
+        pattern: Pattern to apply effect to
+        effect: Effect definition
+        frame_indices: Frames to apply effect to
+        intensity: Effect intensity (0.0-1.0)
+        progress_callback: Optional callback(completed, total) for progress updates
     """
 
     frames = list(frame_indices)
     if not frames:
         return
 
+    total = len(frames)
     width = max(1, pattern.metadata.width)
     height = max(1, pattern.metadata.height)
     palette = _build_palette(effect)
@@ -52,8 +61,14 @@ def apply_effect_to_frames(
     rng = random.Random(effect.identifier)
     speed = 0.05 + intensity * 0.45
 
+    processed_count = 0
+    skipped_count = 0
+    
     for step, frame_index in enumerate(frames):
         if not (0 <= frame_index < len(pattern.frames)):
+            skipped_count += 1
+            import logging
+            logging.warning(f"Effect application: Skipping invalid frame index {frame_index} (pattern has {len(pattern.frames)} frames)")
             continue
         frame = pattern.frames[frame_index]
         pixels = list(frame.pixels)
@@ -63,6 +78,21 @@ def apply_effect_to_frames(
         offset = step * speed
         transformed = _apply_style_to_pixels(pixels, width, height, palette, style, offset, intensity, rng)
         frame.pixels = transformed
+        processed_count += 1
+        
+        # Call progress callback and check if canceled
+        if progress_callback:
+            should_continue = progress_callback(step + 1, total)
+            if not should_continue:
+                # User canceled - stop processing remaining frames
+                import logging
+                logging.info(f"Effect application canceled by user after processing {processed_count} of {total} frames")
+                break
+    
+    # Log completion statistics
+    if skipped_count > 0:
+        import logging
+        logging.warning(f"Effect application: Processed {processed_count} frames, skipped {skipped_count} invalid frames")
 
 
 def generate_effect_preview(

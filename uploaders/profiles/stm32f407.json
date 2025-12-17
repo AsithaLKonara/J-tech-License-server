@@ -1,5 +1,5 @@
 {
-  "chip_id": "STM32F407",
+  "chip_id": "stm32f407",
   "chip_variant": null,
   "chip_name": "STM32F407",
   "manufacturer": "STMicroelectronics",

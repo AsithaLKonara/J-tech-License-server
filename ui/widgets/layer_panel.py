@@ -101,19 +101,28 @@ class LayerPanelWidget(QWidget):
         name_layout.addWidget(self.layer_name_edit)
         props_layout.addLayout(name_layout)
         
-        # Visibility
+        # Visibility and Lock
         visibility_layout = QHBoxLayout()
         self.layer_visible_checkbox = QCheckBox("Visible")
         self.layer_visible_checkbox.toggled.connect(self._on_visibility_changed)
         visibility_layout.addWidget(self.layer_visible_checkbox)
         
+        self.layer_locked_checkbox = QCheckBox("Locked")
+        self.layer_locked_checkbox.setToolTip("Lock layer to prevent editing")
+        self.layer_locked_checkbox.toggled.connect(self._on_lock_changed)
+        visibility_layout.addWidget(self.layer_locked_checkbox)
+        
+        visibility_layout.addStretch()
+        props_layout.addLayout(visibility_layout)
+        
         # Solo mode toggle
+        solo_layout = QHBoxLayout()
         self.solo_mode_checkbox = QCheckBox("Solo Mode (Show Only Active Layer)")
         self.solo_mode_checkbox.setToolTip("When enabled, only the active layer is visible. Other layers are temporarily hidden.")
         self.solo_mode_checkbox.toggled.connect(self._on_solo_mode_changed)
-        visibility_layout.addWidget(self.solo_mode_checkbox)
-        visibility_layout.addStretch()
-        props_layout.addLayout(visibility_layout)
+        solo_layout.addWidget(self.solo_mode_checkbox)
+        solo_layout.addStretch()
+        props_layout.addLayout(solo_layout)
         
         # Opacity
         opacity_layout = QHBoxLayout()
@@ -167,6 +176,11 @@ class LayerPanelWidget(QWidget):
         """Get the currently active layer index."""
         return self._active_layer_index
 
+    def refresh(self):
+        """Public method to refresh layer panel display."""
+        self._refresh_layer_list()
+        self._update_properties()
+    
     def _refresh_layer_list(self):
         """Refresh the layer list display."""
         self._updating = True
@@ -189,6 +203,8 @@ class LayerPanelWidget(QWidget):
             item_text = f"{layer.name}"
             if not layer.visible:
                 item_text += " (hidden)"
+            if getattr(layer, 'locked', False):
+                item_text += " [Locked]"
             if layer.opacity < 1.0:
                 item_text += f" [{int(layer.opacity * 100)}%]"
             
@@ -268,12 +284,14 @@ class LayerPanelWidget(QWidget):
             layer = layers[self._active_layer_index]
             self.layer_name_edit.setText(layer.name)
             self.layer_visible_checkbox.setChecked(layer.visible)
+            self.layer_locked_checkbox.setChecked(getattr(layer, 'locked', False))
             self.layer_opacity_slider.setValue(int(layer.opacity * 100))
             self.layer_opacity_label.setText(f"{int(layer.opacity * 100)}%")
             
             # Enable controls
             self.layer_name_edit.setEnabled(True)
             self.layer_visible_checkbox.setEnabled(True)
+            self.layer_locked_checkbox.setEnabled(True)
             self.layer_opacity_slider.setEnabled(True)
             self.delete_layer_btn.setEnabled(len(layers) > 1)
             self.move_up_btn.setEnabled(self._active_layer_index > 0)
@@ -442,6 +460,14 @@ class LayerPanelWidget(QWidget):
         opacity = value / 100.0
         self.layer_opacity_label.setText(f"{value}%")
         self.layer_manager.set_layer_opacity(self._current_frame_index, self._active_layer_index, opacity)
+    
+    def _on_lock_changed(self, checked: bool):
+        """Handle lock toggle."""
+        if self._updating:
+            return
+        
+        self.layer_manager.set_layer_locked(self._current_frame_index, self._active_layer_index, checked)
+        self._refresh_layer_list()
 
     def _on_move_up(self):
         """Move layer up."""

@@ -67,6 +67,19 @@ class TextRenderer:
         offset: Tuple[int, int] = (0, 0),
     ) -> List[RGB]:
         """Render text into a flattened RGB buffer."""
+        # Validate and sanitize text input
+        if not isinstance(text, str):
+            text = str(text)
+        if not text:
+            return [options.background] * (options.width * options.height)
+        
+        # Ensure text is properly encoded (handle any encoding issues)
+        try:
+            text = text.encode('utf-8', errors='ignore').decode('utf-8')
+        except Exception:
+            # Fallback: just use string representation
+            text = str(text)
+        
         width, height = options.width, options.height
         pixels = [options.background] * (width * height)
         if not text:

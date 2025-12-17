@@ -1,11 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
+
+# Resolve project root (two levels up from this spec file: installer/windows → installer → project root)
+BASE_DIR = Path(SPEC).resolve().parents[2]
 
 
 a = Analysis(
-    ['installer\\installer.py'],
-    pathex=[],
+    [str(BASE_DIR / 'installer' / 'installer.py')],
+    pathex=[str(BASE_DIR)],
     binaries=[],
-    datas=[('config', 'config'), ('LICENSE_KEYS.txt', '.'), ('dist\\UploadBridge.exe', 'payload'), ('windows', 'windows')],
+    datas=[
+        (str(BASE_DIR / 'config'), 'config'),
+        (str(BASE_DIR / 'LICENSE_KEYS.txt'), '.'),
+        (str(BASE_DIR / 'dist' / 'UploadBridge.exe'), 'payload'),
+        (str(BASE_DIR / 'windows'), 'windows'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +44,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['LEDMatrixStudio_icon.ico'],
+    icon=[str(BASE_DIR / 'LEDMatrixStudio_icon.ico')],
 )

@@ -450,6 +450,32 @@ class TextTool(DrawingTool):
         return new_frame
 
 
+# Tool registry map
+_TOOL_MAP = {
+    "pixel": PixelTool,
+    "rectangle": RectangleTool,
+    "circle": CircleTool,
+    "line": LineTool,
+    "fill": FillTool,
+    "gradient": GradientTool,
+    "random": RandomSprayTool,
+    "text": TextTool,
+}
+
+
+def get_tool_class(tool_type: str) -> type:
+    """
+    Get drawing tool class by type.
+    
+    Args:
+        tool_type: Tool type ("pixel", "rectangle", "circle", "line", "fill", "gradient", "random", "text")
+        
+    Returns:
+        DrawingTool class (not instance)
+    """
+    return _TOOL_MAP.get(tool_type.lower(), PixelTool)
+
+
 # Tool factory
 def create_tool(tool_type: str, brush: Brush = None) -> DrawingTool:
     """
@@ -462,17 +488,6 @@ def create_tool(tool_type: str, brush: Brush = None) -> DrawingTool:
     Returns:
         DrawingTool instance
     """
-    tool_map = {
-        "pixel": PixelTool,
-        "rectangle": RectangleTool,
-        "circle": CircleTool,
-        "line": LineTool,
-        "fill": FillTool,
-        "gradient": GradientTool,
-        "random": RandomSprayTool,
-        "text": TextTool,
-    }
-    
-    tool_class = tool_map.get(tool_type.lower(), PixelTool)
+    tool_class = get_tool_class(tool_type)
     return tool_class(brush=brush)
 

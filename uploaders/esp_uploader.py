@@ -11,6 +11,13 @@ from typing import Optional
 from .base import UploaderBase, UploadStatus, UploadResult, BuildResult, UploadError, BuildError, DeviceInfo
 from core.subprocess_utils import get_hidden_subprocess_kwargs
 
+# #region agent log
+try:
+    from core.debug_logger import debug_log, debug_log_error, debug_log_function_entry, debug_log_function_exit
+except Exception:
+    debug_log = debug_log_error = debug_log_function_entry = debug_log_function_exit = lambda *args, **kwargs: None
+# #endregion
+
 
 class EspUploader(UploaderBase):
     """ESP8266/ESP32 uploader using esptool.py"""
@@ -175,15 +182,31 @@ class EspUploader(UploaderBase):
     
     def upload(self, firmware_path: str, port_params: dict) -> UploadResult:
         """Upload firmware to ESP device using esptool.py"""
+        # #region agent log
+        try:
+            debug_log_function_entry("EspUploader.upload", "esp_uploader.py:176", {
+                "chip_id": self.chip_id,
+                "firmware_path": firmware_path,
+                "port": port_params.get('port')
+            }, hypothesis_id="G")
+        except Exception:
+            pass
+        # #endregion
         self._report_progress(UploadStatus.UPLOADING, 0.0, "Starting upload...")
-        
+
         try:
             port = port_params['port']
             baud = port_params.get('baud', self.chip_settings[self.chip_id]['default_baud'])
-            
+            # #region agent log
+            try:
+                debug_log("esp_uploader.py:184", "Port and baud resolved", {"port": port, "baud": baud, "chip_id": self.chip_id}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
+
             # ESP8266/ESP32 specific settings
             settings = self.chip_settings[self.chip_id]
-            
+
             # Build esptool command
             cmd = [
                 "python", "-m", "esptool",
@@ -195,10 +218,22 @@ class EspUploader(UploaderBase):
                 "--flash_size", settings['flash_size'],
                 "0x00000", firmware_path
             ]
-            
+            # #region agent log
+            try:
+                debug_log("esp_uploader.py:199", "esptool command built", {"cmd": ' '.join(cmd[:5])}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
+
             self._report_progress(UploadStatus.UPLOADING, 0.2, "Flashing firmware...")
-            
+
             # Execute esptool
+            # #region agent log
+            try:
+                debug_log("esp_uploader.py:204", "Before subprocess.run", {"timeout": 120}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -208,15 +243,33 @@ class EspUploader(UploaderBase):
                 timeout=120,  # 2 minute timeout
                 **get_hidden_subprocess_kwargs()
             )
-            
+            # #region agent log
+            try:
+                debug_log("esp_uploader.py:214", "subprocess.run completed", {"returncode": result.returncode}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
+
             duration = time.time() - time.time()
-            
+
             if result.returncode == 0:
                 # Parse bytes written from output
                 bytes_written = self._parse_bytes_written(result.stdout)
-                
+                # #region agent log
+                try:
+                    debug_log("esp_uploader.py:220", "Upload successful", {"bytes_written": bytes_written}, hypothesis_id="G")
+                except Exception:
+                    pass
+                # #endregion
+
                 self._report_progress(UploadStatus.UPLOADING, 1.0, f"Upload complete! {bytes_written} bytes written")
-                
+
+                # #region agent log
+                try:
+                    debug_log_function_exit("EspUploader.upload", "esp_uploader.py:226", {"success": True}, hypothesis_id="G")
+                except Exception:
+                    pass
+                # #endregion
                 return UploadResult(
                     success=True,
                     bytes_written=bytes_written,
@@ -225,12 +278,30 @@ class EspUploader(UploaderBase):
                     verified=True  # esptool verifies by default
                 )
             else:
+                # #region agent log
+                try:
+                    debug_log("esp_uploader.py:234", "Upload failed - non-zero return code", {"returncode": result.returncode}, hypothesis_id="G")
+                except Exception:
+                    pass
+                # #endregion
                 error_msg = self._parse_upload_error(result.stderr or result.stdout)
                 raise UploadError(f"Upload failed: {error_msg}")
                 
         except subprocess.TimeoutExpired:
+            # #region agent log
+            try:
+                debug_log_error("esp_uploader.py:241", subprocess.TimeoutExpired("", 120), {"timeout": True}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
             raise UploadError("Upload timeout - device may not be responding")
         except Exception as e:
+            # #region agent log
+            try:
+                debug_log_error("esp_uploader.py:246", e, {"upload_error": True}, hypothesis_id="G")
+            except Exception:
+                pass
+            # #endregion
             raise UploadError(f"Upload error: {str(e)}")
     
     def probe_device(self, port: str) -> Optional[DeviceInfo]:

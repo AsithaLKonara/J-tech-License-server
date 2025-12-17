@@ -19,6 +19,7 @@ import random
 
 from PySide6.QtCore import Qt, QPoint, Signal, QSize, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor, QFont
+from PySide6.QtGui import QPainter as QPainterEnum
 from PySide6.QtWidgets import QWidget
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -35,7 +36,7 @@ class DrawingMode(Enum):
     RANDOM = "random"
     GRADIENT = "gradient"
     BUCKET_FILL = "bucket_fill"
-    EYEDROPPER = "eyedropper"
+    # EYEDROPPER removed - not needed
 
 
 class PixelShape(Enum):
@@ -67,7 +68,7 @@ class MatrixDesignCanvas(QWidget):
     pixel_updated = Signal(int, int, tuple)  # x, y, (r, g, b)
     hover_changed = Signal(int, int)  # x, y under cursor (or -1, -1)
     painting_finished = Signal()  # Emitted when mouse is released after painting
-    color_picked = Signal(int, int, int)  # r, g, b - Emitted when color is picked with eyedropper
+    # Eyedropper tool removed - color_picked signal no longer needed
 
     def __init__(
         self,
@@ -106,6 +107,11 @@ class MatrixDesignCanvas(QWidget):
         self._gradient_end: RGB = (0, 0, 255)
         self._gradient_steps: int = 32
         self._gradient_step_index: int = 0
+        # Photoshop-like gradient tool state
+        self._gradient_start_point: Optional[QPoint] = None
+        self._gradient_end_point: Optional[QPoint] = None
+        self._gradient_preview_mode: bool = False
+        self._gradient_dragging_handle: Optional[str] = None  # "start" or "end" or None
         self._dirty_regions: List[Tuple[int, int, int, int]] = []  # (x, y, w, h) dirty rectangles
         self._full_repaint_needed = False
         self._bucket_fill_tolerance: int = 0  # Color tolerance for bucket fill (0-255)
@@ -194,10 +200,8 @@ class MatrixDesignCanvas(QWidget):
         self._preview_grid = None
         
         # Update cursor based on tool
-        if mode == DrawingMode.EYEDROPPER:
-            self.setCursor(Qt.CrossCursor)
-        else:
-            self.setCursor(Qt.ArrowCursor)
+        # Eyedropper tool removed - no longer supported
+        self.setCursor(Qt.ArrowCursor)
         
         self.update()
 
@@ -277,6 +281,9 @@ class MatrixDesignCanvas(QWidget):
         self._gradient_end = self._clamp_color(end)
         self._gradient_steps = max(2, int(steps))
         self._gradient_step_index = 0
+        # Ensure gradient mode is active
+        if self._drawing_mode == DrawingMode.GRADIENT:
+            self.update()
 
     def set_bucket_fill_tolerance(self, tolerance: int) -> None:
         """Set color tolerance for bucket fill (0-255)."""
@@ -393,11 +400,22 @@ class MatrixDesignCanvas(QWidget):
         # Draw pixels (use preview grid if available, otherwise use actual grid)
         display_grid = self._preview_grid if self._preview_grid is not None else self._grid
         
+        # Check if irregular shape layout is enabled
+        is_irregular = (self._pattern_metadata and 
+                       getattr(self._pattern_metadata, 'irregular_shape_enabled', False) and
+                       getattr(self._pattern_metadata, 'layout_type', 'rectangular') == 'irregular')
+        
         # Optimize: only repaint dirty regions if not doing full repaint
         if self._full_repaint_needed or not self._dirty_regions:
             # Full repaint
             for y in range(self._matrix_height):
                 for x in range(self._matrix_width):
+                    # Skip inactive cells for irregular shapes - don't draw them at all
+                    if is_irregular:
+                        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                        if not IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata):
+                            continue  # Skip inactive cells - make them transparent
+                    
                     color = display_grid[y][x]
                     rect_x = x * self._pixel_size + 1
                     rect_y = y * self._pixel_size + 1
@@ -422,6 +440,12 @@ class MatrixDesignCanvas(QWidget):
             for x, y, w, h in self._dirty_regions:
                 for py in range(y, min(y + h, self._matrix_height)):
                     for px in range(x, min(x + w, self._matrix_width)):
+                        # Skip inactive cells for irregular shapes - don't draw them at all
+                        if is_irregular:
+                            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                            if not IrregularShapeMapper.is_cell_active(px, py, self._pattern_metadata):
+                                continue  # Skip inactive cells - make them transparent
+                        
                         color = display_grid[py][px]
                         rect_x = px * self._pixel_size + 1
                         rect_y = py * self._pixel_size + 1
@@ -430,6 +454,23 @@ class MatrixDesignCanvas(QWidget):
                         self._draw_pixel_tile(painter, rect_x, rect_y, rect_w, rect_h, color)
             self._dirty_regions.clear()
 
+        # Draw gradient preview line and handles (Photoshop-like)
+        if self._drawing_mode == DrawingMode.GRADIENT and self._gradient_preview_mode:
+            if self._gradient_start_point and self._gradient_end_point:
+                # Draw gradient line
+                painter.setPen(QPen(QColor(255, 255, 0), 2, Qt.DashLine))
+                painter.drawLine(self._gradient_start_point, self._gradient_end_point)
+                
+                # Draw handles (start and end points)
+                painter.setBrush(QBrush(QColor(255, 255, 0)))
+                painter.setPen(QPen(QColor(0, 0, 0), 1))
+                handle_radius = 5
+                painter.drawEllipse(self._gradient_start_point, handle_radius, handle_radius)
+                painter.drawEllipse(self._gradient_end_point, handle_radius, handle_radius)
+                
+                # Draw gradient preview along the line
+                self._draw_gradient_preview(painter)
+        
         # Highlight hover cell
         hx, hy = self._hover_cell
         if 0 <= hx < self._matrix_width and 0 <= hy < self._matrix_height:
@@ -442,6 +483,23 @@ class MatrixDesignCanvas(QWidget):
                 self._pixel_size - 2,
             )
 
+        # Draw gradient preview line and handles (Photoshop-like) - before geometry overlay
+        if self._drawing_mode == DrawingMode.GRADIENT and self._gradient_preview_mode:
+            if self._gradient_start_point and self._gradient_end_point:
+                # Draw gradient line
+                painter.setPen(QPen(QColor(255, 255, 0), 2, Qt.DashLine))
+                painter.drawLine(self._gradient_start_point, self._gradient_end_point)
+                
+                # Draw handles (start and end points)
+                painter.setBrush(QBrush(QColor(255, 255, 0)))
+                painter.setPen(QPen(QColor(0, 0, 0), 1))
+                handle_radius = 5
+                painter.drawEllipse(self._gradient_start_point, handle_radius, handle_radius)
+                painter.drawEllipse(self._gradient_end_point, handle_radius, handle_radius)
+                
+                # Draw gradient preview along the line
+                self._draw_gradient_preview(painter)
+        
         # Geometry overlay preview (after hover so highlight stays crisp)
         self._draw_geometry_overlay(painter)
         
@@ -547,15 +605,41 @@ class MatrixDesignCanvas(QWidget):
         if event.button() in (Qt.LeftButton, Qt.RightButton):
             if event.button() == Qt.LeftButton:
                 self._gradient_step_index = 0
+                
+                # Handle gradient tool drag-to-define
+                if self._drawing_mode == DrawingMode.GRADIENT:
+                    pos = event.position().toPoint()
+                    # Check if clicking on existing gradient handles
+                    if self._gradient_start_point and self._gradient_end_point:
+                        start_dist = ((pos.x() - self._gradient_start_point.x()) ** 2 + 
+                                     (pos.y() - self._gradient_start_point.y()) ** 2) ** 0.5
+                        end_dist = ((pos.x() - self._gradient_end_point.x()) ** 2 + 
+                                   (pos.y() - self._gradient_end_point.y()) ** 2) ** 0.5
+                        handle_radius = 8
+                        if start_dist < handle_radius:
+                            self._gradient_dragging_handle = "start"
+                            self._gradient_preview_mode = True
+                            event.accept()
+                            return
+                        elif end_dist < handle_radius:
+                            self._gradient_dragging_handle = "end"
+                            self._gradient_preview_mode = True
+                            event.accept()
+                            return
+                    
+                    # Start new gradient definition
+                    self._gradient_start_point = pos
+                    self._gradient_end_point = pos
+                    self._gradient_preview_mode = True
+                    self._gradient_dragging_handle = "end"  # Dragging end point
+                    self.update()
+                    event.accept()
+                    return
+            
             cell = self._cell_from_point(event.position().toPoint())
             x, y = cell
             if 0 <= x < self._matrix_width and 0 <= y < self._matrix_height:
-                if self._drawing_mode == DrawingMode.EYEDROPPER:
-                    # Pick color from canvas
-                    picked_color = self._pick_color_at(x, y)
-                    if picked_color:
-                        self.color_picked.emit(picked_color[0], picked_color[1], picked_color[2])
-                elif self._drawing_mode == DrawingMode.BUCKET_FILL:
+                if self._drawing_mode == DrawingMode.BUCKET_FILL:
                     # Bucket fill
                     target_color = self._grid[y][x]
                     fill_color = self._erase_color if event.button() == Qt.RightButton else self._current_color
@@ -611,6 +695,13 @@ class MatrixDesignCanvas(QWidget):
                 if event.buttons() & (Qt.LeftButton | Qt.RightButton):
                     button = Qt.LeftButton if event.buttons() & Qt.LeftButton else Qt.RightButton
                     self._handle_paint_event(pos, button)
+            elif self._drawing_mode == DrawingMode.GRADIENT and self._gradient_preview_mode:
+                # Update gradient end point during drag
+                if self._gradient_dragging_handle == "start":
+                    self._gradient_start_point = pos
+                elif self._gradient_dragging_handle == "end":
+                    self._gradient_end_point = pos
+                self.update()  # Redraw gradient preview
             else:
                 # Update shape preview
                 x, y = cell
@@ -629,6 +720,19 @@ class MatrixDesignCanvas(QWidget):
             return
         
         was_dragging = self._is_dragging
+        
+        # Handle gradient tool release
+        if self._drawing_mode == DrawingMode.GRADIENT and self._gradient_preview_mode:
+            if self._gradient_start_point and self._gradient_end_point:
+                # Apply gradient based on start/end points
+                self._apply_gradient_interactive()
+            self._gradient_preview_mode = False
+            self._gradient_dragging_handle = None
+            self.update()
+            if was_dragging:
+                self.painting_finished.emit()
+            return
+        
         if self._is_dragging and self._drawing_mode != DrawingMode.PIXEL:
             # Commit shape
             if self._shape_start and self._shape_end:
@@ -734,6 +838,9 @@ class MatrixDesignCanvas(QWidget):
             if self._drawing_mode == DrawingMode.RANDOM and self._random_palette:
                 color = random.choice(self._random_palette)
             elif self._drawing_mode == DrawingMode.GRADIENT:
+                # Reset gradient step index at start of new paint operation
+                if not self._is_dragging:
+                    self._gradient_step_index = 0
                 color = self._next_gradient_color()
             else:
                 color = self._current_color
@@ -1024,21 +1131,23 @@ class MatrixDesignCanvas(QWidget):
             painter.setBrush(inactive_brush)
             painter.setPen(Qt.NoPen)
             
-            for y in range(self._matrix_height):
-                for x in range(self._matrix_width):
-                    # Check if this cell is mapped/active
-                    is_active = True
-                    if layout_type == "irregular":
-                        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
-                        is_active = IrregularShapeMapper.is_cell_active(x, y, self._pattern_metadata)
-                    else:
+            # For circular layouts, dim unmapped cells (irregular shapes handle this in paintEvent)
+            if layout_type != "irregular":
+                for y in range(self._matrix_height):
+                    for x in range(self._matrix_width):
+                        # Check if this cell is mapped/active
                         is_active = CircularMapper.is_mapped(x, y, self._pattern_metadata)
-                    
-                    if not is_active:
-                        # Dim inactive/unmapped cell
-                        cell_x = bounds.x() + x * cell_width
-                        cell_y = bounds.y() + y * cell_height
-                        painter.drawRect(int(cell_x), int(cell_y), int(cell_width), int(cell_height))
+                        
+                        if not is_active:
+                            # Hide inactive/unmapped cell completely (not just dimmed)
+                            cell_x = bounds.x() + x * cell_width
+                            cell_y = bounds.y() + y * cell_height
+                            # Use composition mode to clear the cell
+                            from PySide6.QtGui import QPainter as QP
+                            painter.setCompositionMode(QP.CompositionMode_Clear)
+                            painter.fillRect(int(cell_x), int(cell_y), int(cell_width), int(cell_height), 
+                                           QColor(0, 0, 0, 0))
+                            painter.setCompositionMode(QP.CompositionMode_SourceOver)
             
             # Draw circular bounds overlay
             overlay_pen = QPen(QColor(0, 255, 120, 120), 2, Qt.SolidLine)
@@ -1100,12 +1209,22 @@ class MatrixDesignCanvas(QWidget):
             self._draw_circular_wiring_overlay(painter, bounds)
             return
         
+        # Check if irregular shape layout is enabled
+        is_irregular = (layout_type == 'irregular' and 
+                       getattr(self._pattern_metadata, 'irregular_shape_enabled', False))
+        
+        # Get active cell coordinates for irregular shapes
+        active_cell_coordinates = None
+        if is_irregular:
+            active_cell_coordinates = getattr(self._pattern_metadata, 'active_cell_coordinates', None)
+        
         # Create wiring mapper to get the path
         mapper = WiringMapper(
             width=self._pattern_metadata.width,
             height=self._pattern_metadata.height,
             wiring_mode=wiring_mode,
-            data_in_corner=data_in_corner
+            data_in_corner=data_in_corner,
+            active_cell_coordinates=active_cell_coordinates
         )
         
         # Build the wiring path
@@ -1126,6 +1245,12 @@ class MatrixDesignCanvas(QWidget):
             design_idx = mapping[hw_idx]
             grid_x = design_idx % self._pattern_metadata.width
             grid_y = design_idx // self._pattern_metadata.width
+            
+            # Safety check: Skip inactive cells for irregular shapes (shouldn't happen if mapping is correct)
+            if is_irregular:
+                from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                if not IrregularShapeMapper.is_cell_active(grid_x, grid_y, self._pattern_metadata):
+                    continue  # Skip inactive cells
             
             # Calculate pixel position
             x = bounds.x() + (grid_x + 0.5) * cell_width
@@ -1339,6 +1464,98 @@ class MatrixDesignCanvas(QWidget):
         g = int(self._gradient_start[1] + (self._gradient_end[1] - self._gradient_start[1]) * t)
         b = int(self._gradient_start[2] + (self._gradient_end[2] - self._gradient_start[2]) * t)
         return self._clamp_color((r, g, b))
+    
+    def _draw_gradient_preview(self, painter: QPainter):
+        """Draw gradient preview along the gradient line."""
+        if not self._gradient_start_point or not self._gradient_end_point:
+            return
+        
+        # Calculate line parameters
+        x1, y1 = self._gradient_start_point.x(), self._gradient_start_point.y()
+        x2, y2 = self._gradient_end_point.x(), self._gradient_end_point.y()
+        dx = x2 - x1
+        dy = y2 - y1
+        length = (dx * dx + dy * dy) ** 0.5
+        
+        if length == 0:
+            return
+        
+        # Draw gradient preview as colored line segments
+        steps = 20
+        for i in range(steps + 1):
+            t = i / steps
+            x = int(x1 + dx * t)
+            y = int(y1 + dy * t)
+            
+            # Calculate color at this position
+            r = int(self._gradient_start[0] + (self._gradient_end[0] - self._gradient_start[0]) * t)
+            g = int(self._gradient_start[1] + (self._gradient_end[1] - self._gradient_start[1]) * t)
+            b = int(self._gradient_start[2] + (self._gradient_end[2] - self._gradient_start[2]) * t)
+            color = QColor(r, g, b)
+            
+            # Draw small segment
+            if i < steps:
+                next_t = (i + 1) / steps
+                next_x = int(x1 + dx * next_t)
+                next_y = int(y1 + dy * next_t)
+                painter.setPen(QPen(color, 3))
+                painter.drawLine(x, y, next_x, next_y)
+    
+    def _apply_gradient_interactive(self):
+        """Apply gradient based on interactive start/end points (Photoshop-like)."""
+        if not self._gradient_start_point or not self._gradient_end_point:
+            return
+        
+        # Convert screen points to cell coordinates
+        start_cell = self._cell_from_point(self._gradient_start_point)
+        end_cell = self._cell_from_point(self._gradient_end_point)
+        
+        x1, y1 = start_cell
+        x2, y2 = end_cell
+        
+        # Clamp to matrix bounds
+        x1 = max(0, min(self._matrix_width - 1, x1))
+        y1 = max(0, min(self._matrix_height - 1, y1))
+        x2 = max(0, min(self._matrix_width - 1, x2))
+        y2 = max(0, min(self._matrix_height - 1, y2))
+        
+        # Calculate gradient line
+        dx = x2 - x1
+        dy = y2 - y1
+        length = (dx * dx + dy * dy) ** 0.5
+        
+        if length == 0:
+            return
+        
+        # Apply gradient to all pixels along the line and perpendicular to it
+        # For each pixel in the matrix, calculate distance from gradient line
+        for y in range(self._matrix_height):
+            for x in range(self._matrix_width):
+                # Calculate vector from start point to current pixel
+                px = x - x1
+                py = y - y1
+                
+                # Project onto gradient line to get t (0 to 1 along line)
+                t = (px * dx + py * dy) / (length * length) if length > 0 else 0
+                t = max(0.0, min(1.0, t))  # Clamp to [0, 1]
+                
+                # Calculate distance from line (for perpendicular gradient width)
+                # For now, apply gradient to all pixels (can add width control later)
+                perp_dist = abs(px * (-dy) + py * dx) / length if length > 0 else 0
+                
+                # Interpolate color based on position along gradient line
+                r = int(self._gradient_start[0] + (self._gradient_end[0] - self._gradient_start[0]) * t)
+                g = int(self._gradient_start[1] + (self._gradient_end[1] - self._gradient_start[1]) * t)
+                b = int(self._gradient_start[2] + (self._gradient_end[2] - self._gradient_start[2]) * t)
+                color = self._clamp_color((r, g, b))
+                
+                # Apply color to pixel
+                self._grid[y][x] = color
+                self.pixel_updated.emit(x, y, color)
+        
+        # Mark entire matrix as dirty
+        self._dirty_regions.append((0, 0, self._matrix_width, self._matrix_height))
+        self.update()
 
     # ------------------------------------------------------------------
     # Theming

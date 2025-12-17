@@ -344,9 +344,13 @@ class TemplateLibrary:
         if not template:
             raise ValueError(f"Template not found: {template_name}")
         
-        # Merge parameters
+        # Merge parameters - remove width/height from kwargs if present to avoid conflicts
         params = template.parameters.copy()
-        params.update(kwargs)
+        # Remove width/height from kwargs to prevent "multiple values" error
+        kwargs_clean = {k: v for k, v in kwargs.items() if k not in ("width", "height")}
+        params.update(kwargs_clean)
+        
+        # Explicitly set width/height (override any in template parameters)
         params["width"] = width
         params["height"] = height
         

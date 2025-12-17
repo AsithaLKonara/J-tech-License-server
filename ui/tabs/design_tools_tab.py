@@ -342,6 +342,7 @@ class DesignToolsTab(QWidget):
         self._current_frame_index: int = 0
         self._frame_duration_ms: int = 50
         self._current_color: Tuple[int, int, int] = (255, 255, 255)
+        self._frame_switch_locked: bool = False  # Prevent frame switching during operations
         # Onion skinning state
         self._onion_skin_enabled: bool = False
         self._onion_skin_prev_count: int = 1
@@ -571,34 +572,39 @@ class DesignToolsTab(QWidget):
         quick_actions_layout.setSpacing(4)
         quick_actions_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Clear Frame button
-        clear_btn = QPushButton("Clear")
-        clear_btn.setToolTip("Clear current frame (Delete)")
+        # Clear Frame button (icon-only with minimum size)
+        clear_btn = QPushButton()
         clear_btn.clicked.connect(self._on_clear_frame)
+        self._apply_button_icon(clear_btn, "delete", tooltip="Clear current frame (Delete)", icon_only=True)
+        clear_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(clear_btn)
         
-        # Invert button
-        invert_btn = QPushButton("Invert")
-        invert_btn.setToolTip("Invert colors (Ctrl+I)")
+        # Invert button (icon-only with minimum size)
+        invert_btn = QPushButton()
         invert_btn.clicked.connect(self._on_invert_frame)
+        self._apply_button_icon(invert_btn, "refresh", tooltip="Invert colors (Ctrl+I)", icon_only=True)
+        invert_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(invert_btn)
         
-        # Flip H button
-        flip_h_btn = QPushButton("Flip H")
-        flip_h_btn.setToolTip("Flip horizontal (Ctrl+H)")
+        # Flip H button (icon-only with minimum size)
+        flip_h_btn = QPushButton()
         flip_h_btn.clicked.connect(self._on_flip_horizontal)
+        self._apply_button_icon(flip_h_btn, "arrow-left", tooltip="Flip horizontal (Ctrl+H)", icon_only=True)
+        flip_h_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(flip_h_btn)
         
-        # Flip V button
-        flip_v_btn = QPushButton("Flip V")
-        flip_v_btn.setToolTip("Flip vertical (Ctrl+V)")
+        # Flip V button (icon-only with minimum size)
+        flip_v_btn = QPushButton()
         flip_v_btn.clicked.connect(self._on_flip_vertical)
+        self._apply_button_icon(flip_v_btn, "arrow-up", tooltip="Flip vertical (Ctrl+V)", icon_only=True)
+        flip_v_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(flip_v_btn)
         
-        # Rotate 90° button
-        rotate_btn = QPushButton("Rotate 90°")
-        rotate_btn.setToolTip("Rotate 90 degrees clockwise")
+        # Rotate 90° button (icon-only with minimum size)
+        rotate_btn = QPushButton()
         rotate_btn.clicked.connect(self._on_rotate_90)
+        self._apply_button_icon(rotate_btn, "refresh", tooltip="Rotate 90 degrees clockwise", icon_only=True)
+        rotate_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(rotate_btn)
         
         quick_actions_widget = QWidget()
@@ -762,7 +768,8 @@ class DesignToolsTab(QWidget):
             scroll.setWidget(panel)
             scroll.setWidgetResizable(True)
             scroll.setFrameShape(QFrame.NoFrame)
-            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
             self.toolbox_tabs.addTab(scroll, get_icon(icon_name), title)
 
         self.toolbox_tabs.currentChanged.connect(self._on_toolbox_tab_changed)
@@ -794,7 +801,16 @@ class DesignToolsTab(QWidget):
         # Connect layer visibility toggle
         self.timeline.layerVisibilityToggled.connect(self._on_timeline_layer_visibility_toggled)
         
-        layout.addWidget(self.timeline, 1)
+        # Wrap timeline in scroll area for horizontal scrolling
+        from PySide6.QtWidgets import QScrollArea
+        timeline_scroll = QScrollArea()
+        timeline_scroll.setWidget(self.timeline)
+        timeline_scroll.setWidgetResizable(True)
+        timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        timeline_scroll.setFrameShape(QScrollArea.Shape.NoFrame)  # Remove border
+        
+        layout.addWidget(timeline_scroll, 1)
 
         # Simple timeline mode toggle
         simple_mode_label = QLabel("Simple Mode:")
@@ -816,6 +832,11 @@ class DesignToolsTab(QWidget):
         self.add_frame_btn.clicked.connect(self._on_add_frame)
         frame_ops.addWidget(self.add_frame_btn)
 
+        self.bulk_add_frame_btn = QPushButton("Bulk Add")
+        self._apply_button_icon(self.bulk_add_frame_btn, "add", tooltip="Add multiple frames at once")
+        self.bulk_add_frame_btn.clicked.connect(self._on_bulk_add_frames)
+        frame_ops.addWidget(self.bulk_add_frame_btn)
+
         self.duplicate_frame_btn = QPushButton("Duplicate")
         self._apply_button_icon(self.duplicate_frame_btn, "duplicate", tooltip="Duplicate selected frame")
         self.duplicate_frame_btn.clicked.connect(self._on_duplicate_frame)
@@ -825,6 +846,11 @@ class DesignToolsTab(QWidget):
         self._apply_button_icon(self.delete_frame_btn, "delete", tooltip="Delete selected frame (Del)")
         self.delete_frame_btn.clicked.connect(self._on_delete_frame)
         frame_ops.addWidget(self.delete_frame_btn)
+
+        self.bulk_delete_frame_btn = QPushButton("Bulk Delete")
+        self._apply_button_icon(self.bulk_delete_frame_btn, "delete", tooltip="Delete frame range")
+        self.bulk_delete_frame_btn.clicked.connect(self._on_bulk_delete_frames)
+        frame_ops.addWidget(self.bulk_delete_frame_btn)
         controls.addLayout(frame_ops)
 
         controls.addStretch(1)
@@ -1132,8 +1158,9 @@ class DesignToolsTab(QWidget):
                     metadata.ring_spacing = dialog.get_ring_spacing()
                 elif actual_shape == "radial_rays":
                     metadata.layout_type = "radial_rays"
-                    metadata.ray_count = dialog.get_ray_count()
-                    metadata.leds_per_ray = dialog.get_leds_per_ray()
+                    # Auto-set from width/height: ray_count = width (columns), leds_per_ray = height (rows)
+                    metadata.ray_count = metadata.width  # columns = ray count
+                    metadata.leds_per_ray = metadata.height  # rows = LEDs per ray
                     metadata.ray_spacing_angle = dialog.get_ray_spacing_angle()
                 elif actual_shape == "custom_positions":
                     metadata.layout_type = "custom_positions"
@@ -1310,18 +1337,37 @@ class DesignToolsTab(QWidget):
             
             # Parse file with comprehensive error handling
             try:
-                from parsers.parser_registry import ParserRegistry
-                registry = ParserRegistry()
-                pattern, format_name = registry.parse_file(file_path)
+                from pathlib import Path
+                file_ext = Path(file_path).suffix.lower()
                 
-                if not pattern:
-                    QMessageBox.critical(
-                        self,
-                        "Parse Failed",
-                        f"Failed to parse pattern file:\n{file_path}\n\n"
-                        "The file format may be invalid or corrupted."
-                    )
-                    return
+                # Handle JSON/LEDPROJ files directly
+                if file_ext in ['.json', '.ledproj']:
+                    try:
+                        pattern = Pattern.load_from_file(file_path)
+                        format_name = "JSON Project"
+                    except Exception as json_error:
+                        QMessageBox.critical(
+                            self,
+                            "JSON Parse Failed",
+                            f"Failed to load JSON pattern file:\n{file_path}\n\n"
+                            f"Error: {str(json_error)}\n\n"
+                            "The file may be corrupted or in an invalid format."
+                        )
+                        return
+                else:
+                    # Use parser registry for binary formats
+                    from parsers.parser_registry import ParserRegistry
+                    registry = ParserRegistry()
+                    pattern, format_name = registry.parse_file(file_path)
+                    
+                    if not pattern:
+                        QMessageBox.critical(
+                            self,
+                            "Parse Failed",
+                            f"Failed to parse pattern file:\n{file_path}\n\n"
+                            "The file format may be invalid or corrupted."
+                        )
+                        return
                 
                 # Validate pattern before loading
                 if not isinstance(pattern, Pattern):
@@ -1333,15 +1379,23 @@ class DesignToolsTab(QWidget):
                     )
                     return
                 
-                # Validate pattern has frames
+                # Validate pattern has frames - create default frame if missing
                 if not hasattr(pattern, 'frames') or not pattern.frames:
-                    QMessageBox.warning(
+                    # Create a blank frame with correct dimensions
+                    width = pattern.metadata.width if pattern.metadata else 16
+                    height = pattern.metadata.height if pattern.metadata else 16
+                    pixel_count = width * height
+                    blank_frame = Frame(
+                        pixels=[(0, 0, 0)] * pixel_count,
+                        duration_ms=100
+                    )
+                    pattern.frames = [blank_frame]
+                    # Inform user that a blank frame was created (non-blocking in tests)
+                    QMessageBox.information(
                         self,
                         "Empty Pattern",
-                        f"Pattern file contains no frames:\n{file_path}\n\n"
-                        "The file may be incomplete or invalid."
+                        f"Pattern file contains no frames. Created a blank frame ({width}x{height})."
                     )
-                    return
                 
                 # Validate dimensions
                 if hasattr(pattern, 'metadata') and pattern.metadata:
@@ -1428,9 +1482,14 @@ class DesignToolsTab(QWidget):
                 button.setToolButtonStyle(Qt.ToolButtonIconOnly)
             else:
                 button.setFlat(True)
-                button.setMinimumWidth(32)
-            if hasattr(button, "setMinimumHeight"):
-                button.setMinimumHeight(32)
+                # Ensure minimum size for visibility
+                if hasattr(button, "setMinimumWidth"):
+                    button.setMinimumWidth(24)
+                if hasattr(button, "setMinimumHeight"):
+                    button.setMinimumHeight(24)
+                # Ensure icon is visible
+                if hasattr(button, "setIconSize"):
+                    button.setIconSize(QSize(20, 20))
 
     def _loop_enabled(self) -> bool:
         toggle = getattr(self, "header_loop_toggle", None)
@@ -1474,7 +1533,7 @@ class DesignToolsTab(QWidget):
         self.canvas = MatrixDesignCanvas(width=12, height=6, pixel_size=28)
         self.canvas.pixel_updated.connect(self._on_canvas_pixel_updated)
         self.canvas.painting_finished.connect(self._commit_paint_operation)
-        self.canvas.color_picked.connect(self._on_color_picked)
+        # Eyedropper tool removed - color_picked signal no longer needed
         self.canvas.set_random_palette(self.DEFAULT_COLORS)
         self.canvas.set_gradient_brush(self._start_gradient_color, self._end_gradient_color, 32)
         canvas_splitter.addWidget(self.canvas)
@@ -1683,18 +1742,21 @@ class DesignToolsTab(QWidget):
             copy_btn = QPushButton("Copy")
             copy_btn.setToolTip("Copy the current composite frame into this scratchpad.")
             copy_btn.clicked.connect(lambda _=False, s=slot: self._copy_to_scratchpad(s))
+            self._apply_button_icon(copy_btn, "duplicate", tooltip="Copy the current composite frame into this scratchpad.")
             row.addWidget(copy_btn)
 
             paste_btn = QPushButton("Paste")
             paste_btn.setToolTip("Paste scratchpad contents into the active frame.")
             paste_btn.setEnabled(False)
             paste_btn.clicked.connect(lambda _=False, s=slot: self._paste_from_scratchpad(s))
+            self._apply_button_icon(paste_btn, "add", tooltip="Paste scratchpad contents into the active frame.")
             row.addWidget(paste_btn)
 
             clear_btn = QToolButton()
             clear_btn.setText("Clear")
             clear_btn.setToolTip("Remove stored pixels from this slot.")
             clear_btn.clicked.connect(lambda _=False, s=slot: self._clear_scratchpad_slot(s))
+            self._apply_button_icon(clear_btn, "delete", tooltip="Remove stored pixels from this slot.", icon_only=True)
             row.addWidget(clear_btn)
 
             row.addStretch()
@@ -1832,15 +1894,22 @@ class DesignToolsTab(QWidget):
         """Create the Layers tab with layer panel widget."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Create scroll area for layer panel
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         
         # Create layer panel widget
         self.layer_panel = LayerPanelWidget(self.layer_manager, self)
         self.layer_panel.active_layer_changed.connect(self._on_active_layer_changed)
         self.layer_panel.solo_mode_changed.connect(self._on_solo_mode_changed)
-        layout.addWidget(self.layer_panel)
+        scroll.setWidget(self.layer_panel)
         
-        layout.addStretch()
+        layout.addWidget(scroll)
         return tab
 
     def _create_effects_tab(self) -> QWidget:
@@ -1849,13 +1918,20 @@ class DesignToolsTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
+        # Create scroll area for effects widget
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
         self.effects_widget = EffectsLibraryWidget()
         self.effects_widget.effectSelected.connect(self._on_effect_selection_changed)
         self.effects_widget.previewRequested.connect(self._on_effect_preview_requested)
         self.effects_widget.applyRequested.connect(self._on_effect_apply_requested)
         self.effects_widget.refreshRequested.connect(self._on_effects_refresh_requested)
         self.effects_widget.openFolderRequested.connect(self._on_effects_open_folder)
-        layout.addWidget(self.effects_widget)
+        scroll.setWidget(self.effects_widget)
+        layout.addWidget(scroll)
 
         self._effects_info_default = self.effects_widget.info_label.text()
         self._refresh_effects_library()
@@ -2084,6 +2160,7 @@ class DesignToolsTab(QWidget):
         pixel_btn.setChecked(True)
         pixel_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.PIXEL))
         self.tool_button_group.addButton(pixel_btn, 0)
+        self._apply_button_icon(pixel_btn, "brush", tooltip="Pixel brush tool")
         tool_layout.addWidget(pixel_btn, 0, 0)
 
         # Rectangle tool
@@ -2091,6 +2168,7 @@ class DesignToolsTab(QWidget):
         rect_btn.setCheckable(True)
         rect_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.RECTANGLE))
         self.tool_button_group.addButton(rect_btn, 1)
+        self._apply_button_icon(rect_btn, "brush", tooltip="Rectangle tool")
         tool_layout.addWidget(rect_btn, 0, 1)
 
         # Circle tool
@@ -2098,6 +2176,7 @@ class DesignToolsTab(QWidget):
         circle_btn.setCheckable(True)
         circle_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.CIRCLE))
         self.tool_button_group.addButton(circle_btn, 2)
+        self._apply_button_icon(circle_btn, "brush", tooltip="Circle tool")
         tool_layout.addWidget(circle_btn, 1, 0)
 
         # Line tool
@@ -2105,18 +2184,21 @@ class DesignToolsTab(QWidget):
         line_btn.setCheckable(True)
         line_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.LINE))
         self.tool_button_group.addButton(line_btn, 3)
+        self._apply_button_icon(line_btn, "brush", tooltip="Line tool")
         tool_layout.addWidget(line_btn, 1, 1)
 
         random_btn = QPushButton("Random Spray")
         random_btn.setCheckable(True)
         random_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.RANDOM))
         self.tool_button_group.addButton(random_btn, 4)
+        self._apply_button_icon(random_btn, "brush", tooltip="Random spray tool")
         tool_layout.addWidget(random_btn, 2, 0)
 
         gradient_btn = QPushButton("Gradient Brush")
         gradient_btn.setCheckable(True)
         gradient_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.GRADIENT))
         self.tool_button_group.addButton(gradient_btn, 5)
+        self._apply_button_icon(gradient_btn, "brush", tooltip="Gradient brush tool")
         tool_layout.addWidget(gradient_btn, 2, 1)
 
         # Bucket fill tool
@@ -2124,14 +2206,10 @@ class DesignToolsTab(QWidget):
         bucket_btn.setCheckable(True)
         bucket_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.BUCKET_FILL))
         self.tool_button_group.addButton(bucket_btn, 6)
+        self._apply_button_icon(bucket_btn, "brush", tooltip="Bucket fill tool")
         tool_layout.addWidget(bucket_btn, 2, 2)
 
-        # Eyedropper tool
-        eyedropper_btn = QPushButton("Eyedropper")
-        eyedropper_btn.setCheckable(True)
-        eyedropper_btn.clicked.connect(lambda: self._on_tool_selected(DrawingMode.EYEDROPPER))
-        self.tool_button_group.addButton(eyedropper_btn, 7)
-        tool_layout.addWidget(eyedropper_btn, 3, 0)
+        # Eyedropper tool removed per user request
 
         layout.addLayout(tool_layout)
 
@@ -2193,10 +2271,14 @@ class DesignToolsTab(QWidget):
         if self.canvas:
             self.canvas.set_drawing_mode(mode)
             # Enable/disable filled checkbox based on tool
-            self.shape_filled_checkbox.setEnabled(mode != DrawingMode.PIXEL and mode != DrawingMode.LINE and mode != DrawingMode.BUCKET_FILL and mode != DrawingMode.EYEDROPPER)
+            self.shape_filled_checkbox.setEnabled(mode != DrawingMode.PIXEL and mode != DrawingMode.LINE and mode != DrawingMode.BUCKET_FILL)
             # Enable/disable tolerance control based on tool
             if hasattr(self, 'bucket_fill_tolerance_spin'):
                 self.bucket_fill_tolerance_spin.setEnabled(mode == DrawingMode.BUCKET_FILL)
+            
+            # Sync gradient brush settings when gradient tool is selected
+            if mode == DrawingMode.GRADIENT:
+                self._sync_gradient_brush_settings()
 
     def _on_shape_filled_changed(self, checked: bool):
         """Handle shape filled toggle."""
@@ -2717,30 +2799,28 @@ class DesignToolsTab(QWidget):
         frames = self._generate_text_frames(text, anim_type, frames_per_char, text_color)
         
         if frames:
-            # Clear existing frames or append based on user preference
+            # Auto-append frames (no dialog - automatic)
             if not self._pattern.frames:
                 self._pattern.frames = frames
             else:
-                reply = QMessageBox.question(
-                    self,
-                    "Append or Replace?",
-                    "Do you want to append the new text frames to existing frames, or replace them?",
-                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-                    QMessageBox.Yes
-                )
-                if reply == QMessageBox.Yes:
-                    self._pattern.frames.extend(frames)
-                elif reply == QMessageBox.No:
-                    self._pattern.frames = frames
-                else:
-                    return
+                # Auto-append to existing frames
+                self._pattern.frames.extend(frames)
 
-            self.frame_manager.select(0)
+            # Auto-sync layers for all new frames
+            for idx in range(len(self._pattern.frames) - len(frames), len(self._pattern.frames)):
+                self.layer_manager.sync_frame_from_layers(idx)
+
+            # Update frame manager with new pattern state
+            self.frame_manager.set_pattern(self._pattern)
+            self.history_manager.set_frame_count(len(self._pattern.frames))
+            self._current_frame_index = len(self._pattern.frames) - len(frames)  # Set to first new frame
+            self.frame_manager.select(self._current_frame_index)
             self._load_current_frame_into_canvas()
             self._refresh_timeline()
             self._update_status_labels()
+            self._update_layer_sync_warning()
             self.pattern_modified.emit()
-            QMessageBox.information(self, "Success", f"Generated {len(frames)} text animation frames.")
+            # Removed success dialog - automatic operation
 
     def _build_text_render_options(
         self,
@@ -2775,6 +2855,25 @@ class DesignToolsTab(QWidget):
         text_color: Tuple[int, int, int],
     ) -> List[Frame]:
         """Generate frames for text animation using the shared text renderer."""
+        # Validate and sanitize text
+        if not isinstance(text, str):
+            text = str(text)
+        text = text.strip()
+        
+        if not text:
+            return []
+        
+        # Log text for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Generating text frames for: {repr(text)}")
+        
+        # Ensure text is properly encoded
+        try:
+            text = text.encode('utf-8', errors='ignore').decode('utf-8')
+        except Exception:
+            text = str(text)
+        
         width = self.width_spin.value() if hasattr(self, "width_spin") else self._pattern.metadata.width
         height = self.height_spin.value() if hasattr(self, "height_spin") else self._pattern.metadata.height
         render_opts = self._build_text_render_options(width, height, text_color)
@@ -4258,12 +4357,14 @@ class DesignToolsTab(QWidget):
         select_range_btn = QPushButton("Select Range")
         select_range_btn.setToolTip("Select frames in the specified range on timeline")
         select_range_btn.clicked.connect(self._on_select_range_clicked)
+        self._apply_button_icon(select_range_btn, "target", tooltip="Select frames in the specified range on timeline")
         range_row.addWidget(select_range_btn)
         
         # Select All button
         select_all_btn = QPushButton("Select All")
         select_all_btn.setToolTip("Select all frames")
         select_all_btn.clicked.connect(self._on_select_all_frames_clicked)
+        self._apply_button_icon(select_all_btn, "target", tooltip="Select all frames")
         range_row.addWidget(select_all_btn)
         
         range_row.addStretch()
@@ -4277,37 +4378,29 @@ class DesignToolsTab(QWidget):
         clear_range_btn = QPushButton("Clear Range")
         clear_range_btn.setToolTip("Clear all pixels in selected range")
         clear_range_btn.clicked.connect(self._on_clear_range_clicked)
+        self._apply_button_icon(clear_range_btn, "delete", tooltip="Clear all pixels in selected range")
         range_ops_row.addWidget(clear_range_btn)
         
         # Invert range button
         invert_range_btn = QPushButton("Invert Range")
         invert_range_btn.setToolTip("Invert colors in selected range")
         invert_range_btn.clicked.connect(self._on_invert_range_clicked)
+        self._apply_button_icon(invert_range_btn, "refresh", tooltip="Invert colors in selected range")
         range_ops_row.addWidget(invert_range_btn)
         
         # Delete range button
         delete_range_btn = QPushButton("Delete Range")
         delete_range_btn.setToolTip("Delete frames in selected range")
         delete_range_btn.clicked.connect(self._on_delete_range_clicked)
+        self._apply_button_icon(delete_range_btn, "delete", tooltip="Delete frames in selected range")
         range_ops_row.addWidget(delete_range_btn)
         
         range_ops_row.addStretch()
         layout.addLayout(range_ops_row)
 
-        # Frame generation options
-        gen_row = QHBoxLayout()
-        self.generate_frames_checkbox = QCheckBox("Generate Frames")
-        self.generate_frames_checkbox.setToolTip("Generate new frames by applying actions incrementally")
-        gen_row.addWidget(self.generate_frames_checkbox)
-        gen_row.addWidget(QLabel("Frame Count:"))
-        self.generate_frame_count_spin = QSpinBox()
-        self.generate_frame_count_spin.setRange(1, 1000)
-        self.generate_frame_count_spin.setValue(10)
-        self.generate_frame_count_spin.setEnabled(False)
-        self.generate_frames_checkbox.toggled.connect(self.generate_frame_count_spin.setEnabled)
-        gen_row.addWidget(self.generate_frame_count_spin)
-        gen_row.addStretch()
-        layout.addLayout(gen_row)
+        # Frame generation options - removed (auto-detection now)
+        # Automation now auto-detects when to generate frames vs apply to existing frames
+        # Frame count is auto-calculated from action parameters
 
         group.setLayout(layout)
         return group
@@ -4320,6 +4413,7 @@ class DesignToolsTab(QWidget):
         wizard_btn = QPushButton("Automation Wizard…")
         wizard_btn.setToolTip("Open guided wizard to stack actions and apply fades/overlays.")
         wizard_btn.clicked.connect(self._open_automation_wizard)
+        self._apply_button_icon(wizard_btn, "automation", tooltip="Open guided wizard to stack actions and apply fades/overlays.")
         wizard_row.addWidget(wizard_btn)
         wizard_row.addStretch()
         layout.addLayout(wizard_row)
@@ -4336,6 +4430,7 @@ class DesignToolsTab(QWidget):
         invert_row = QHBoxLayout()
         invert_btn = QPushButton("Invert Colours")
         invert_btn.clicked.connect(lambda: self._queue_action("Invert Colours", "invert", {}))
+        self._apply_button_icon(invert_btn, "automation", tooltip="Invert colours")
         invert_row.addWidget(invert_btn)
         invert_row.addStretch()
         layout.addLayout(invert_row)
@@ -4350,6 +4445,7 @@ class DesignToolsTab(QWidget):
         combo.addItems(options)
         row.addWidget(combo)
         add_btn = QPushButton("Add")
+        self._apply_button_icon(add_btn, "add", tooltip=f"Add {label} action")
         row.addWidget(add_btn)
         add_btn.clicked.connect(lambda: callback(combo.currentText()))
         row.addStretch()
@@ -4744,13 +4840,33 @@ class DesignToolsTab(QWidget):
         frame_indices = list(range(start, end + 1))
         if not frame_indices:
             return
+        
+        # Debug: Log frame range being processed
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Applying effect '{effect.name}' to frames {start+1}-{end+1} (indices {start}-{end}, total: {len(frame_indices)} frames)")
 
         before_states: Dict[int, List[Tuple[int, int, int]]] = {
             idx: list(self._pattern.frames[idx].pixels)
             for idx in frame_indices
         }
 
-        apply_effect_to_frames(self._pattern, effect, frame_indices, intensity)
+        # Add progress callback for effect application
+        if len(frame_indices) > 10:
+            from PySide6.QtWidgets import QProgressDialog
+            progress = QProgressDialog(f"Applying effect to {len(frame_indices)} frames...", "Cancel", 0, len(frame_indices), self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.show()
+            
+            def progress_callback(completed: int, total: int):
+                progress.setValue(completed)
+                QApplication.processEvents()
+                return not progress.wasCanceled()
+            
+            apply_effect_to_frames(self._pattern, effect, frame_indices, intensity, progress_callback=progress_callback)
+            progress.close()
+        else:
+            apply_effect_to_frames(self._pattern, effect, frame_indices, intensity)
 
         any_changes = False
         for idx in frame_indices:
@@ -4768,9 +4884,17 @@ class DesignToolsTab(QWidget):
                 any_changes = True
 
         if any_changes:
+            # Auto-sync layers after effects are applied
+            for idx in frame_indices:
+                if idx < len(self._pattern.frames):
+                    self.layer_manager.sync_frame_from_layers(idx)
+            # Ensure frame manager is updated after effects
+            if hasattr(self, 'frame_manager') and self.frame_manager:
+                self.frame_manager.set_pattern(self._pattern)
             self.pattern_modified.emit()
             self._load_current_frame_into_canvas()
             self._refresh_timeline()
+            self._update_layer_sync_warning()
             self._maybe_autosync_preview()
             self._set_effect_info(
                 f"Applied: {effect.name} • frames {start + 1}-{end + 1} at {int(intensity * 100)}%"
@@ -4791,21 +4915,25 @@ class DesignToolsTab(QWidget):
         button_row = QHBoxLayout()
         remove_btn = QPushButton("Remove Selected")
         remove_btn.clicked.connect(self._on_remove_action)
+        self._apply_button_icon(remove_btn, "delete", tooltip="Remove selected action")
         button_row.addWidget(remove_btn)
         clear_btn = QPushButton("Clear All")
         clear_btn.clicked.connect(self._on_clear_actions)
+        self._apply_button_icon(clear_btn, "delete", tooltip="Clear all actions")
         button_row.addWidget(clear_btn)
         button_row.addStretch()
         layout.addLayout(button_row)
 
         self.apply_actions_btn = QPushButton("▶ Apply Actions")
         self.apply_actions_btn.clicked.connect(lambda: self._apply_actions_to_frames(finalize=False))
+        self._apply_button_icon(self.apply_actions_btn, "play", tooltip="Apply actions to frames")
         self.apply_actions_btn.setEnabled(False)
         layout.addWidget(self.apply_actions_btn)
 
         self.finalize_actions_btn = QPushButton("✓ Finalize Playlist")
         self.finalize_actions_btn.setToolTip("Commit actions to frames, clear the queue, and lock in timing")
         self.finalize_actions_btn.clicked.connect(lambda: self._apply_actions_to_frames(finalize=True))
+        self._apply_button_icon(self.finalize_actions_btn, "automation", tooltip="Commit actions to frames, clear the queue, and lock in timing")
         self.finalize_actions_btn.setEnabled(False)
         layout.addWidget(self.finalize_actions_btn)
 
@@ -4957,6 +5085,11 @@ class DesignToolsTab(QWidget):
         export_frame_btn = QPushButton("📷 Export Frame as Image")
         export_frame_btn.clicked.connect(self._on_export_frame_as_image)
         export_image_row.addWidget(export_frame_btn)
+        
+        export_sprite_btn = QPushButton("🖼️ Export Sprite Sheet")
+        export_sprite_btn.setToolTip("Export all frames as PNG sprite sheet")
+        export_sprite_btn.clicked.connect(self._on_export_sprite_sheet)
+        export_image_row.addWidget(export_sprite_btn)
         
         export_gif_btn = QPushButton("🎬 Export Animation as GIF")
         export_gif_btn.clicked.connect(self._on_export_animation_as_gif)
@@ -6112,7 +6245,7 @@ class DesignToolsTab(QWidget):
 
         self.canvas = MatrixDesignCanvas(width=12, height=6, pixel_size=28)
         self.canvas.pixel_updated.connect(self._on_canvas_pixel_updated)
-        self.canvas.color_picked.connect(self._on_color_picked)
+        # Eyedropper tool removed - color_picked signal no longer needed
         canvas_layout.addWidget(self.canvas, stretch=1)
 
         canvas_status = QLabel("Click to paint. Right-click to erase.")
@@ -6135,7 +6268,17 @@ class DesignToolsTab(QWidget):
         self.timeline.contextMenuRequested.connect(self._on_timeline_context_menu)
         self.timeline.overlayActivated.connect(self._on_timeline_overlay_activated)
         self.timeline.overlayContextMenuRequested.connect(self._on_timeline_overlay_context_menu)
-        frame_layout.addWidget(self.timeline, stretch=1)
+        
+        # Wrap timeline in scroll area for horizontal scrolling
+        from PySide6.QtWidgets import QScrollArea
+        timeline_scroll = QScrollArea()
+        timeline_scroll.setWidget(self.timeline)
+        timeline_scroll.setWidgetResizable(True)
+        timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        timeline_scroll.setFrameShape(QScrollArea.Shape.NoFrame)  # Remove border
+        
+        frame_layout.addWidget(timeline_scroll, stretch=1)
 
         frame_button_row = QHBoxLayout()
         add_btn = QPushButton("➕ Add")
@@ -7038,14 +7181,19 @@ class DesignToolsTab(QWidget):
             width = pattern_copy.metadata.width
             height = pattern_copy.metadata.height
             
-            # Validate and regenerate circular mapping table if needed
+            # Validate and regenerate circular mapping table (always regenerate to pick up latest logic)
             if hasattr(pattern_copy.metadata, 'layout_type') and pattern_copy.metadata.layout_type != "rectangular":
                 from core.mapping.circular_mapper import CircularMapper
                 try:
-                    CircularMapper.ensure_mapping_table(pattern_copy.metadata)
+                    # Always regenerate - don't check if exists, just regenerate
+                    pattern_copy.metadata.circular_mapping_table = CircularMapper.generate_mapping_table(pattern_copy.metadata)
+                    # Validate after generation
+                    is_valid, error_msg = CircularMapper.validate_mapping_table(pattern_copy.metadata)
+                    if not is_valid:
+                        raise ValueError(f"Generated mapping table is invalid: {error_msg}")
                 except Exception as e:
                     import logging
-                    logging.getLogger(__name__).warning(f"Failed to ensure circular mapping table: {e}")
+                    logging.getLogger(__name__).warning(f"Failed to regenerate circular mapping table: {e}")
             
             # Update pixel mapping widget if it exists
             if hasattr(self, "pixel_mapping_widget") and self.pixel_mapping_widget:
@@ -7077,25 +7225,19 @@ class DesignToolsTab(QWidget):
                 self.canvas.set_pattern_metadata(pattern_copy.metadata)
             
             # Update circular preview metadata
+            # Always regenerate mapping table for circular layouts to ensure latest logic
             if hasattr(self, 'circular_preview'):
+                if (hasattr(pattern_copy.metadata, 'layout_type') and 
+                    pattern_copy.metadata.layout_type in ["circle", "ring", "radial", "multi_ring", "radial_rays"]):
+                    from core.mapping.circular_mapper import CircularMapper
+                    try:
+                        # Force regeneration before setting metadata to ensure latest mapping logic
+                        pattern_copy.metadata.circular_mapping_table = CircularMapper.generate_mapping_table(pattern_copy.metadata)
+                    except Exception as e:
+                        import logging
+                        logging.warning(f"Failed to regenerate mapping table: {e}")
                 self.circular_preview.set_pattern_metadata(pattern_copy.metadata)
                 self._update_circular_preview()
-            
-            # Ensure mapping table exists for circular layouts
-            # This handles loading old patterns or patterns with missing mapping tables
-            if (hasattr(pattern_copy.metadata, 'layout_type') and 
-                pattern_copy.metadata.layout_type != "rectangular"):
-                from core.mapping.circular_mapper import CircularMapper
-                # Use safe helper that validates and regenerates if needed
-                if not CircularMapper.ensure_mapping_table(pattern_copy.metadata):
-                    import logging
-                    logging.warning(
-                        f"Failed to ensure mapping table for circular layout. "
-                        f"Layout type: {pattern_copy.metadata.layout_type}, "
-                        f"LED count: {pattern_copy.metadata.circular_led_count}"
-                    )
-                    # Fallback: mark as rectangular to prevent errors
-                    pattern_copy.metadata.layout_type = "rectangular"
             if pattern_copy.frames:
                 self._frame_duration_ms = pattern_copy.frames[0].duration_ms
             
@@ -7172,7 +7314,10 @@ class DesignToolsTab(QWidget):
     def _on_canvas_pixel_updated(self, x: int, y: int, color: Tuple[int, int, int]):
         if not self._pattern or not self._pattern.frames:
             return
-        
+
+        # Lock frame switching during painting operations
+        self._frame_switch_locked = True
+
         # Update circular preview in real-time
         if hasattr(self, 'circular_preview') and hasattr(self.canvas, 'get_grid_data'):
             grid_data = self.canvas.get_grid_data()
@@ -7234,7 +7379,18 @@ class DesignToolsTab(QWidget):
                     # Hide banner if it was showing
                     if hasattr(self, '_hidden_layer_banner') and self._hidden_layer_banner:
                         self._hidden_layer_banner.setVisible(False)
-                else:
+                
+                # Prevent painting on locked layers
+                if self.layer_manager.is_layer_locked(self._current_frame_index, active_layer):
+                    QMessageBox.warning(
+                        self,
+                        "Cannot Paint on Locked Layer",
+                        f"⚠️ Layer '{layer_name}' is locked and cannot be edited.\n\n"
+                        "Unlock the layer to continue painting."
+                    )
+                    return
+                
+                if layer_visible:
                     # Hide banner if painting on visible layer
                     if hasattr(self, '_hidden_layer_banner') and self._hidden_layer_banner:
                         self._hidden_layer_banner.setVisible(False)
@@ -7273,8 +7429,11 @@ class DesignToolsTab(QWidget):
             for frame_index in self._frames_to_sync:
                 self.layer_manager.sync_frame_from_layers(frame_index)
             self._frames_to_sync.clear()
-        
+
         self._is_painting = False
+        
+        # Unlock frame switching after paint operation completes
+        self._frame_switch_locked = False
         
         # Update circular preview after paint operation
         self._update_circular_preview()
@@ -7454,16 +7613,7 @@ class DesignToolsTab(QWidget):
                 self._on_duplicate_frame()
                 event.accept()
                 return
-            elif event.key() == Qt.Key_I:  # Ctrl+I: Eyedropper tool
-                if hasattr(self, 'tool_button_group'):
-                    # Find eyedropper button and activate it
-                    for btn in self.tool_button_group.buttons():
-                        if hasattr(btn, 'text') and btn.text() == "Eyedropper":
-                            btn.setChecked(True)
-                            btn.clicked.emit()
-                            break
-                event.accept()
-                return
+            # Eyedropper tool removed
             elif event.key() == Qt.Key_N:  # Ctrl+N: Invert colors (moved from Ctrl+I)
                 self._on_invert_frame()
                 event.accept()
@@ -7492,17 +7642,7 @@ class DesignToolsTab(QWidget):
             event.accept()
             return
         
-        # E key: Eyedropper tool (if not in text input)
-        if event.key() == Qt.Key_E and not (event.modifiers() & Qt.ControlModifier):
-            if hasattr(self, 'tool_button_group'):
-                # Find eyedropper button and activate it
-                for btn in self.tool_button_group.buttons():
-                    if hasattr(btn, 'text') and btn.text() == "Eyedropper":
-                        btn.setChecked(True)
-                        btn.clicked.emit()
-                        break
-            event.accept()
-            return
+        # E key: Eyedropper tool removed
         
         # Space: Play/pause
         if event.key() == Qt.Key_Space:
@@ -7751,6 +7891,10 @@ class DesignToolsTab(QWidget):
         
         if not self._pattern:
             return
+        # Prevent frame switching during locked operations (e.g., painting)
+        if self._frame_switch_locked:
+            return  # Ignore frame switch during locked operations
+        
         self.frame_manager.select(index)
         self._current_frame_index = index
         self.history_manager.set_current_frame(index)
@@ -7787,22 +7931,11 @@ class DesignToolsTab(QWidget):
             self._layer_sync_banner.setVisible(False)
     
     def _on_sync_layers_from_frame(self) -> None:
-        """Sync layers from frame pixels."""
+        """Sync layers from frame pixels (auto-accept, no dialog)."""
         if not self._pattern or self._current_frame_index >= len(self._pattern.frames):
             return
         
-        reply = QMessageBox.question(
-            self,
-            "Sync Layers from Frame",
-            "This will replace the active layer with the current frame pixels.\n\n"
-            "All other layers will be hidden. Continue?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.No:
-            return
-        
+        # Auto-accept: no confirmation dialog needed
         # Get frame pixels
         frame = self._pattern.frames[self._current_frame_index]
         frame_pixels = list(frame.pixels)
@@ -7830,12 +7963,7 @@ class DesignToolsTab(QWidget):
         if hasattr(self, "layer_panel"):
             self.layer_panel.refresh()
         
-        QMessageBox.information(
-            self,
-            "Layers Synced",
-            "Layers have been synced with frame pixels.\n"
-            "Other layers have been hidden but not deleted."
-        )
+        # Layer sync is now automatic - no dialog needed
 
     def _on_add_frame(self):
         """Add a new blank frame after the current frame."""
@@ -7858,6 +7986,55 @@ class DesignToolsTab(QWidget):
         self._update_status_labels()
         self._update_delete_frame_button_state()  # Update button state after adding frame
         self._maybe_autosync_preview()
+
+    def _on_bulk_add_frames(self):
+        """Add multiple blank frames at once."""
+        if not self._pattern:
+            QMessageBox.information(self, "No Pattern", "Create a pattern first before adding frames.")
+            return
+
+        from PySide6.QtWidgets import QInputDialog
+        
+        # Get number of frames to add
+        count, ok = QInputDialog.getInt(
+            self,
+            "Bulk Add Frames",
+            "Number of frames to add:",
+            10,  # default value
+            1,   # minimum
+            100, # maximum
+            1    # step
+        )
+        
+        if not ok or count <= 0:
+            return
+
+        # Validate frame count limit
+        max_frames = 1000
+        current_count = len(self._pattern.frames)
+        if current_count + count > max_frames:
+            QMessageBox.warning(
+                self,
+                "Frame Limit Exceeded",
+                f"Cannot add {count} frames. Current: {current_count}, Maximum: {max_frames}.\n\n"
+                f"Maximum additional frames: {max_frames - current_count}"
+            )
+            return
+
+        duration_ms = self._frame_duration_ms if hasattr(self, "_frame_duration_ms") else 50
+        
+        # Add frames one by one after current position
+        for i in range(count):
+            self.frame_manager.add_blank_after_current(duration_ms)
+
+        self.pattern_modified.emit()
+        self._update_status_labels()
+        self._update_delete_frame_button_state()
+        self._maybe_autosync_preview()
+        self._refresh_timeline()
+        
+        if hasattr(self, "_set_canvas_status"):
+            self._set_canvas_status(f"Added {count} frame(s). Total: {len(self._pattern.frames)} frames")
 
     def _on_duplicate_frame(self):
         """Duplicate the current frame."""
@@ -8158,6 +8335,11 @@ class DesignToolsTab(QWidget):
         self.pattern_modified.emit()
         self._refresh_timeline()
     
+    def _on_bulk_delete_frames(self):
+        """Bulk delete frames using frame range spinboxes."""
+        # Use the existing delete range functionality
+        self._on_delete_range_clicked()
+
     def _on_delete_range_clicked(self):
         """Delete frames in the selected range."""
         if not self._pattern or not hasattr(self, "frame_start_spin") or not hasattr(self, "frame_end_spin"):
@@ -8592,8 +8774,9 @@ class DesignToolsTab(QWidget):
         
         If finalize=True, converts actions to LMS pattern instructions and stores
         them in the pattern. If finalize=False:
-        - If "Generate Frames" is checked: generates new frames by applying actions incrementally
-        - If "Generate Frames" is unchecked: applies actions to existing frames in selected range
+        - Auto-detects when to generate frames vs apply to existing frames
+        - Generates new frames incrementally for animation actions (scroll, rotate, etc.)
+        - Applies to existing frames for static transformations
         """
         actions = self.automation_manager.actions()
         if not self._pattern or not actions:
@@ -8627,13 +8810,33 @@ class DesignToolsTab(QWidget):
             )
             return
 
-        # Check if Generate Frames is enabled
-        if hasattr(self, 'generate_frames_checkbox') and self.generate_frames_checkbox.isChecked():
-            # Generate new frames
+        # Auto-determine if we should generate frames or apply to existing frames
+        # If no frames exist or actions would benefit from incremental generation, auto-generate
+        should_generate_frames = False
+        
+        if not self._pattern.frames:
+            # No frames exist - auto-generate
+            should_generate_frames = True
+        else:
+            # Check if actions would benefit from frame generation (scroll, rotate, etc.)
+            # Actions that create animation sequences benefit from incremental frame generation
+            animation_actions = {"scroll", "wipe", "reveal", "bounce", "radial", "colour_cycle"}
+            for action in actions:
+                action_type = getattr(action, 'action_type', '').lower() if hasattr(action, 'action_type') else ''
+                if action_type in animation_actions:
+                    should_generate_frames = True
+                    break
+            
+            # Auto-detection: if actions benefit from incremental generation, generate frames
+            # (Checkbox removed - always auto-detect)
+        
+        if should_generate_frames:
+            # Auto-generate frames (automatic, no user dialog needed)
             self._generate_frames_with_actions(actions)
             return
 
         # Apply to existing frames in range
+        # Note: At this point, frames must exist since should_generate_frames would be True if they didn't
         if not self._pattern.frames:
             QMessageBox.information(self, "No Frames", "Create frames before applying automation.")
             return
@@ -8698,9 +8901,14 @@ class DesignToolsTab(QWidget):
                     executor
                 )
             
+            # Auto-sync layers after automation is applied
+            for idx in frame_indices:
+                self.layer_manager.sync_frame_from_layers(idx)
+            
             # Update UI and notify
             self._refresh_timeline()
             self._load_current_frame_into_canvas()
+            self._update_layer_sync_warning()
             self.pattern_modified.emit()
             
         except Exception as e:
@@ -8713,30 +8921,71 @@ class DesignToolsTab(QWidget):
             logging.exception("Error in _apply_actions_to_frames")
         self._update_layer_sync_warning()  # Check sync after automation
         
-        QMessageBox.information(
-            self,
-            "Actions Applied",
-            f"Applied {summary.total_actions} action(s) to {len(summary.frames)} frame(s).\n"
-            f"Total gap added: {summary.total_gap_ms}ms"
-        )
+        # Removed dialog - automation is now automatic and silent
 
     def _generate_frames_with_actions(self, actions):
         """Generate new frames by applying actions incrementally."""
-        if not self._pattern or not self._pattern.frames:
-            QMessageBox.warning(self, "No Source Frame", "Need at least one frame to generate from.")
+        if not self._pattern:
+            QMessageBox.warning(self, "No Pattern", "No pattern loaded.")
             return
         
-        frame_count = self.generate_frame_count_spin.value()
-        if frame_count < 1:
-            QMessageBox.warning(self, "Invalid Count", "Frame count must be at least 1.")
-            return
+        # If no frames exist, create a blank frame as source
+        if not self._pattern.frames:
+            expected_pixel_count = self._pattern.metadata.width * self._pattern.metadata.height
+            blank_frame = Frame(
+                pixels=[(0, 0, 0)] * expected_pixel_count,
+                duration_ms=100
+            )
+            self._pattern.frames = [blank_frame]
+            self._current_frame_index = 0
+        
+        # Auto-calculate frame count from actions based on action type and parameters
+        # (No manual frame count input - always auto-calculate)
+        frame_count = 10  # Default fallback
+        
+        # Calculate minimum frames needed based on action parameters
+        max_frames_needed = 10  # Minimum
+        
+        for action in actions:
+            params = action.params or {}
+            action_type = getattr(action, 'action_type', '').lower()
+            repeat = max(1, int(params.get("repeat", 1)))
+            
+            if action_type == "scroll":
+                # Scroll: frames = width or height (depending on direction)
+                direction = params.get("direction", "Right").lower()
+                if direction in ["left", "right"]:
+                    frames_needed = self._pattern.metadata.width
+                else:
+                    frames_needed = self._pattern.metadata.height
+                max_frames_needed = max(max_frames_needed, frames_needed * repeat)
+            elif action_type == "rotate":
+                # Rotate: 4 frames for 90° steps
+                max_frames_needed = max(max_frames_needed, 4 * repeat)
+            elif action_type in ["wipe", "reveal"]:
+                # Wipe/Reveal: frames = width or height
+                direction = params.get("direction", "Left").lower() if action_type == "reveal" else params.get("mode", "Left to Right").lower()
+                if "left" in direction or "right" in direction:
+                    frames_needed = self._pattern.metadata.width
+                else:
+                    frames_needed = self._pattern.metadata.height
+                max_frames_needed = max(max_frames_needed, frames_needed * repeat)
+            else:
+                # Other actions: use repeat count
+                max_frames_needed = max(max_frames_needed, repeat * 5)
+        
+        frame_count = max(10, max_frames_needed)
         
         # Get source frame (use first frame or current frame)
-        source_mode = self.source_button_group.checkedId()
-        if source_mode == 0:  # Use first frame
+        if hasattr(self, 'source_button_group'):
+            source_mode = self.source_button_group.checkedId()
+            if source_mode == 0:  # Use first frame
+                source_frame_idx = 0
+            else:  # Use current frame
+                source_frame_idx = self._current_frame_index
+        else:
+            # Default to first frame if button group doesn't exist
             source_frame_idx = 0
-        else:  # Use current frame
-            source_frame_idx = self._current_frame_index
         
         if source_frame_idx >= len(self._pattern.frames):
             source_frame_idx = 0
@@ -8758,23 +9007,16 @@ class DesignToolsTab(QWidget):
             else:
                 source_frame.pixels = source_frame.pixels[:expected_pixel_count]
         
-        # Ask user if they want to replace or append
-        reply = QMessageBox.question(
-            self,
-            "Generate Frames",
-            f"Generate {frame_count} frames?\n\n"
-            "Replace existing frames or append to pattern?",
-            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-            QMessageBox.Yes
-        )
+        # Auto-create frames - append if frames exist, otherwise create new
+        # No user dialog needed - automation should be automatic
         
-        if reply == QMessageBox.Cancel:
-            return
+        # Frame count already calculated above, no need to recalculate
         
-        # Generate frames
+        # Generate frames with progressive transformations (LED Matrix Studio style)
+        # Each frame applies transformations to the ORIGINAL source frame with progressive offsets
         new_frames = []
-        # Ensure we have a proper deep copy of source frame pixels (as tuples)
-        current_pixels = [tuple(pixel) for pixel in source_frame.pixels]
+        # Store original source pixels (never modify this)
+        original_pixels = [tuple(pixel) for pixel in source_frame.pixels]
         total_gap = 0
         
         # Calculate total gap from all actions (for reporting)
@@ -8789,6 +9031,9 @@ class DesignToolsTab(QWidget):
             progress.setWindowModality(Qt.WindowModal)
             progress.show()
         
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        
         for i in range(frame_count):
             if frame_count > 50:
                 if progress.wasCanceled():
@@ -8796,8 +9041,9 @@ class DesignToolsTab(QWidget):
                 progress.setValue(i)
                 QApplication.processEvents()
             
-            # Create a deep copy of current state (ensure tuples are copied)
-            frame_pixels = [tuple(pixel) for pixel in current_pixels]
+            # Start with ORIGINAL source frame pixels for each frame (progressive transformation)
+            # This ensures each frame shows progressive movement from the original, not cumulative
+            frame_pixels = [tuple(pixel) for pixel in original_pixels]
             temp_frame = Frame(pixels=frame_pixels, duration_ms=source_frame.duration_ms)
             
             # Calculate gap for this frame from all actions
@@ -8807,9 +9053,30 @@ class DesignToolsTab(QWidget):
                 gap_ms = max(0, int(params.get("gap_ms", 0)))
                 frame_gap += gap_ms
             
-            # Apply all actions to this frame (repeat is handled in _apply_action_with_schedule)
+            # Apply all actions to this frame with progressive frame_index
+            # Each frame applies transformations to the ORIGINAL with increasing offsets
             for action in actions:
-                self._apply_action_with_schedule(temp_frame, action, apply_gap=False)
+                params = action.params or {}
+                repeat = max(1, int(params.get("repeat", 1)))
+                
+                # For progressive frames, apply transformation with frame_index * repeat
+                # This creates smooth animation progression
+                action_type = getattr(action, 'action_type', '').lower()
+                
+                # Calculate progressive offset based on frame index and repeat
+                if action_type in ["scroll", "wipe", "reveal"]:
+                    # These actions benefit from progressive offsets
+                    # Apply transformation once with progressive offset
+                    transformed = self._transform_pixels(temp_frame.pixels, action, width, height, i * repeat)
+                    if transformed:
+                        temp_frame.pixels = transformed
+                else:
+                    # For other actions, apply multiple times if repeat > 1
+                    for rep in range(repeat):
+                        # Use frame_index + rep for progressive effects
+                        transformed = self._transform_pixels(temp_frame.pixels, action, width, height, i * repeat + rep)
+                        if transformed:
+                            temp_frame.pixels = transformed
             
             # Apply gap as delay between frames (adds to frame duration)
             if frame_gap > 0:
@@ -8817,9 +9084,6 @@ class DesignToolsTab(QWidget):
             
             # Add generated frame
             new_frames.append(temp_frame)
-            
-            # Update current state for next iteration (deep copy to avoid reference issues)
-            current_pixels = [tuple(pixel) for pixel in temp_frame.pixels]
         
         if frame_count > 50:
             progress.close()
@@ -8845,13 +9109,19 @@ class DesignToolsTab(QWidget):
                 else:
                     frame.pixels = frame.pixels[:expected_pixel_count]
         
-        # Replace or append frames
-        if reply == QMessageBox.Yes:  # Replace
+        # Auto-append frames (automation should be automatic)
+        if not self._pattern.frames:
+            # If no frames exist, create new ones
             self._pattern.frames = new_frames
             self._current_frame_index = 0
-        else:  # Append
+        else:
+            # Append to existing frames
             self._pattern.frames.extend(new_frames)
             self._current_frame_index = len(self._pattern.frames) - len(new_frames)
+        
+        # Auto-sync layers for all generated frames
+        for idx in range(len(self._pattern.frames) - len(new_frames), len(self._pattern.frames)):
+            self.layer_manager.sync_frame_from_layers(idx)
         
         # Update UI
         self.history_manager.set_frame_count(len(self._pattern.frames))
@@ -8861,16 +9131,12 @@ class DesignToolsTab(QWidget):
         self._refresh_timeline()
         self._update_status_labels()
         self._maybe_autosync_preview()
+        self._update_layer_sync_warning()
         self.pattern_modified.emit()
         
-        gap_message = f"\nTotal gap added: {total_gap * frame_count}ms" if total_gap > 0 else ""
-        QMessageBox.information(
-            self,
-            "Frames Generated",
-            f"Successfully generated {len(new_frames)} frames.{gap_message}"
-        )
+        # Removed dialog - frame generation is now automatic and silent
 
-    def _apply_action_with_schedule(self, frame: Frame, action: DesignAction, apply_gap: bool = True) -> int:
+    def _apply_action_with_schedule(self, frame: Frame, action: DesignAction, apply_gap: bool = True, frame_index: Optional[int] = None) -> int:
         """
         Apply action to frame with repeat and gap scheduling.
         
@@ -8878,6 +9144,7 @@ class DesignToolsTab(QWidget):
             frame: Frame to apply action to
             action: Action to apply
             apply_gap: If True, apply gap to frame duration. If False, gap is handled externally.
+            frame_index: Optional frame index for frame generation (for incremental transformations)
         
         Returns:
             Number of times action was successfully applied
@@ -8894,7 +9161,7 @@ class DesignToolsTab(QWidget):
 
         changes = 0
         for _ in range(repeat):
-            if self._perform_action(frame, action):
+            if self._perform_action(frame, action, frame_index=frame_index):
                 changes += 1
 
         # Apply gap only if requested (for existing frame application)
@@ -8937,11 +9204,18 @@ class DesignToolsTab(QWidget):
             
             if action_type == "scroll":
                 direction = action.params.get("direction", "Right")
-                offset = max(1, int(action.params.get("offset", 1)))
+                base_offset = max(1, int(action.params.get("offset", 1)))
+                # For incremental frame generation, multiply offset by frame_index
+                offset = base_offset * max(1, frame_index + 1)
                 return self._transform_scroll(pixels, width, height, direction, offset)
             elif action_type == "rotate":
                 mode = action.params.get("mode", "90° Clockwise")
-                return self._transform_rotate(pixels, width, height, mode)
+                # For progressive frames, rotate by frame_index * 90 degrees
+                rotations = frame_index % 4  # 0-3 rotations
+                result = pixels
+                for _ in range(rotations):
+                    result = self._transform_rotate(result, width, height, mode)
+                return result
             elif action_type == "mirror":
                 axis = action.params.get("axis", "horizontal")
                 return self._transform_mirror(pixels, width, height, axis)
@@ -8952,15 +9226,24 @@ class DesignToolsTab(QWidget):
                 return self._transform_invert(pixels)
             elif action_type == "wipe":
                 mode = action.params.get("mode", "Left to Right")
-                offset = max(1, int(action.params.get("offset", 1)))
+                base_offset = max(1, int(action.params.get("offset", 1)))
+                # For incremental frame generation, multiply offset by frame_index
+                offset = base_offset * max(1, frame_index + 1)
                 return self._transform_wipe(pixels, width, height, mode, offset)
             elif action_type == "reveal":
                 direction = action.params.get("direction", "Left")
-                offset = max(1, int(action.params.get("offset", 1)))
+                base_offset = max(1, int(action.params.get("offset", 1)))
+                # For incremental frame generation, multiply offset by frame_index
+                offset = base_offset * max(1, frame_index + 1)
                 return self._transform_reveal(pixels, width, height, direction, offset)
             elif action_type == "bounce":
                 axis = action.params.get("axis", "Horizontal")
-                return self._transform_bounce(pixels, width, height, axis)
+                # For progressive frames, bounce direction alternates based on frame_index
+                # Even frames: normal, odd frames: bounced
+                if frame_index % 2 == 1:
+                    return self._transform_bounce(pixels, width, height, axis)
+                else:
+                    return pixels  # Return original for even frames
             elif action_type == "colour_cycle":
                 mode = action.params.get("mode", "RGB")
                 return self._transform_colour_cycle(pixels, mode)
@@ -8974,7 +9257,7 @@ class DesignToolsTab(QWidget):
             logging.exception(f"Error in _transform_pixels for action {action_type}")
             return None
 
-    def _perform_action(self, frame: Frame, action: DesignAction) -> bool:
+    def _perform_action(self, frame: Frame, action: DesignAction, frame_index: Optional[int] = None) -> bool:
         """
         Apply automation action to frame using layer system.
         
@@ -8985,6 +9268,11 @@ class DesignToolsTab(QWidget):
         4. Syncs frame from layers
         
         This preserves original layers and makes automation non-destructive.
+        
+        Args:
+            frame: Frame to transform
+            action: Action to apply
+            frame_index: Optional frame index (for frame generation, bypasses frame lookup)
         """
         try:
             # Validate pattern and frames
@@ -8992,16 +9280,16 @@ class DesignToolsTab(QWidget):
                 QMessageBox.warning(self, "No Pattern", "No pattern loaded. Create or load a pattern first.")
                 return False
             
-            # Find frame index
-            frame_index = None
-            for idx, f in enumerate(self._pattern.frames):
-                if f is frame:
-                    frame_index = idx
-                    break
-            
+            # Find frame index if not provided
             if frame_index is None:
-                # Fallback: use current frame index
-                frame_index = self._current_frame_index
+                for idx, f in enumerate(self._pattern.frames):
+                    if f is frame:
+                        frame_index = idx
+                        break
+                
+                if frame_index is None:
+                    # Fallback: use current frame index
+                    frame_index = self._current_frame_index
             
             # Validate frame index
             if frame_index < 0 or frame_index >= len(self._pattern.frames):
@@ -11151,6 +11439,113 @@ class DesignToolsTab(QWidget):
                 "Export Error",
                 f"Failed to export animation:\n\n{str(e)}"
             )
+    
+    def _on_export_sprite_sheet(self):
+        """Export pattern as PNG sprite sheet."""
+        if not self._pattern or not self._pattern.frames:
+            QMessageBox.warning(self, "No Pattern", "No pattern to export. Create or load a pattern first.")
+            return
+        
+        # Validate pattern has frames with pixels
+        if len(self._pattern.frames) == 0:
+            QMessageBox.warning(self, "Empty Pattern", "Pattern has no frames to export.")
+            return
+        
+        # Check if any frame has pixels
+        has_pixels = any(frame.pixels and len(frame.pixels) > 0 for frame in self._pattern.frames)
+        if not has_pixels:
+            QMessageBox.warning(self, "Empty Frames", "All frames are empty. Add some content before exporting.")
+            return
+        
+        # Get file path
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Sprite Sheet",
+            "",
+            "PNG Images (*.png);;All Files (*.*)"
+        )
+        
+        if not filepath:
+            return
+        
+        if not filepath.endswith(".png"):
+            filepath += ".png"
+        
+        try:
+            from PySide6.QtWidgets import QInputDialog
+            from pathlib import Path
+            
+            # Ask for scale factor
+            scale_factor, ok1 = QInputDialog.getInt(
+                self,
+                "Export Scale",
+                "Pixel scale factor (1 = 1 pixel per LED, 10 = 10x10 pixels per LED):",
+                10,
+                1,
+                100,
+                1
+            )
+            
+            if not ok1:
+                return
+            
+            # Ask for orientation
+            orientation, ok2 = QInputDialog.getItem(
+                self,
+                "Sprite Sheet Layout",
+                "Orientation:",
+                ["Horizontal", "Vertical"],
+                0,
+                False
+            )
+            
+            if not ok2:
+                return
+            
+            orientation = orientation.lower()
+            
+            # Ask for spacing
+            spacing, ok3 = QInputDialog.getInt(
+                self,
+                "Frame Spacing",
+                "Pixels spacing between frames:",
+                0,
+                0,
+                100,
+                1
+            )
+            
+            if not ok3:
+                return
+            
+            # Export sprite sheet
+            from core.export.exporters import PatternExporter
+            exporter = PatternExporter()
+            output_path = exporter.export_sprite_sheet(
+                self._pattern,
+                Path(filepath),
+                orientation=orientation,
+                spacing=spacing,
+                scale_factor=scale_factor,
+                generate_manifest=False
+            )
+            
+            QMessageBox.information(
+                self,
+                "Export Successful",
+                f"Sprite sheet exported successfully to:\n{filepath}\n\n"
+                f"Frames: {len(self._pattern.frames)}\n"
+                f"Scale: {scale_factor}x\n"
+                f"Layout: {orientation.capitalize()}\n"
+                f"Spacing: {spacing}px"
+            )
+        
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export sprite sheet:\n\n{str(e)}"
+            )
 
     def _emit_pattern(self):
         if not self._pattern:
@@ -11227,16 +11622,7 @@ class DesignToolsTab(QWidget):
             self._current_color = rgb
             self._sync_channel_controls(rgb)
 
-    def _on_color_picked(self, r: int, g: int, b: int):
-        """Handle color picked from canvas with eyedropper tool."""
-        if self._single_color_mode:
-            # In single color mode, only white is allowed
-            self._current_color = (255, 255, 255)
-        else:
-            self._current_color = (r, g, b)
-        self._sync_channel_controls(self._current_color)
-        if self.canvas:
-            self.canvas.set_current_color(self._current_color)
+    # Eyedropper tool removed - _on_color_picked handler no longer needed
 
     def _on_bucket_fill_tolerance_changed(self, value: int):
         """Handle bucket fill tolerance change."""

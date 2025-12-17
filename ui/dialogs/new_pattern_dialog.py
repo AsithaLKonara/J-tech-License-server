@@ -137,7 +137,7 @@ class NewPatternDialog(QDialog):
         
         # Shape dropdown
         self.shape_combo = QComboBox()
-        self.shape_combo.addItems(["Rectangular", "Multi-Ring", "Radial Rays", "Irregular"])
+        self.shape_combo.addItems(["Rectangular", "Radial Rays", "Irregular"])
         self.shape_combo.setCurrentText("Rectangular")
         self.shape_combo.currentTextChanged.connect(self._on_shape_changed)
         matrix_layout.addWidget(self.shape_combo)
@@ -203,15 +203,15 @@ class NewPatternDialog(QDialog):
         self.ray_count_spin = QSpinBox()
         self.ray_count_spin.setRange(1, 64)
         self.ray_count_spin.setValue(8)
-        self.ray_count_spin.setToolTip("Number of rays extending from center")
-        radial_ray_layout.addRow("Ray Count:", self.ray_count_spin)
-        
+        self.ray_count_spin.setToolTip("Ray Count = Column Count (width). Number of rays extending from center.")
+        radial_ray_layout.addRow("Ray Count (Columns):", self.ray_count_spin)
+
         # LEDs per ray
         self.leds_per_ray_spin = QSpinBox()
         self.leds_per_ray_spin.setRange(1, 100)
         self.leds_per_ray_spin.setValue(10)
-        self.leds_per_ray_spin.setToolTip("Number of LEDs along each ray")
-        radial_ray_layout.addRow("LEDs per Ray:", self.leds_per_ray_spin)
+        self.leds_per_ray_spin.setToolTip("LEDs per Ray = Row Count (height). Inner ring = bottom row, outer ring = top row.")
+        radial_ray_layout.addRow("LEDs per Ray (Rows):", self.leds_per_ray_spin)
         
         # Ray spacing angle
         self.ray_spacing_angle_spin = QDoubleSpinBox()
@@ -517,20 +517,18 @@ class NewPatternDialog(QDialog):
         self._validate_inputs()
     
     def _on_shape_changed(self, shape_text: str):
-        """Handle shape selection change - show/hide parameter groups."""
+        """Handle shape selection change - show/hide parameter groups and auto-configure."""
         shape_lower = shape_text.lower().replace("-", "_").replace(" ", "_")
-        is_multi_ring = shape_lower == "multi_ring"
         is_radial_rays = shape_lower == "radial_rays"
         is_irregular = shape_lower == "irregular"
         
         # Show/hide parameter groups
-        self.multi_ring_params_group.setVisible(is_multi_ring)
         self.radial_ray_params_group.setVisible(is_radial_rays)
         self.irregular_params_group.setVisible(is_irregular)
         
-        if is_multi_ring:
-            # Update ring configuration UI when multi-ring is selected
-            self._update_ring_config_ui()
+        # Auto-configure radial ray layout based on dimensions
+        if is_radial_rays:
+            self._auto_configure_radial_rays()
     
     def _update_irregular_dimensions(self):
         """Update irregular shape editor dimensions when width/height change."""
@@ -539,6 +537,28 @@ class NewPatternDialog(QDialog):
             height = self.height_spin.value()
             # Update the irregular shape editor grid size
             self.irregular_shape_editor.set_grid_size(width, height)
+        
+        # Auto-reconfigure radial rays if selected
+        if hasattr(self, 'shape_combo') and self.shape_combo.currentText() == "Radial Rays":
+            self._auto_configure_radial_rays()
+    
+    def _auto_configure_radial_rays(self):
+        """Auto-configure radial ray layout: ray count = width, LEDs per ray = height."""
+        width = self.width_spin.value()
+        height = self.height_spin.value()
+        
+        # Auto-set ray count from width (column count)
+        if hasattr(self, 'ray_count_spin'):
+            self.ray_count_spin.setValue(width)
+        
+        # Auto-set LEDs per ray from height (row count)
+        if hasattr(self, 'leds_per_ray_spin'):
+            self.leds_per_ray_spin.setValue(height)
+        
+        # Auto-calculate ray spacing angle (360 / ray_count)
+        if hasattr(self, 'ray_spacing_angle_spin') and width > 0:
+            spacing_angle = 360.0 / width
+            self.ray_spacing_angle_spin.setValue(spacing_angle)
     
     def _on_multi_ring_count_changed(self, count: int):
         """Handle multi-ring count change - update ring configuration UI."""
@@ -808,6 +828,12 @@ class NewPatternDialog(QDialog):
     def get_background_image_path(self) -> Optional[str]:
         """Get background image path for irregular shapes."""
         return getattr(self, 'background_image_path', None)
+    
+    def get_irregular_active_cells(self) -> List[Tuple[int, int]]:
+        """Get active cell coordinates from irregular shape editor."""
+        if hasattr(self, 'irregular_shape_editor') and self.irregular_shape_editor:
+            return self.irregular_shape_editor.get_active_cells()
+        return []
     
     def get_background_color(self) -> tuple:
         """Get background color as RGB tuple."""

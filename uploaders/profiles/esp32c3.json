@@ -1,5 +1,5 @@
 {
-  "chip_id": "ESP32",
+  "chip_id": "esp32c3",
   "chip_variant": "ESP32-C3",
   "chip_name": "ESP32-C3",
   "manufacturer": "Espressif",

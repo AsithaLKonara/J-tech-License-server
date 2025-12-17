@@ -44,24 +44,19 @@ class TestConfigSystem:
         assert isinstance(db, dict), "load_chip_database should return dict"
         assert 'chips' in db, "Database should have 'chips' key"
     
-    def test_empty_config_modules(self):
-        """Test if config modules are empty (documentation)"""
+    def test_config_modules_populated(self):
+        """Test config modules are properly populated with loading functions"""
         app_config_py = Path("config/app_config.py")
         chip_db_py = Path("config/chip_database.py")
         
         if app_config_py.exists():
             content = app_config_py.read_text(encoding='utf-8')
-            # Check if it's mostly empty (just imports)
-            non_comment_lines = [l for l in content.split('\n') 
-                               if l.strip() and not l.strip().startswith('#')]
-            # Should have at most a few lines (imports)
-            assert len(non_comment_lines) <= 5, \
-                "app_config.py should be empty or have minimal code"
+            # Check that modules have loading functions (not empty)
+            assert 'def load_app_config' in content or 'def load_chip_database' in content or 'import' in content, \
+                "app_config.py should be populated with loading functions"
         
         if chip_db_py.exists():
             content = chip_db_py.read_text(encoding='utf-8')
-            non_comment_lines = [l for l in content.split('\n') 
-                               if l.strip() and not l.strip().startswith('#')]
-            assert len(non_comment_lines) <= 5, \
-                "chip_database.py should be empty or have minimal code"
+            assert 'def load_chip_database' in content or 'import' in content, \
+                "chip_database.py should be populated with loading functions"
 

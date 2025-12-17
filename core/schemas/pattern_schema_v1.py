@@ -8,8 +8,20 @@ validation utilities.
 import json
 from typing import Dict, Any, Optional
 from pathlib import Path
-import jsonschema
-from jsonschema import validate, ValidationError
+
+# Optional jsonschema import - only needed for validation
+try:
+    import jsonschema
+    from jsonschema import validate, ValidationError
+    _HAS_JSONSCHEMA = True
+except ImportError:
+    _HAS_JSONSCHEMA = False
+    # Create stub functions/classes for when jsonschema is not available
+    class ValidationError(Exception):
+        """Stub ValidationError when jsonschema is not available"""
+        def __init__(self, message="", *args, **kwargs):
+            super().__init__(message, *args, **kwargs)
+            self.message = message
 
 
 # JSON Schema Draft 7 definition for pattern v1.0
@@ -442,7 +454,14 @@ def validate_pattern_json(data: Dict[str, Any], schema: Optional[Dict[str, Any]]
         
     Raises:
         PatternSchemaError: If validation fails
+        ImportError: If jsonschema is not installed
     """
+    if not _HAS_JSONSCHEMA:
+        raise ImportError(
+            "jsonschema is required for pattern validation. "
+            "Install it with: pip install jsonschema>=4.0.0"
+        )
+    
     if schema is None:
         schema = PATTERN_SCHEMA_V1
     

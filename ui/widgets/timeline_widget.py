@@ -699,7 +699,13 @@ class TimelineWidget(QWidget):
     def _on_frame_moved(self, from_idx: int, to_idx: int) -> None:
         """Handle frame move from drag-and-drop."""
         if self._frame_manager:
-            self._frame_manager.move(from_idx, to_idx)
+            try:
+                self._frame_manager.move(from_idx, to_idx)
+                # Refresh timeline after move
+                self.update()
+            except Exception as e:
+                import logging
+                logging.exception(f"Error moving frame from {from_idx} to {to_idx}: {e}")
             # Update playhead if needed
             if self._playhead_index == from_idx:
                 self.set_playhead(to_idx)

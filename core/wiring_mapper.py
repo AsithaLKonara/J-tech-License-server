@@ -22,7 +22,7 @@ class WiringMapper:
     The hardware strip order depends on how the physical LED strip is wired through the matrix.
     """
     
-    def __init__(self, width: int, height: int, wiring_mode: str = "Row-major", data_in_corner: str = "LT", flip_x: bool = False, flip_y: bool = False):
+    def __init__(self, width: int, height: int, wiring_mode: str = "Row-major", data_in_corner: str = "LT", flip_x: bool = False, flip_y: bool = False, active_cell_coordinates: List[Tuple[int, int]] = None):
         """
         Initialize the wiring mapper.
         
@@ -33,6 +33,7 @@ class WiringMapper:
             data_in_corner: "LT" (Left Top), "LB" (Left Bottom), "RT" (Right Top), or "RB" (Right Bottom)
             flip_x: Flip horizontally (mirror left-right) after mapping
             flip_y: Flip vertically (mirror top-bottom) after mapping
+            active_cell_coordinates: Optional list of (x, y) tuples for irregular shapes. If provided, only these cells will be included in the wiring path.
         """
         self.width = width
         self.height = height
@@ -40,6 +41,7 @@ class WiringMapper:
         self.data_in_corner = data_in_corner
         self.flip_x = flip_x
         self.flip_y = flip_y
+        self.active_cell_coordinates = active_cell_coordinates
         
     def design_to_hardware(self, design_pixels: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
         """
@@ -52,13 +54,18 @@ class WiringMapper:
         Returns:
             New list of (R, G, B) tuples in hardware strip order
         """
-        expected_count = self.width * self.height
-        if len(design_pixels) != expected_count:
+        # Build mapping table: hardware_strip_index -> design_cell_index
+        # For irregular shapes, this will only include active cells
+        mapping = self._build_mapping_table()
+        
+        # Expected count is the number of LEDs in the hardware strip
+        # For irregular shapes, this equals the number of active cells
+        # For regular shapes, this equals width * height
+        expected_count = len(mapping)
+        
+        if len(design_pixels) < max(mapping) + 1 if mapping else 0:
             # Dimension mismatch - return copy (not original reference)
             return list(design_pixels)
-        
-        # Build mapping table: hardware_strip_index -> design_cell_index
-        mapping = self._build_mapping_table()
         
         # Preallocate destination buffer (prevents append aliasing bugs)
         # This ensures deterministic behavior and no mutation of input
@@ -67,7 +74,11 @@ class WiringMapper:
         # Fill destination buffer by index (pure, deterministic)
         for hardware_idx in range(expected_count):
             design_idx = mapping[hardware_idx]
-            hardware_pixels[hardware_idx] = design_pixels[design_idx]
+            if design_idx < len(design_pixels):
+                hardware_pixels[hardware_idx] = design_pixels[design_idx]
+            else:
+                # Fallback for out-of-bounds indices
+                hardware_pixels[hardware_idx] = (0, 0, 0)
         
         # Sanity check: ensure all pixels were filled
         assert all(p is not None for p in hardware_pixels), "Mapping incomplete - some pixels not set"
@@ -211,6 +222,12 @@ class WiringMapper:
                     y = (h - 1) - y
                 flipped_path.append((x, y))
             path = flipped_path
+        
+        # Step 3.5: Filter to active cells if irregular shape
+        # For irregular matrices, only include active cells in the wiring path
+        if self.active_cell_coordinates is not None:
+            active_set = set(self.active_cell_coordinates)
+            path = [(x, y) for (x, y) in path if (x, y) in active_set]
         
         # Step 4: Convert (x, y) path to design cell indices
         # Design cells are numbered sequentially: cell_idx = y * width + x

@@ -73,7 +73,7 @@ class TestFormatCounts:
         from core.pattern import Pattern, PatternMetadata, Frame
         
         metadata = PatternMetadata(width=8, height=8)
-        pattern = Pattern(metadata=metadata, frames=[Frame(pixels=[(0,0,0)]*64)])
+        pattern = Pattern(metadata=metadata, frames=[Frame(pixels=[(0,0,0)]*64, duration_ms=100)])
         
         # Test that export methods exist and are callable
         export_methods = ['export_binary', 'export_dat', 'export_json']

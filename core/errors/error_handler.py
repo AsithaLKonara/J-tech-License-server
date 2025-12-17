@@ -11,6 +11,13 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+# #region agent log
+try:
+    from core.debug_logger import debug_log, debug_log_error, debug_log_function_entry
+except Exception:
+    debug_log = debug_log_error = debug_log_function_entry = lambda *args, **kwargs: None
+# #endregion
+
 
 class ErrorSeverity(Enum):
     """Error severity levels."""
@@ -33,12 +40,30 @@ class ErrorHandler:
     
     def __init__(self):
         """Initialize the error handler."""
+        # #region agent log
+        try:
+            debug_log_function_entry("ErrorHandler.__init__", "error_handler.py:34", {}, hypothesis_id="D")
+        except Exception:
+            pass
+        # #endregion
         if ErrorHandler._instance is not None:
+            # #region agent log
+            try:
+                debug_log("error_handler.py:37", "Singleton violation detected", {}, hypothesis_id="D")
+            except Exception:
+                pass
+            # #endregion
             raise RuntimeError("ErrorHandler is a singleton. Use ErrorHandler.instance() instead.")
         
         self._error_handlers: Dict[type, Callable] = {}
         self._user_notification_callback: Optional[Callable] = None
         ErrorHandler._instance = self
+        # #region agent log
+        try:
+            debug_log("error_handler.py:43", "ErrorHandler initialized", {}, hypothesis_id="D")
+        except Exception:
+            pass
+        # #endregion
     
     @classmethod
     def instance(cls) -> 'ErrorHandler':
@@ -88,12 +113,30 @@ class ErrorHandler:
             show_to_user: Whether to show error to user
             context: Optional additional context information
         """
+        # #region agent log
+        try:
+            debug_log_function_entry("ErrorHandler.handle_error", "error_handler.py:75", {
+                "error_type": type(error).__name__,
+                "severity": severity.value,
+                "show_to_user": show_to_user
+            }, hypothesis_id="D")
+        except Exception:
+            pass
+        # #endregion
+        
         error_type = type(error)
         
         # Log the error
         log_message = f"Error: {error_type.__name__}: {str(error)}"
         if context:
             log_message += f" | Context: {context}"
+        
+        # #region agent log
+        try:
+            debug_log("error_handler.py:95", "Before logging error", {"severity": severity.value, "has_context": context is not None}, hypothesis_id="D")
+        except Exception:
+            pass
+        # #endregion
         
         if severity == ErrorSeverity.CRITICAL:
             logger.critical(log_message, exc_info=True)
@@ -106,19 +149,69 @@ class ErrorHandler:
         
         # Check for custom handler
         if error_type in self._error_handlers:
+            # #region agent log
+            try:
+                debug_log("error_handler.py:108", "Custom handler found", {"error_type": error_type.__name__}, hypothesis_id="D")
+            except Exception:
+                pass
+            # #endregion
             try:
                 self._error_handlers[error_type](error)
+                # #region agent log
+                try:
+                    debug_log("error_handler.py:112", "Custom handler executed successfully", {}, hypothesis_id="D")
+                except Exception:
+                    pass
+                # #endregion
                 return
             except Exception as e:
+                # #region agent log
+                try:
+                    debug_log_error("error_handler.py:118", e, {"custom_handler_failed": True}, hypothesis_id="D")
+                except Exception:
+                    pass
+                # #endregion
                 logger.error(f"Error in custom handler for {error_type.__name__}: {e}", exc_info=True)
+        else:
+            # #region agent log
+            try:
+                debug_log("error_handler.py:123", "No custom handler, using default", {}, hypothesis_id="D")
+            except Exception:
+                pass
+            # #endregion
         
         # Default handling: show to user if requested
         if show_to_user and self._user_notification_callback:
+            # #region agent log
+            try:
+                debug_log("error_handler.py:129", "Showing user notification", {}, hypothesis_id="D")
+            except Exception:
+                pass
+            # #endregion
             try:
                 user_message = self._format_user_message(error, context)
                 self._user_notification_callback(user_message, severity)
+                # #region agent log
+                try:
+                    debug_log("error_handler.py:133", "User notification shown", {}, hypothesis_id="D")
+                except Exception:
+                    pass
+                # #endregion
             except Exception as e:
+                # #region agent log
+                try:
+                    debug_log_error("error_handler.py:138", e, {"user_notification_failed": True}, hypothesis_id="D")
+                except Exception:
+                    pass
+                # #endregion
                 logger.error(f"Error showing user notification: {e}", exc_info=True)
+        else:
+            # #region agent log
+            try:
+                debug_log("error_handler.py:144", "Skipping user notification", {"show_to_user": show_to_user, "has_callback": self._user_notification_callback is not None}, hypothesis_id="D")
+            except Exception:
+                pass
+            # #endregion
     
     def _format_user_message(self, error: Exception, context: Optional[Dict[str, Any]]) -> str:
         """

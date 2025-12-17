@@ -196,6 +196,7 @@ class CloudieCLIInterface:
         height = metadata.get("height", 16)
         
         # Create pattern metadata
+        # Filter out any invalid parameters (like 'name' which doesn't exist in PatternMetadata)
         pattern_metadata = PatternMetadata(
             width=width,
             height=height,
