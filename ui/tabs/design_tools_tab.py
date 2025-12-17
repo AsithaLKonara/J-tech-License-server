@@ -107,6 +107,11 @@ from domain.actions import DesignAction  # noqa: E402
 from domain.pattern_state import PatternState  # noqa: E402
 from domain.frames import FrameManager  # noqa: E402
 from domain.layers import LayerManager, Layer  # noqa: E402
+from domain.layer_animation import (
+    create_scroll_animation,
+    create_fade_animation,
+    AnimationType,
+)  # noqa: E402
 from domain.scratchpads import ScratchpadManager  # noqa: E402
 from domain.canvas import CanvasController  # noqa: E402
 from domain.automation.queue import AutomationQueueManager  # noqa: E402
@@ -4534,6 +4539,14 @@ class DesignToolsTab(QWidget):
         effect_type_row.addWidget(self.effect_type_combo)
         effect_type_row.addStretch()
         layout.addLayout(effect_type_row)
+        
+        # Apply to Active Layer option
+        self.apply_to_layer_checkbox = QCheckBox("Apply to Active Layer (Creates Animation)")
+        self.apply_to_layer_checkbox.setToolTip(
+            "When enabled, automation actions create layer animations instead of modifying frame pixels. "
+            "This allows multiple layers to animate independently. Only works with scroll, wipe, and reveal actions."
+        )
+        layout.addWidget(self.apply_to_layer_checkbox)
 
         # Preview button
         preview_row = QHBoxLayout()
@@ -8830,6 +8843,44 @@ class DesignToolsTab(QWidget):
             # Auto-detection: if actions benefit from incremental generation, generate frames
             # (Checkbox removed - always auto-detect)
         
+        # Check if "Apply to Active Layer" is enabled (before frame generation)
+        if hasattr(self, 'apply_to_layer_checkbox') and self.apply_to_layer_checkbox.isChecked():
+            active_layer = self.layer_panel.get_active_layer_index() if hasattr(self, 'layer_panel') and self.layer_panel else None
+            if active_layer is not None:
+                # Convert actions to layer animations
+                animations_created = 0
+                for action in actions:
+                    animation = self._create_layer_animation_from_action(action)
+                    if animation:
+                        self.layer_manager.set_layer_animation(active_layer, animation)
+                        animations_created += 1
+                
+                if animations_created > 0:
+                    QMessageBox.information(
+                        self,
+                        "Animation Created",
+                        f"Created {animations_created} layer animation(s) on active layer.\n"
+                        "The layer will animate during playback."
+                    )
+                    self._load_current_frame_into_canvas()
+                    if hasattr(self, 'timeline'):
+                        self._refresh_timeline()
+                    return
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "No Animation Created",
+                        "Selected actions cannot be converted to layer animations.\n"
+                        "Only scroll, wipe, and reveal actions support layer animations."
+                    )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "No Active Layer",
+                    "Please select a layer in the layer panel before applying automation to layer."
+                )
+            return
+        
         if should_generate_frames:
             # Auto-generate frames (automatic, no user dialog needed)
             self._generate_frames_with_actions(actions)
@@ -8922,6 +8973,88 @@ class DesignToolsTab(QWidget):
         self._update_layer_sync_warning()  # Check sync after automation
         
         # Removed dialog - automation is now automatic and silent
+
+    def _create_layer_animation_from_action(self, action) -> Optional[object]:
+        """
+        Convert an automation action to a layer animation.
+        
+        Args:
+            action: DesignAction object from automation queue
+            
+        Returns:
+            LayerAnimation object or None if action cannot be converted
+        """
+        if not hasattr(action, 'action_type'):
+            return None
+        
+        action_type = action.action_type.lower()
+        params = getattr(action, 'params', {}) or {}
+        
+        try:
+            if action_type == "scroll":
+                # Convert scroll action to scroll animation
+                direction = params.get("direction", "right").lower()
+                speed = params.get("speed", 1.0)
+                if isinstance(speed, (int, float)):
+                    speed = float(speed)
+                else:
+                    speed = 1.0
+                
+                return create_scroll_animation(
+                    direction=direction,
+                    speed=speed,
+                    start_frame=0,
+                    end_frame=None  # All frames
+                )
+            
+            elif action_type == "wipe":
+                # Convert wipe to scroll animation (wipe is essentially a scroll with fade)
+                mode = params.get("mode", "Left to Right").lower()
+                speed = params.get("speed", 1.0)
+                if isinstance(speed, (int, float)):
+                    speed = float(speed)
+                else:
+                    speed = 1.0
+                
+                # Map wipe modes to scroll directions
+                direction_map = {
+                    "left to right": "right",
+                    "right to left": "left",
+                    "top to bottom": "down",
+                    "bottom to top": "up",
+                }
+                direction = direction_map.get(mode, "right")
+                
+                return create_scroll_animation(
+                    direction=direction,
+                    speed=speed,
+                    start_frame=0,
+                    end_frame=None
+                )
+            
+            elif action_type == "reveal":
+                # Convert reveal to fade animation
+                direction = params.get("direction", "left").lower()
+                speed = params.get("speed", 1.0)
+                if isinstance(speed, (int, float)):
+                    speed = float(speed)
+                else:
+                    speed = 1.0
+                
+                # Reveal is essentially a fade in
+                return create_fade_animation(
+                    fade_in=True,
+                    duration_frames=10,
+                    start_frame=0
+                )
+            
+            # Other action types don't have direct animation equivalents yet
+            return None
+            
+        except Exception as e:
+            import logging
+            logging.exception(f"Error converting action {action_type} to animation")
+            return None
 
     def _generate_frames_with_actions(self, actions):
         """Generate new frames by applying actions incrementally."""
@@ -9114,14 +9247,37 @@ class DesignToolsTab(QWidget):
             # If no frames exist, create new ones
             self._pattern.frames = new_frames
             self._current_frame_index = 0
+            new_frame_start_idx = 0
         else:
             # Append to existing frames
             self._pattern.frames.extend(new_frames)
             self._current_frame_index = len(self._pattern.frames) - len(new_frames)
+            new_frame_start_idx = len(self._pattern.frames) - len(new_frames)
         
-        # Auto-sync layers for all generated frames
-        for idx in range(len(self._pattern.frames) - len(new_frames), len(self._pattern.frames)):
-            self.layer_manager.sync_frame_from_layers(idx)
+        # Copy layer structure from source frame to all new frames
+        # This preserves layer content and animations in the generated frames
+        try:
+            tracks = self.layer_manager.get_layer_tracks()
+            for i, new_frame in enumerate(new_frames):
+                new_frame_idx = new_frame_start_idx + i
+                
+                # For each track, copy frame data from source if it exists
+                for track in tracks:
+                    source_layer_frame = track.get_frame(source_frame_idx)
+                    if source_layer_frame:
+                        # Copy layer frame data to new frame
+                        new_layer_frame = source_layer_frame.copy()
+                        track.set_frame(new_frame_idx, new_layer_frame)
+            
+            # Sync frame from layers (this will composite layers into frame.pixels)
+            for idx in range(new_frame_start_idx, len(self._pattern.frames)):
+                self.layer_manager.sync_frame_from_layers(idx)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to preserve layers in generated frames: {e}")
+            # Fallback: sync without layer copying
+            for idx in range(new_frame_start_idx, len(self._pattern.frames)):
+                self.layer_manager.sync_frame_from_layers(idx)
         
         # Update UI
         self.history_manager.set_frame_count(len(self._pattern.frames))
@@ -10395,43 +10551,64 @@ class DesignToolsTab(QWidget):
         if not self._pattern or total_frames <= 0:
             return []
 
-        frame_layers: List[List[Layer]] = []
-        max_layers = 0
-        for frame_idx in range(total_frames):
-            layers = self.layer_manager.get_layers(frame_idx)
-            frame_layers.append(layers)
-            if len(layers) > max_layers:
-                max_layers = len(layers)
-
-        if max_layers == 0:
+        # Get layer tracks directly (new architecture)
+        layer_tracks = self.layer_manager.get_layer_tracks()
+        if not layer_tracks:
             return []
 
         palette = self._layer_track_palette()
         tracks: List[TimelineLayerTrack] = []
-        for layer_idx in range(max_layers):
+        
+        for track_idx, track in enumerate(layer_tracks):
             states: List[int] = []
-            layer_name: Optional[str] = None
-            for layers in frame_layers:
-                if layer_idx < len(layers):
-                    layer = layers[layer_idx]
-                    if not layer_name and getattr(layer, "name", None):
-                        layer_name = layer.name
-                    has_pixels = self._layer_has_content(layer)
+            layer_name = track.name
+            
+            # Determine layer timing range
+            start_frame = track.start_frame if track.start_frame is not None else 0
+            end_frame = track.end_frame if track.end_frame is not None else total_frames - 1
+            
+            for frame_idx in range(total_frames):
+                # Check if frame is outside layer's timing range
+                if frame_idx < start_frame or frame_idx > end_frame:
+                    states.append(0)  # Layer doesn't exist in this frame
+                    continue
+                
+                # Get layer frame data
+                layer_frame = track.get_frame(frame_idx)
+                if layer_frame:
+                    has_pixels = self._layer_has_content_from_frame(layer_frame)
                     if not has_pixels:
-                        states.append(3)
+                        states.append(3)  # Empty
                     else:
-                        states.append(2 if layer.visible else 1)
+                        # Check effective visibility
+                        visible = track.get_effective_visibility(frame_idx)
+                        states.append(2 if visible else 1)  # 2 = visible, 1 = hidden
                 else:
-                    states.append(0)
-            color = QColor(palette[layer_idx % len(palette)])
+                    states.append(0)  # No frame data
+            
+            color = QColor(palette[track_idx % len(palette)])
             tracks.append(
                 TimelineLayerTrack(
-                    name=layer_name or f"Layer {layer_idx + 1}",
+                    name=layer_name or f"Layer {track_idx + 1}",
                     states=states,
                     color=color,
                 )
             )
         return tracks
+    
+    def _layer_has_content_from_frame(self, layer_frame) -> bool:
+        """Check if layer frame has non-black pixels."""
+        pixels = getattr(layer_frame, "pixels", [])
+        for pixel in pixels:
+            if not pixel:
+                continue
+            try:
+                r, g, b = pixel
+            except Exception:
+                continue
+            if r or g or b:
+                return True
+        return False
 
     def _layer_has_content(self, layer: Layer) -> bool:
         pixels = getattr(layer, "pixels", [])
@@ -10508,6 +10685,11 @@ class DesignToolsTab(QWidget):
         self.duration_spin.setValue(self._frame_duration_ms)
         self.duration_spin.blockSignals(False)
         self.timeline.set_playhead(index)
+        
+        # Update layer panel to show layers for current frame
+        if hasattr(self, "layer_panel"):
+            self.layer_panel.set_frame_index(index)
+        
         self._load_current_frame_into_canvas()
         self._update_transport_controls()
 

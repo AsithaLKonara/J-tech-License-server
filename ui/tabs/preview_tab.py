@@ -58,6 +58,10 @@ class PreviewTab(QWidget):
         self._syncing_playback = False  # Flag to prevent signal loops
         self._syncing_frame = False  # Flag to prevent frame sync loops
         self._updating_from_repository = False  # Flag to prevent circular updates from repository signals
+        
+        # Layer manager for animations (created when pattern is loaded)
+        self.layer_manager = None
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -473,13 +477,29 @@ class PreviewTab(QWidget):
         
         # Load into simulator
         logger.info("Loading pattern into simulator...")
+        # Create/update layer manager for animations
+        try:
+            from domain.pattern_state import PatternState
+            from domain.layers import LayerManager
+            
+            # Use preview pattern if available, otherwise use base pattern
+            pattern_for_layers = self._preview_pattern if self._preview_pattern else self.pattern
+            if pattern_for_layers:
+                state = PatternState(pattern_for_layers)
+                self.layer_manager = LayerManager(state)
+                self.layer_manager.set_pattern(pattern_for_layers)
+                logger.info("✓ Layer manager created for animations")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to create layer manager: {e}")
+            self.layer_manager = None
+        
         try:
             if self._preview_pattern:
                 logger.info(f"Loading preview pattern ({len(self._preview_pattern.frames)} frames)")
-                self.simulator.load_pattern(self._preview_pattern)
+                self.simulator.load_pattern(self._preview_pattern, layer_manager=self.layer_manager)
             else:
                 logger.info(f"Loading base pattern ({len(self.pattern.frames)} frames)")
-                self.simulator.load_pattern(self.pattern)
+                self.simulator.load_pattern(self.pattern, layer_manager=self.layer_manager)
             logger.info("✓ Pattern loaded into simulator successfully")
         except Exception as e:
             logger.error(f"❌ Failed to load pattern into simulator: {e}")
@@ -541,12 +561,27 @@ class PreviewTab(QWidget):
         except Exception as e:
             logging.getLogger(__name__).warning(f"Failed to rebuild preview pattern: {e}")
         
-        # Update simulator with new pattern
+        # Create/update layer manager for animations
+        try:
+            from domain.pattern_state import PatternState
+            from domain.layers import LayerManager
+            
+            # Use preview pattern if available, otherwise use base pattern
+            pattern_for_layers = self._preview_pattern if self._preview_pattern else self.pattern
+            if pattern_for_layers:
+                state = PatternState(pattern_for_layers)
+                self.layer_manager = LayerManager(state)
+                self.layer_manager.set_pattern(pattern_for_layers)
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to create layer manager: {e}")
+            self.layer_manager = None
+        
+        # Update simulator with new pattern and layer manager
         try:
             if self._preview_pattern:
-                self.simulator.load_pattern(self._preview_pattern)
+                self.simulator.load_pattern(self._preview_pattern, layer_manager=self.layer_manager)
             else:
-                self.simulator.load_pattern(self.pattern)
+                self.simulator.load_pattern(self.pattern, layer_manager=self.layer_manager)
         except Exception as e:
             logging.getLogger(__name__).warning(f"Failed to update simulator: {e}")
         

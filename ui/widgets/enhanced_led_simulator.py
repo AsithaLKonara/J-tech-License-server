@@ -224,9 +224,15 @@ class EnhancedLEDSimulatorWidget(QWidget):
         """Setup playback timer"""
         self.playback_timer.setSingleShot(False)
     
-    def load_pattern(self, pattern: Pattern):
-        """Load pattern for display"""
+    def load_pattern(self, pattern: Pattern, layer_manager=None):
+        """Load pattern for display
+        
+        Args:
+            pattern: Pattern to display
+            layer_manager: Optional LayerManager for animations
+        """
         self.pattern = pattern
+        self.layer_manager = layer_manager
         
         if not pattern:
             self.led_display.clear()
@@ -321,7 +327,7 @@ class EnhancedLEDSimulatorWidget(QWidget):
         self.total_frames_label.setText(str(pattern.frame_count))
         
         # Load into display with detected layout
-        self.led_display.load_pattern(pattern, self.detected_layout)
+        self.led_display.load_pattern(pattern, self.detected_layout, layer_manager=layer_manager)
         
         # Sync UI/display from metadata ONLY on initial load (not on preview updates)
         # This prevents overwriting user's UI selections when preview rebuilds
@@ -682,10 +688,17 @@ class LEDDisplayWidget(QWidget):
         # Enable mouse tracking for interaction
         self.setMouseTracking(True)
     
-    def load_pattern(self, pattern: Pattern, detected_layout: MatrixLayout = None):
-        """Load pattern for display"""
+    def load_pattern(self, pattern: Pattern, detected_layout: MatrixLayout = None, layer_manager=None):
+        """Load pattern for display
+        
+        Args:
+            pattern: Pattern to display
+            detected_layout: Detected matrix layout
+            layer_manager: Optional LayerManager for animations
+        """
         self.pattern = pattern
         self.detected_layout = detected_layout
+        self.layer_manager = layer_manager
         self.current_frame = 0
         self.update()
     
@@ -792,6 +805,21 @@ class LEDDisplayWidget(QWidget):
         
         frame = self.pattern.frames[self.current_frame]
         
+        # Get composite pixels with animations if layer_manager is available
+        pixels_to_use = None
+        if self.layer_manager:
+            try:
+                composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                if composite and len(composite) == len(frame.pixels):
+                    pixels_to_use = composite
+            except Exception:
+                # Fallback to frame.pixels if composite fails
+                pass
+        
+        # Use composite pixels if available, otherwise use frame.pixels
+        if pixels_to_use is None:
+            pixels_to_use = frame.pixels
+        
         width, height = self._current_dimensions()
         if width == 0 or height == 0:
             return
@@ -850,8 +878,8 @@ class LEDDisplayWidget(QWidget):
         if self.detected_layout and self.detected_layout.suggested_arrangement:
             # Use detected arrangement
             for led_idx, (x, y) in enumerate(self.detected_layout.suggested_arrangement):
-                if led_idx < len(frame.pixels):
-                    r, g, b = frame.pixels[led_idx]
+                if led_idx < len(pixels_to_use):
+                    r, g, b = pixels_to_use[led_idx]
                     
                     # Calculate position
                     led_x = start_x + x * led_width
@@ -879,7 +907,18 @@ class LEDDisplayWidget(QWidget):
                         painter.drawText(led_x + 2, led_y + led_height - 2, str(led_idx))
         else:
             metadata = self.pattern.metadata if self.pattern and hasattr(self.pattern, 'metadata') else None
-            self._paint_matrix(painter, frame, width, height, led_width, led_height, self.rect(), metadata=metadata)
+            # Get composite pixels for matrix painting
+            pixels_to_use = frame.pixels
+            if self.layer_manager:
+                try:
+                    composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                    if composite and len(composite) == len(frame.pixels):
+                        pixels_to_use = composite
+                except Exception:
+                    pass
+            # Create a temporary frame with composite pixels for matrix painting
+            temp_frame = Frame(pixels=list(pixels_to_use), duration_ms=frame.duration_ms)
+            self._paint_matrix(painter, temp_frame, width, height, led_width, led_height, self.rect(), metadata=metadata)
     
     def sizeHint(self):
         """Return preferred size"""
@@ -908,6 +947,16 @@ class LEDDisplayWidget(QWidget):
         Args:
             metadata: Optional PatternMetadata for irregular shape support
         """
+        # Get composite pixels with animations if layer_manager is available
+        pixels_to_use = frame.pixels
+        if self.layer_manager:
+            try:
+                composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                if composite and len(composite) == len(frame.pixels):
+                    pixels_to_use = composite
+            except Exception:
+                pass
+        
         # Compute centering based on rect
         total_w = width * led_w
         total_h = height * led_h
@@ -933,8 +982,8 @@ class LEDDisplayWidget(QWidget):
                 cell_idx = y * width + x
                 
                 # LAYER 2: Map pixel data 1:1 (pixel[i] → cell i)
-                if cell_idx < len(frame.pixels):
-                    r, g, b = frame.pixels[cell_idx]
+                if cell_idx < len(pixels_to_use):
+                    r, g, b = pixels_to_use[cell_idx]
                     led_x = start_x + x * led_w
                     led_y = start_y + y * led_h
                     color = QColor(r, g, b)
@@ -1013,6 +1062,16 @@ class LEDDisplayWidget(QWidget):
 
     def _paint_circle(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None, *, inner_ratio: float = 0.0):
         """Render the pattern as concentric rings to approximate circular matrices."""
+        # Get composite pixels with animations if layer_manager is available
+        pixels_to_use = frame.pixels
+        if self.layer_manager:
+            try:
+                composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                if composite and len(composite) == len(frame.pixels):
+                    pixels_to_use = composite
+            except Exception:
+                pass
+        
         rect = rect or self.rect()
         outer_radius = min(rect.width(), rect.height()) / 2 - 16
         if outer_radius <= 0:
@@ -1028,12 +1087,12 @@ class LEDDisplayWidget(QWidget):
             radius = inner_radius + radius_delta * row
             for col in range(width):
                 idx = row * width + col
-                if idx >= len(frame.pixels):
+                if idx >= len(pixels_to_use):
                     continue
                 angle = -pi / 2 + (2 * pi) * (col / max(1, width))
                 x = center_x + radius * cos(angle)
                 y = center_y + radius * sin(angle)
-                r_val, g_val, b_val = frame.pixels[idx]
+                r_val, g_val, b_val = pixels_to_use[idx]
                 painter.setBrush(QBrush(QColor(r_val, g_val, b_val)))
                 painter.setPen(QPen(self._cell_border_color, 1))
                 painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
@@ -1044,6 +1103,16 @@ class LEDDisplayWidget(QWidget):
 
     def _paint_radial(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None):
         """Render semi-circular previews for arc / fan layouts."""
+        # Get composite pixels with animations if layer_manager is available
+        pixels_to_use = frame.pixels
+        if self.layer_manager:
+            try:
+                composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                if composite and len(composite) == len(frame.pixels):
+                    pixels_to_use = composite
+            except Exception:
+                pass
+        
         rect = rect or self.rect()
         outer_radius = min(rect.width() / 2, rect.height()) - 24
         if outer_radius <= 0:
@@ -1059,12 +1128,12 @@ class LEDDisplayWidget(QWidget):
             radius = inner_radius + radius_delta * row
             for col in range(width):
                 idx = row * width + col
-                if idx >= len(frame.pixels):
+                if idx >= len(pixels_to_use):
                     continue
                 angle = pi + (pi * (col / max(1, width)))  # sweep 180°
                 x = center_x + radius * cos(angle)
                 y = center_y + radius * sin(angle)
-                r_val, g_val, b_val = frame.pixels[idx]
+                r_val, g_val, b_val = pixels_to_use[idx]
                 painter.setBrush(QBrush(QColor(r_val, g_val, b_val)))
                 painter.setPen(QPen(self._cell_border_color, 1))
                 painter.drawEllipse(int(x) - pixel_size // 2, int(y) - pixel_size // 2, pixel_size, pixel_size)
@@ -1121,10 +1190,20 @@ class LEDDisplayWidget(QWidget):
                     x = center_x + radius * cos(angle)
                     y = center_y + radius * sin(angle)
                     
+                    # Get composite pixels with animations if layer_manager is available
+                    pixels_to_use = frame.pixels
+                    if self.layer_manager:
+                        try:
+                            composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                            if composite and len(composite) == len(frame.pixels):
+                                pixels_to_use = composite
+                        except Exception:
+                            pass
+                    
                     # Read pixel color directly from grid (row/column interpretation)
                     grid_idx = row * metadata.width + col
-                    if grid_idx < len(frame.pixels):
-                        r, g, b = frame.pixels[grid_idx]
+                    if grid_idx < len(pixels_to_use):
+                        r, g, b = pixels_to_use[grid_idx]
                     else:
                         r, g, b = (0, 0, 0)
                     
@@ -1200,12 +1279,22 @@ class LEDDisplayWidget(QWidget):
             
             grid_x, grid_y = grid_pos
             
+            # Get composite pixels with animations if layer_manager is available
+            pixels_to_use = frame.pixels
+            if self.layer_manager:
+                try:
+                    composite = self.layer_manager.get_composite_pixels(self.current_frame)
+                    if composite and len(composite) == len(frame.pixels):
+                        pixels_to_use = composite
+                except Exception:
+                    pass
+            
             # Get pixel color from grid using mapping table lookup
             # This is the key: we read from grid, not from live calculations
             if 0 <= grid_y < metadata.height and 0 <= grid_x < metadata.width:
                 grid_idx = grid_y * metadata.width + grid_x
-                if grid_idx < len(frame.pixels):
-                    r, g, b = frame.pixels[grid_idx]
+                if grid_idx < len(pixels_to_use):
+                    r, g, b = pixels_to_use[grid_idx]
                 else:
                     r, g, b = (0, 0, 0)
             else:
