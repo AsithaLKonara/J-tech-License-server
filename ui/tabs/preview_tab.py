@@ -500,6 +500,10 @@ class PreviewTab(QWidget):
         # Update info
         self.update_info()
         
+        # Sync wiring settings from metadata (design tools settings)
+        # This ensures wiring matches design tools tab settings
+        self._sync_wiring_from_metadata(pattern)
+        
         # Enable export button
         if hasattr(self, 'export_button'):
             self.export_button.setEnabled(pattern is not None)
@@ -550,6 +554,64 @@ class PreviewTab(QWidget):
         if self.pattern:
             self.frame_slider.setRange(0, self.pattern.frame_count - 1)
             self.update_info()
+        
+        # Sync wiring settings from metadata (design tools settings)
+        self._sync_wiring_from_metadata(pattern)
+    
+    def _sync_wiring_from_metadata(self, pattern: Pattern):
+        """
+        Sync wiring mode and data-in corner from pattern metadata to preview tab UI.
+        
+        This ensures preview tab wiring settings match design tools tab settings.
+        
+        Args:
+            pattern: Pattern object with metadata containing wiring settings
+        """
+        if not pattern or not hasattr(pattern, 'metadata'):
+            return
+        
+        metadata = pattern.metadata
+        
+        # Get wiring settings from metadata
+        wiring_mode = getattr(metadata, 'wiring_mode', None)
+        data_in_corner = getattr(metadata, 'data_in_corner', None)
+        
+        if not wiring_mode or not data_in_corner:
+            return  # No wiring settings in metadata
+        
+        # Update simulator wiring combo
+        if hasattr(self.simulator, 'wiring_combo') and self.simulator.wiring_combo:
+            idx = self.simulator.wiring_combo.findText(wiring_mode)
+            if idx >= 0:
+                # Block signals temporarily to prevent recursive updates
+                self.simulator.wiring_combo.blockSignals(True)
+                self.simulator.wiring_combo.setCurrentIndex(idx)
+                self.simulator.wiring_combo.blockSignals(False)
+        
+        # Update simulator data-in combo
+        if hasattr(self.simulator, 'datain_combo') and self.simulator.datain_combo:
+            corner_text_map = {
+                'LT': 'Left Top',
+                'LB': 'Left Bottom',
+                'RT': 'Right Top',
+                'RB': 'Right Bottom'
+            }
+            corner_text = corner_text_map.get(data_in_corner, 'Left Top')
+            idx = self.simulator.datain_combo.findText(corner_text)
+            if idx >= 0:
+                # Block signals temporarily to prevent recursive updates
+                self.simulator.datain_combo.blockSignals(True)
+                self.simulator.datain_combo.setCurrentIndex(idx)
+                self.simulator.datain_combo.blockSignals(False)
+        
+        # Update LED display widget
+        if hasattr(self.simulator, 'led_display') and self.simulator.led_display:
+            try:
+                self.simulator.led_display.set_wiring_mode(wiring_mode)
+                self.simulator.led_display.set_data_in_corner(data_in_corner)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to update LED display wiring: {e}")
     
     def load_pattern_from_file(self, file_path: str):
         """

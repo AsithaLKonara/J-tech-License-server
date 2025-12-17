@@ -817,8 +817,15 @@ class LEDDisplayWidget(QWidget):
         # Use circular rendering if pattern has circular layout
         # The preview uses the mapping table to get pixel colors from grid
         if layout_type and layout_type != "rectangular":
-            self._paint_circular_layout(painter, frame, self.pattern.metadata, self.rect())
-            return
+            if layout_type == "irregular":
+                # Irregular shapes use matrix rendering but skip inactive cells
+                self._paint_matrix(painter, frame, width, height, led_width, led_height, 
+                                  self.rect(), metadata=self.pattern.metadata)
+                return
+            else:
+                # Circular layouts use circular rendering
+                self._paint_circular_layout(painter, frame, self.pattern.metadata, self.rect())
+                return
         
         # Draw LEDs according to the selected display mode (for manual preview)
         if self.display_mode == "Circle":
@@ -834,7 +841,8 @@ class LEDDisplayWidget(QWidget):
             # Draw matrix on left half and circle on right half
             matrix_rect = self.rect().adjusted(0, 0, -self.width()//2, 0)
             circle_rect = self.rect().adjusted(self.width()//2, 0, 0, 0)
-            self._paint_matrix(painter, frame, width, height, led_width, led_height, matrix_rect)
+            metadata = self.pattern.metadata if self.pattern and hasattr(self.pattern, 'metadata') else None
+            self._paint_matrix(painter, frame, width, height, led_width, led_height, matrix_rect, metadata=metadata)
             self._paint_circle(painter, frame, width, height, circle_rect)
             return
 
@@ -870,7 +878,8 @@ class LEDDisplayWidget(QWidget):
                         painter.setFont(font)
                         painter.drawText(led_x + 2, led_y + led_height - 2, str(led_idx))
         else:
-            self._paint_matrix(painter, frame, width, height, led_width, led_height, self.rect())
+            metadata = self.pattern.metadata if self.pattern and hasattr(self.pattern, 'metadata') else None
+            self._paint_matrix(painter, frame, width, height, led_width, led_height, self.rect(), metadata=metadata)
     
     def sizeHint(self):
         """Return preferred size"""
@@ -889,12 +898,15 @@ class LEDDisplayWidget(QWidget):
         )
 
     # --- helper painters ---
-    def _paint_matrix(self, painter: QPainter, frame: Frame, width: int, height: int, led_w: int, led_h: int, rect):
+    def _paint_matrix(self, painter: QPainter, frame: Frame, width: int, height: int, led_w: int, led_h: int, rect, metadata=None):
         """
         LAYERED ARCHITECTURE IMPLEMENTATION:
         Layer 1: Base Matrix - Draw grid with sequential numbering (0..N-1, left-to-right, top-to-bottom)
         Layer 2: Design - Display pattern pixels in sequential order (pixel[i] → cell i)
         Layer 3: Wiring - Visual overlay only (doesn't affect pixel data)
+        
+        Args:
+            metadata: Optional PatternMetadata for irregular shape support
         """
         # Compute centering based on rect
         total_w = width * led_w
@@ -902,10 +914,21 @@ class LEDDisplayWidget(QWidget):
         start_x = rect.x() + (rect.width() - total_w)//2
         start_y = rect.y() + (rect.height() - total_h)//2
         
+        # Check if irregular shape layout is enabled
+        is_irregular = (metadata and 
+                       getattr(metadata, 'irregular_shape_enabled', False) and
+                       getattr(metadata, 'layout_type', 'rectangular') == 'irregular')
+        
         # LAYER 1 + 2: Draw base matrix with design pixels
         # Simple sequential mapping: cell index = y * width + x
         for y in range(height):
             for x in range(width):
+                # Skip inactive cells for irregular shapes - don't draw them at all
+                if is_irregular:
+                    from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                    if not IrregularShapeMapper.is_cell_active(x, y, metadata):
+                        continue  # Skip inactive cells - make them transparent
+                
                 # Cell index is always sequential: 0, 1, 2, 3... (left-to-right, top-to-bottom)
                 cell_idx = y * width + x
                 
@@ -943,25 +966,50 @@ class LEDDisplayWidget(QWidget):
             if path:
                 pen = QPen(QColor(255, 0, 0, 160), 2)
                 painter.setPen(pen)
+                
+                # Safety check: Skip inactive cells for irregular shapes
+                is_irregular = (metadata and 
+                               getattr(metadata, 'irregular_shape_enabled', False) and
+                               getattr(metadata, 'layout_type', 'rectangular') == 'irregular')
+                
                 # Draw polyline through centers
                 last = None
                 for (dx, dy) in path:
+                    # Additional safety check: verify cell is active if irregular
+                    if is_irregular:
+                        from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                        if not IrregularShapeMapper.is_cell_active(dx, dy, metadata):
+                            continue  # Skip inactive cells
+                    
                     cx = start_x + dx * led_w + led_w // 2
                     cy = start_y + dy * led_h + led_h // 2
                     if last is not None:
                         painter.drawLine(last[0], last[1], cx, cy)
                     last = (cx, cy)
-                # Data-in marker at first point
+                
+                # Data-in marker at first active cell (only if path has active cells)
                 if self.show_din and path:
-                    sx, sy = path[0]
-                    scx = start_x + sx * led_w + led_w // 2
-                    scy = start_y + sy * led_h + led_h // 2
-                    painter.setBrush(QBrush(QColor(0, 200, 0)))
-                    painter.setPen(QPen(self._cell_border_color, 1))
-                    size = max(6, min(led_w, led_h) // 2)
-                    painter.drawEllipse(scx - size//2, scy - size//2, size, size)
-                    painter.setPen(QPen(QColor(0,200,0)))
-                    painter.drawText(scx + size//2 + 3, scy, "DIN")
+                    # Find first active cell for DIN marker
+                    din_x, din_y = None, None
+                    for (dx, dy) in path:
+                        if not is_irregular:
+                            din_x, din_y = dx, dy
+                            break
+                        else:
+                            from core.mapping.irregular_shape_mapper import IrregularShapeMapper
+                            if IrregularShapeMapper.is_cell_active(dx, dy, metadata):
+                                din_x, din_y = dx, dy
+                                break
+                    
+                    if din_x is not None and din_y is not None:
+                        scx = start_x + din_x * led_w + led_w // 2
+                        scy = start_y + din_y * led_h + led_h // 2
+                        painter.setBrush(QBrush(QColor(0, 200, 0)))
+                        painter.setPen(QPen(self._cell_border_color, 1))
+                        size = max(6, min(led_w, led_h) // 2)
+                        painter.drawEllipse(scx - size//2, scy - size//2, size, size)
+                        painter.setPen(QPen(QColor(0,200,0)))
+                        painter.drawText(scx + size//2 + 3, scy, "DIN")
 
     def _paint_circle(self, painter: QPainter, frame: Frame, width: int, height: int, rect=None, *, inner_ratio: float = 0.0):
         """Render the pattern as concentric rings to approximate circular matrices."""
@@ -1098,8 +1146,15 @@ class LEDDisplayWidget(QWidget):
             
             return
         
-        # Ensure mapping table exists (regenerate if missing)
-        # This handles edge cases like loading old patterns
+        # Ensure mapping table exists and is up-to-date (regenerate to pick up any logic changes)
+        # This handles edge cases like loading old patterns or mapping logic updates
+        try:
+            # Force regeneration to ensure we have the latest mapping logic
+            metadata.circular_mapping_table = CircularMapper.generate_mapping_table(metadata)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to regenerate mapping table: {e}")
+        
         if not CircularMapper.ensure_mapping_table(metadata):
             # Fallback to matrix rendering if mapping generation fails
             # This ensures the app never crashes due to circular layout issues
@@ -1108,9 +1163,9 @@ class LEDDisplayWidget(QWidget):
                 f"Failed to ensure mapping table for circular layout preview. "
                 f"Falling back to matrix view."
             )
-            self._paint_matrix(painter, frame, metadata.width, metadata.height, 
-                             int(self.led_size * self.zoom_factor), 
-                             int(self.led_size * self.zoom_factor), rect)
+            self._paint_matrix(painter, frame, metadata.width, metadata.height,
+                             int(self.led_size * self.zoom_factor),
+                             int(self.led_size * self.zoom_factor), rect, metadata=metadata)
             return
         
         # Calculate display parameters
@@ -1120,15 +1175,15 @@ class LEDDisplayWidget(QWidget):
         # Calculate center and radius
         center_x = rect.x() + rect.width() / 2
         center_y = rect.y() + rect.height() / 2
-        outer_radius = min(rect.width(), rect.height()) / 2 - 16
+        max_radius = min(rect.width(), rect.height()) / 2 - 16
         
-        # Get LED positions in polar coordinates
-        positions = CircularMapper.generate_circular_positions(
-            led_count=led_count,
-            radius=metadata.circular_radius or outer_radius,
-            start_angle=metadata.circular_start_angle,
-            end_angle=metadata.circular_end_angle,
-            inner_radius=metadata.circular_inner_radius
+        # Use generate_led_positions_for_preview for proper ray-based rendering of circular/ring layouts
+        # This handles the row/column interpretation correctly (top row = outer circle, bottom row = inner circle)
+        led_positions = CircularMapper.generate_led_positions_for_preview(
+            metadata=metadata,
+            center_x=center_x,
+            center_y=center_y,
+            max_radius=max_radius
         )
         
         # Draw each LED in index order (0 → N-1)
@@ -1156,17 +1211,13 @@ class LEDDisplayWidget(QWidget):
             else:
                 r, g, b = (0, 0, 0)
             
-            # Get LED position in polar coordinates
-            if led_idx < len(positions):
-                angle, led_radius = positions[led_idx]
-                # Convert to cartesian
-                x = center_x + led_radius * cos(angle)
-                y = center_y + led_radius * sin(angle)
+            # Get LED position from preview generation (handles ray-based layouts correctly)
+            if led_idx < len(led_positions):
+                x, y = led_positions[led_idx]
             else:
-                # Fallback: calculate from angle
-                angle_step = (metadata.circular_end_angle - metadata.circular_start_angle) / led_count
-                angle = math.radians(metadata.circular_start_angle + led_idx * angle_step)
-                radius = metadata.circular_radius or outer_radius
+                # Fallback: simple circular arrangement if positions not available
+                angle = 2 * pi * (led_idx / led_count) if led_count > 0 else 0
+                radius = max_radius * 0.8
                 x = center_x + radius * cos(angle)
                 y = center_y + radius * sin(angle)
             
@@ -1308,6 +1359,19 @@ class LEDDisplayWidget(QWidget):
             for y in range(h):
                 for x in range(w):
                     path.append((x, y))
+        
+        # Step 3: Filter to active cells if irregular shape
+        if self.pattern and hasattr(self.pattern, 'metadata'):
+            metadata = self.pattern.metadata
+            layout_type = getattr(metadata, 'layout_type', 'rectangular')
+            is_irregular = (layout_type == 'irregular' and 
+                           getattr(metadata, 'irregular_shape_enabled', False))
+            
+            if is_irregular:
+                active_cell_coordinates = getattr(metadata, 'active_cell_coordinates', None)
+                if active_cell_coordinates is not None:
+                    active_set = set(active_cell_coordinates)
+                    path = [(x, y) for (x, y) in path if (x, y) in active_set]
         
         return path
 
