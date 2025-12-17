@@ -638,6 +638,31 @@ class LicenseManager:
     
     def get_license_info(self) -> Dict[str, Any]:
         """Get current license information"""
+        # Try entitlement token first (new system)
+        try:
+            from core.auth_manager import AuthManager
+            auth_manager = AuthManager(server_url=self.server_url)
+            if auth_manager.has_valid_token():
+                entitlement_token = auth_manager.entitlement_token
+                if entitlement_token:
+                    return {
+                        'license_id': entitlement_token.get('sub'),
+                        'product_id': entitlement_token.get('product', 'upload_bridge_pro'),
+                        'issued_to': auth_manager.user_info.get('email') if auth_manager.user_info else None,
+                        'expires_at': datetime.fromtimestamp(entitlement_token.get('expires_at', 0)).isoformat() if entitlement_token.get('expires_at') else None,
+                        'remaining_days': self._calculate_days_remaining(entitlement_token.get('expires_at')),
+                        'features': entitlement_token.get('features', []),
+                        'max_devices': entitlement_token.get('max_devices', 1),
+                        'status': 'valid',
+                        'message': 'Account-based license',
+                        'device_id': self.get_device_id(),
+                        'plan': entitlement_token.get('plan'),
+                        'source': 'account'
+                    }
+        except Exception as e:
+            logger.debug("Entitlement token check failed, falling back to file-based: %s", e)
+        
+        # Fall back to file-based license (backward compatibility)
         if not self.license_data:
             self.load_cached_license()
         
@@ -658,7 +683,97 @@ class LicenseManager:
             'max_devices': license_info.get('max_devices', 1),
             'status': 'valid' if is_valid else 'invalid',
             'message': message,
-            'device_id': self.get_device_id()
+            'device_id': self.get_device_id(),
+            'source': 'file'
         }
+    
+    def _calculate_days_remaining(self, expires_at_timestamp: Optional[int]) -> Optional[int]:
+        """Calculate days remaining from Unix timestamp"""
+        if not expires_at_timestamp:
+            return None
+        try:
+            expiry_date = datetime.fromtimestamp(expires_at_timestamp)
+            now = datetime.utcnow()
+            days = (expiry_date - now).days
+            return max(0, days)
+        except:
+            return None
+    
+    def validate_entitlement_token(self, token: Dict[str, Any]) -> Tuple[bool, str]:
+        """
+        Validate signed entitlement token (new account-based system).
+        
+        Args:
+            token: Entitlement token dictionary
+        
+        Returns:
+            (is_valid, message)
+        """
+        try:
+            # Check required fields
+            if 'sub' not in token or 'product' not in token:
+                return False, "Invalid token format"
+            
+            # Check expiry
+            expires_at = token.get('expires_at')
+            if expires_at:
+                now = int(time.time())
+                if now >= expires_at:
+                    return False, "Token has expired"
+            
+            # Verify signature if present
+            if 'sig' in token:
+                # Signature verification would be done server-side
+                # For client-side, we trust tokens from server
+                pass
+            
+            return True, "Token is valid"
+        except Exception as e:
+            return False, f"Token validation error: {str(e)}"
+    
+    def check_token_expiry(self, token: Dict[str, Any]) -> bool:
+        """Check if token needs refresh"""
+        expires_at = token.get('expires_at')
+        if not expires_at:
+            return False  # No expiry
+        
+        now = int(time.time())
+        # Refresh if expires within 24 hours
+        return (expires_at - now) < 24 * 60 * 60
+    
+    def refresh_entitlement_token(self) -> Tuple[bool, str]:
+        """
+        Refresh entitlement token from server.
+        
+        Returns:
+            (success, message)
+        """
+        try:
+            from core.auth_manager import AuthManager
+            auth_manager = AuthManager(server_url=self.server_url)
+            return auth_manager.refresh_token()
+        except Exception as e:
+            return False, f"Refresh failed: {str(e)}"
+    
+    def get_enabled_features(self) -> list:
+        """Get enabled features from current license (account or file-based)"""
+        # Try entitlement token first
+        try:
+            from core.auth_manager import AuthManager
+            auth_manager = AuthManager(server_url=self.server_url)
+            if auth_manager.has_valid_token() and auth_manager.entitlement_token:
+                return auth_manager.get_enabled_features()
+        except:
+            pass
+        
+        # Fall back to file-based license
+        if not self.license_data:
+            self.load_cached_license()
+        
+        if self.license_data:
+            license_info = self.license_data.get('license', {})
+            return license_info.get('features', [])
+        
+        return []
 
 

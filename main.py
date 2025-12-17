@@ -558,29 +558,60 @@ def main():
     except Exception:
         pass
     
-    # Activation check before showing UI
+    # Authentication check before showing UI
     # #region agent log
     try:
-        debug_log("main.py:250", "Before activation check", {}, hypothesis_id="A")
+        debug_log("main.py:250", "Before authentication check", {}, hypothesis_id="A")
     except Exception:
         pass
     # #endregion
     try:
-        from ui.dialogs.activation_dialog import ensure_activation_or_exit
-        ensure_activation_or_exit(None)
-        # #region agent log
+        # Try new account-based authentication first
         try:
-            debug_log("main.py:254", "Activation check completed", {}, hypothesis_id="A")
-        except Exception:
-            pass
-        # #endregion
+            from core.auth_manager import AuthManager
+            from ui.dialogs.login_dialog import ensure_authenticated_or_exit
+            from core.config import get_config
+            
+            config = get_config()
+            auth_server_url = config.get('auth_server_url', 'http://localhost:3000')
+            
+            auth_manager = AuthManager(server_url=auth_server_url)
+            
+            # Check if authenticated
+            if not auth_manager.has_valid_token():
+                ensure_authenticated_or_exit(None, auth_manager, auth_server_url)
+            
+            # #region agent log
+            try:
+                debug_log("main.py:254", "Account authentication check completed", {}, hypothesis_id="A")
+            except Exception:
+                pass
+            # #endregion
+        except ImportError:
+            # Fall back to file-based activation for backward compatibility
+            # #region agent log
+            try:
+                debug_log("main.py:260", "Falling back to file-based activation", {}, hypothesis_id="A")
+            except Exception:
+                pass
+            # #endregion
+            from ui.dialogs.activation_dialog import ensure_activation_or_exit
+            ensure_activation_or_exit(None)
+            # #region agent log
+            try:
+                debug_log("main.py:264", "File-based activation check completed", {}, hypothesis_id="A")
+            except Exception:
+                pass
+            # #endregion
     except Exception as e:
         # #region agent log
         try:
-            debug_log_error("main.py:259", e, {"activation_check_failed": True}, hypothesis_id="A")
+            debug_log_error("main.py:269", e, {"authentication_check_failed": True}, hypothesis_id="A")
         except Exception:
             pass
         # #endregion
+        # Don't exit on error - allow app to continue (user can retry login later)
+        logger.warning("Authentication check failed: %s", e)
         pass
 
     # Create and show main window

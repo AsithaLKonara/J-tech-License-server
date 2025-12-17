@@ -1,0 +1,19 @@
+# Stripe Configuration
+# Configure these values in your environment
+
+stripe:
+  secret_key: "${STRIPE_SECRET_KEY}"
+  publishable_key: "${STRIPE_PUBLISHABLE_KEY}"
+  webhook_secret: "${STRIPE_WEBHOOK_SECRET}"
+  
+  # Product IDs (configure in Stripe Dashboard)
+  products:
+    monthly: "${STRIPE_PRODUCT_MONTHLY_ID}"
+    yearly: "${STRIPE_PRODUCT_YEARLY_ID}"
+    perpetual: "${STRIPE_PRODUCT_PERPETUAL_ID}"
+  
+  # Price IDs (configure in Stripe Dashboard)
+  prices:
+    monthly: "${STRIPE_PRICE_MONTHLY_ID}"
+    yearly: "${STRIPE_PRICE_YEARLY_ID}"
+    perpetual: "${STRIPE_PRICE_PERPETUAL_ID}"
