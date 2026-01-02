@@ -1,53 +1,13 @@
+/**
+ * Token Refresh Endpoint
+ * POST /api/v2/auth/refresh
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
-  getUserLicense,
-  isLicenseValid,
-  getDevice,
-} from '../../lib/database';
-import { EntitlementToken } from '../../lib/models';
+import { getUserById, getUserLicense, isLicenseValid } from '../../../lib/database-kv';
+import { signToken, verifyToken } from '../../../lib/jwt-validator';
+import { EntitlementToken } from '../../../lib/models';
 
-interface RefreshRequest {
-  session_token: string;
-  device_id: string;
-}
-
-interface RefreshResponse {
-  session_token: string;
-  entitlement_token: EntitlementToken;
-}
-
-/**
- * Parse session token to extract user ID
- * TODO: Use proper JWT for session tokens
- */
-function parseSessionToken(sessionToken: string): { userId: string; deviceId: string } | null {
-  try {
-    const payload = Buffer.from(sessionToken.replace('session_', ''), 'base64url').toString('utf-8');
-    const data = JSON.parse(payload);
-    return {
-      userId: data.user_id,
-      deviceId: data.device_id,
-    };
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Generate new session token
- */
-function generateSessionToken(userId: string, deviceId: string): string {
-  const payload = {
-    user_id: userId,
-    device_id: deviceId,
-    created_at: Date.now(),
-  };
-  return `session_${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
-}
-
-/**
- * Convert license to entitlement token
- */
 function licenseToEntitlementToken(
   userId: string,
   license: { plan: string; features: string[]; expires_at: Date | null }
@@ -66,12 +26,11 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ): Promise<VercelResponse> {
-  // Add CORS headers
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -81,55 +40,54 @@ export default async function handler(
   }
 
   try {
-    const body: RefreshRequest = req.body;
+    const { session_token, device_id } = req.body;
 
-    if (!body.session_token || !body.device_id) {
-      return res.status(400).json({ error: 'Session token and device ID are required' });
+    if (!session_token) {
+      return res.status(400).json({ error: 'Session token is required' });
     }
 
-    // Parse session token to get user ID
-    const sessionData = parseSessionToken(body.session_token);
-    if (!sessionData) {
+    // Verify session token
+    let payload: any;
+    try {
+      payload = verifyToken(session_token);
+    } catch (error: any) {
       return res.status(401).json({ error: 'Invalid session token' });
     }
 
-    // Verify device ID matches
-    if (sessionData.deviceId !== body.device_id) {
-      return res.status(403).json({ error: 'Device ID mismatch' });
+    const userId = payload.user_id;
+
+    // Get user
+    const user = await getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Get user's license
-    const license = await getUserLicense(sessionData.userId);
+    const license = await getUserLicense(userId);
     if (!license) {
-      return res.status(404).json({ error: 'No license found for user' });
+      return res.status(404).json({ error: 'License not found' });
     }
 
     // Check if license is valid
     const isValid = await isLicenseValid(license.id);
     if (!isValid) {
-      return res.status(403).json({ error: 'License is not valid (expired or revoked)' });
-    }
-
-    // Verify device is registered (optional check)
-    const device = await getDevice(license.id, body.device_id);
-    if (!device) {
-      // Device not registered - this might be okay for refresh, but log it
-      console.warn(`Device ${body.device_id} not registered for license ${license.id}`);
+      return res.status(403).json({ error: 'License is not valid' });
     }
 
     // Generate new session token
-    const newSessionToken = generateSessionToken(sessionData.userId, body.device_id);
+    const newSessionToken = signToken({
+      user_id: userId,
+      device_id: device_id || payload.device_id || 'unknown',
+      created_at: Date.now(),
+    }, '7d');
 
-    // Create entitlement token from current license
-    const entitlementToken = licenseToEntitlementToken(sessionData.userId, license);
+    // Create entitlement token
+    const entitlementToken = licenseToEntitlementToken(userId, license);
 
-    const response: RefreshResponse = {
+    return res.status(200).json({
       session_token: newSessionToken,
       entitlement_token: entitlementToken,
-    };
-
-    return res.status(200).json(response);
-
+    });
   } catch (error: any) {
     console.error('Refresh error:', error);
     return res.status(500).json({ error: 'Internal server error' });
