@@ -1,33 +1,40 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifyAuth0Token, extractUserInfo } from '../../lib/jwt-validator';
+/**
+ * Express Server for Upload Bridge License Server
+ * Railway-compatible deployment
+ */
+
+import express, { Request, Response } from 'express';
+import { verifyAuth0Token, extractUserInfo } from './lib/jwt-validator';
 import {
   getOrCreateUserByAuth0Sub,
   getUserLicense,
   upsertUserLicense,
   registerDevice,
   isLicenseValid,
-} from '../../lib/database';
-import { EntitlementToken } from '../../lib/models';
+} from './lib/database';
+import { EntitlementToken } from './lib/models';
 
-interface LoginRequest {
-  auth0_token: string;
-  device_id?: string;
-  device_name?: string;
-}
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-interface User {
-  id: string;
-  email: string;
-}
+// Middleware
+app.use(express.json());
 
-interface LoginResponse {
-  session_token: string;
-  entitlement_token: EntitlementToken;
-  user: User;
-}
+// CORS middleware
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 /**
- * Generate session token (simple implementation - can be enhanced with JWT)
+ * Generate session token
  */
 function generateSessionToken(userId: string, deviceId: string): string {
   const payload = {
@@ -55,28 +62,20 @@ function licenseToEntitlementToken(
   };
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<VercelResponse> {
-  // Add CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// Health endpoint
+app.get('/api/health', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'upload-bridge-license-server',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
 
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+// Login endpoint
+app.post('/api/v2/auth/login', async (req: Request, res: Response) => {
   try {
-    const body: LoginRequest = req.body;
-    const { auth0_token, device_id, device_name } = body;
+    const { auth0_token, device_id, device_name } = req.body;
 
     if (!auth0_token) {
       return res.status(400).json({ error: 'Auth0 token is required' });
@@ -111,8 +110,7 @@ export default async function handler(
     // Get user's license
     let license = await getUserLicense(user.id);
 
-    // If no license exists, create a default one (or return error)
-    // For now, we'll create a default 'pro' license
+    // If no license exists, create a default one
     if (!license) {
       try {
         license = await upsertUserLicense(
@@ -150,20 +148,71 @@ export default async function handler(
     const entitlementToken = licenseToEntitlementToken(user.id, license);
 
     // Return success response
-    const response: LoginResponse = {
+    return res.status(200).json({
       session_token: sessionToken,
       entitlement_token: entitlementToken,
       user: {
         id: user.id,
         email: user.email,
       },
-    };
-
-    return res.status(200).json(response);
-
+    });
   } catch (error: any) {
     console.error('Login error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});
+
+// Refresh endpoint
+app.post('/api/v2/auth/refresh', async (req: Request, res: Response) => {
+  try {
+    const { session_token, device_id } = req.body;
+
+    if (!session_token) {
+      return res.status(400).json({ error: 'Session token is required' });
+    }
+
+    // Decode session token to get user ID
+    try {
+      const payload = JSON.parse(
+        Buffer.from(session_token.replace('session_', ''), 'base64url').toString()
+      );
+      const userId = payload.user_id;
+
+      // Get user's license
+      const license = await getUserLicense(userId);
+      if (!license) {
+        return res.status(404).json({ error: 'License not found' });
+      }
+
+      // Check if license is valid
+      const isValid = await isLicenseValid(license.id);
+      if (!isValid) {
+        return res.status(403).json({ error: 'License is not valid' });
+      }
+
+      // Generate new session token
+      const newSessionToken = generateSessionToken(userId, device_id || payload.device_id || 'unknown');
+
+      // Create entitlement token
+      const entitlementToken = licenseToEntitlementToken(userId, license);
+
+      return res.status(200).json({
+        session_token: newSessionToken,
+        entitlement_token: entitlementToken,
+      });
+    } catch (error: any) {
+      return res.status(401).json({ error: 'Invalid session token' });
+    }
+  } catch (error: any) {
+    console.error('Refresh error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 License Server running on port ${PORT}`);
+  console.log(`📍 Health: http://localhost:${PORT}/api/health`);
+  console.log(`🔐 Login: http://localhost:${PORT}/api/v2/auth/login`);
+});
 

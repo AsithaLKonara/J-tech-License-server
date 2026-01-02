@@ -10,9 +10,9 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./"
+    "rootDir": "."
   },
-  "include": ["api/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["lib/**/*", "server.ts"],
+  "exclude": ["node_modules", "api", "dist"]
 }
 
