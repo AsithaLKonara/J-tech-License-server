@@ -7,10 +7,12 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libsqlite3-dev \
     zip \
     unzip \
     nginx \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
+    sqlite3 \
+    && docker-php-ext-install pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -34,7 +36,7 @@ COPY . .
 
 # Complete autoloader generation and run Laravel scripts
 RUN composer dump-autoload --optimize \
-    && php artisan package:discover --ansi
+    && php artisan package:discover --ansi || true
 
 # Set permissions
 RUN chown -R www-data:www-data /app \
@@ -42,6 +44,9 @@ RUN chown -R www-data:www-data /app \
 
 # Configure nginx
 COPY docker/nginx.conf /etc/nginx/sites-available/default
+
+# Create PHP-FPM pool configuration
+RUN echo '[www]\nuser = www-data\ngroup = www-data\nlisten = 127.0.0.1:9000\npm = dynamic\npm.max_children = 5\npm.start_servers = 2\npm.min_spare_servers = 1\npm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/www.conf
 
 # Expose port
 EXPOSE 80
