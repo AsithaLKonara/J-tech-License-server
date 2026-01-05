@@ -26,11 +26,15 @@ COPY composer.json composer.lock ./
 RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-# Install dependencies (this will now work because bootstrap/cache exists)
-RUN composer install --ignore-platform-reqs
+# Install dependencies without running scripts (artisan doesn't exist yet)
+RUN composer install --ignore-platform-reqs --no-scripts --no-autoloader
 
-# Copy application files
+# Copy application files (now artisan exists)
 COPY . .
+
+# Complete autoloader generation and run Laravel scripts
+RUN composer dump-autoload --optimize \
+    && php artisan package:discover --ansi
 
 # Set permissions
 RUN chown -R www-data:www-data /app \

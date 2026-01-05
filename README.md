@@ -72,6 +72,49 @@ MAIL_PASSWORD=your-password
 MAIL_FROM_ADDRESS=noreply@yourdomain.com
 ```
 
+## Docker Deployment
+
+### Test Build Locally
+
+Before deploying, test the Docker build locally:
+
+**On Windows (PowerShell):**
+```powershell
+cd apps/web-dashboard
+.\docker\test-build.ps1
+```
+
+**On Linux/Mac:**
+```bash
+cd apps/web-dashboard
+chmod +x docker/test-build.sh
+./docker/test-build.sh
+```
+
+### Run Container Locally
+
+To run the container for testing:
+
+**On Windows (PowerShell):**
+```powershell
+.\docker\test-run.ps1
+```
+
+**On Linux/Mac:**
+```bash
+chmod +x docker/test-run.sh
+./docker/test-run.sh
+```
+
+The application will be available at `http://localhost:8080`
+
+### Manual Docker Build
+
+```bash
+docker build -t upload-bridge-license-server .
+docker run -p 8080:80 upload-bridge-license-server
+```
+
 ## Deployment on Shared Hosting
 
 1. Upload all files to your hosting
