@@ -40,6 +40,7 @@ fi
 
 # Ensure database exists (for SQLite)
 if grep -q "DB_CONNECTION=sqlite" /app/.env; then
+    echo "📦 Setting up SQLite database..."
     mkdir -p /app/database
     touch /app/database/database.sqlite
     chmod 664 /app/database/database.sqlite
@@ -47,31 +48,59 @@ if grep -q "DB_CONNECTION=sqlite" /app/.env; then
 fi
 
 # Clear and cache config
+echo "🧹 Clearing Laravel caches..."
 php artisan config:clear || true
 php artisan cache:clear || true
+php artisan route:clear || true
 
 # Ensure permissions
-chown -R www-data:www-data /app/storage /app/bootstrap/cache
-chmod -R 775 /app/storage /app/bootstrap/cache
+echo "🔐 Setting permissions..."
+chown -R www-data:www-data /app/storage /app/bootstrap/cache /app/database 2>/dev/null || true
+chmod -R 775 /app/storage /app/bootstrap/cache 2>/dev/null || true
 
+# Test Laravel bootstrap
+echo "🧪 Testing Laravel bootstrap..."
+php artisan --version || echo "⚠️  Laravel artisan command failed"
+
+# Start PHP-FPM
 echo "✅ Starting PHP-FPM..."
-# Start PHP-FPM in background
 php-fpm -D
 
 # Wait for PHP-FPM to be ready
 echo "⏳ Waiting for PHP-FPM to start..."
-sleep 3
+for i in {1..10}; do
+    if pgrep -x php-fpm > /dev/null; then
+        echo "✅ PHP-FPM process is running (attempt $i)"
+        break
+    fi
+    sleep 1
+done
 
-# Check if PHP-FPM is running
-if ! pgrep -x php-fpm > /dev/null; then
-    echo "⚠️  PHP-FPM not running, trying foreground mode..."
-    php-fpm -F &
-    sleep 2
+# Wait a bit more for socket to be ready
+sleep 2
+
+# Check if PHP-FPM is listening on port 9000
+if command -v ss >/dev/null 2>&1 && ss -tlnp 2>/dev/null | grep -q ':9000'; then
+    echo "✅ PHP-FPM is listening on port 9000"
+elif [ -S /var/run/php/php8.2-fpm.sock ] || [ -S /run/php/php8.2-fpm.sock ]; then
+    echo "✅ PHP-FPM socket exists"
+else
+    echo "⚠️  PHP-FPM socket/port check inconclusive, but process is running"
 fi
 
-echo "✅ Starting Nginx..."
 # Test nginx configuration
-nginx -t || echo "⚠️  Nginx config test failed, continuing anyway..."
+echo "✅ Testing Nginx configuration..."
+nginx -t
+
+# Create nginx log directory
+mkdir -p /var/log/nginx
+chown www-data:www-data /var/log/nginx
+
+# Start Nginx
+echo "✅ Starting Nginx..."
+echo "📋 Nginx and PHP-FPM are starting. Check logs if healthcheck fails:"
+echo "   - Nginx: /var/log/nginx/error.log"
+echo "   - PHP-FPM: Check container logs"
 
 # Start Nginx in foreground (this keeps container alive)
 exec nginx -g 'daemon off;'

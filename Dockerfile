@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nginx \
     sqlite3 \
+    procps \
+    iproute2 \
     && docker-php-ext-install pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -45,8 +47,12 @@ RUN chown -R www-data:www-data /app \
 # Configure nginx
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 
+# Create nginx log directory
+RUN mkdir -p /var/log/nginx && chown www-data:www-data /var/log/nginx
+
 # Create PHP-FPM pool configuration
-RUN echo '[www]\nuser = www-data\ngroup = www-data\nlisten = 127.0.0.1:9000\npm = dynamic\npm.max_children = 5\npm.start_servers = 2\npm.min_spare_servers = 1\npm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/www.conf
+RUN mkdir -p /var/run/php /run/php && \
+    echo '[www]\nuser = www-data\ngroup = www-data\nlisten = 127.0.0.1:9000\npm = dynamic\npm.max_children = 5\npm.start_servers = 2\npm.min_spare_servers = 1\npm.max_spare_servers = 3\npm.max_requests = 500' > /usr/local/etc/php-fpm.d/www.conf
 
 # Expose port
 EXPOSE 80
