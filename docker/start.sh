@@ -45,6 +45,10 @@ if grep -q "DB_CONNECTION=sqlite" /app/.env; then
     touch /app/database/database.sqlite
     chmod 664 /app/database/database.sqlite
     chown www-data:www-data /app/database/database.sqlite
+    
+    # Run migrations if database is empty
+    echo "🔄 Running database migrations..."
+    php artisan migrate --force || echo "⚠️  Migration failed or already up to date"
 fi
 
 # Clear and cache config
@@ -94,9 +98,22 @@ else
     echo "⚠️  PHP-FPM socket/port check inconclusive, but process is running"
 fi
 
+# Handle PORT environment variable (Railway sets this dynamically)
+if [ -n "$PORT" ] && [ "$PORT" != "80" ]; then
+    echo "🔧 Updating Nginx to listen on port $PORT (Railway dynamic port)..."
+    sed -i "s/listen 80;/listen ${PORT};/" /etc/nginx/sites-available/default
+    # Also update the EXPOSE directive comment for clarity
+    echo "📝 Nginx will listen on port $PORT"
+else
+    echo "📝 Nginx will listen on default port 80"
+fi
+
 # Test nginx configuration
 echo "✅ Testing Nginx configuration..."
-nginx -t
+if ! nginx -t; then
+    echo "❌ Nginx configuration test failed!"
+    exit 1
+fi
 
 # Create nginx log directory
 mkdir -p /var/log/nginx
@@ -107,6 +124,11 @@ echo "✅ Starting Nginx..."
 echo "📋 Nginx and PHP-FPM are starting. Check logs if healthcheck fails:"
 echo "   - Nginx: /var/log/nginx/error.log"
 echo "   - PHP-FPM: Check container logs"
+echo ""
+echo "🌐 Health check endpoints available:"
+echo "   - http://localhost:${PORT:-80}/health (simple, no Laravel)"
+echo "   - http://localhost:${PORT:-80}/health.php (PHP, no Laravel)"
+echo "   - http://localhost:${PORT:-80}/api/v2/health (Laravel endpoint)"
 
 # Start Nginx in foreground (this keeps container alive)
 exec nginx -g 'daemon off;'

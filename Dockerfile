@@ -54,8 +54,9 @@ RUN mkdir -p /var/log/nginx && chown www-data:www-data /var/log/nginx
 RUN mkdir -p /var/run/php /run/php && \
     echo '[www]\nuser = www-data\ngroup = www-data\nlisten = 127.0.0.1:9000\npm = dynamic\npm.max_children = 5\npm.start_servers = 2\npm.min_spare_servers = 1\npm.max_spare_servers = 3\npm.max_requests = 500' > /usr/local/etc/php-fpm.d/www.conf
 
-# Expose port
+# Expose port (Railway will set PORT env var)
 EXPOSE 80
+ENV PORT=80
 
 # Start script
 COPY docker/start.sh /usr/local/bin/start.sh
