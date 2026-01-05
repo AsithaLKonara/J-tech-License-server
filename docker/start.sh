@@ -60,7 +60,13 @@ chmod -R 775 /app/storage /app/bootstrap/cache 2>/dev/null || true
 
 # Test Laravel bootstrap
 echo "🧪 Testing Laravel bootstrap..."
-php artisan --version || echo "⚠️  Laravel artisan command failed"
+if php artisan --version > /dev/null 2>&1; then
+    echo "✅ Laravel is working"
+else
+    echo "⚠️  Laravel artisan command failed, but continuing..."
+    # Try to see what the error is
+    php artisan --version 2>&1 | head -5 || true
+fi
 
 # Start PHP-FPM
 echo "✅ Starting PHP-FPM..."
