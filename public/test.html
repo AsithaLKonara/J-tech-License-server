@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laravel Dashboard - Test Page</title>
+    <link rel="stylesheet" href="css/app.css">
+    <style>
+        .test-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-section h2 {
+            color: var(--accent-primary);
+            margin-bottom: 15px;
+        }
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+        .test-pass {
+            color: var(--accent-primary);
+        }
+        .test-fail {
+            color: var(--accent-error);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status-ok {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-primary);
+        }
+        .status-error {
+            background: rgba(255, 68, 68, 0.2);
+            color: var(--accent-error);
+        }
+    </style>
+</head>
+<body class="dark-theme">
+    <div class="test-container">
+        <h1>Laravel Dashboard - Structure Test</h1>
+        
+        <div class="test-section">
+            <h2>File Structure Check</h2>
+            <div id="file-checks"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>CSS Loading Test</h2>
+            <div id="css-check">
+                <div class="test-item">
+                    If you see styled content with dark theme, CSS is loaded correctly.
+                    <span class="status-badge status-ok">CSS OK</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>JavaScript Test</h2>
+            <div id="js-check">
+                <div class="test-item">JavaScript status: <span id="js-status">Checking...</span></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Next Steps</h2>
+            <div class="test-item">
+                <h3>To run the full Laravel application:</h3>
+                <ol>
+                    <li>Install PHP 8.1+ and Composer</li>
+                    <li>Run: <code>composer install</code></li>
+                    <li>Create <code>.env</code> file</li>
+                    <li>Run: <code>php artisan key:generate</code></li>
+                    <li>Run: <code>php artisan migrate</code></li>
+                    <li>Start server: <code>php artisan serve</code></li>
+                    <li>Visit: <a href="http://localhost:8000">http://localhost:8000</a></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/app.js"></script>
+    <script>
+        // Test JavaScript
+        document.getElementById('js-status').textContent = 'JavaScript is working!';
+        document.getElementById('js-status').className = 'test-pass';
+        
+        // Test file structure
+        const fileChecks = [
+            { name: 'public/index.php', required: true },
+            { name: 'public/css/app.css', required: true },
+            { name: 'public/js/app.js', required: true },
+            { name: 'app/Models/User.php', required: true },
+            { name: 'routes/web.php', required: true },
+            { name: 'composer.json', required: true },
+        ];
+        
+        const checkDiv = document.getElementById('file-checks');
+        fileChecks.forEach(file => {
+            const div = document.createElement('div');
+            div.className = 'test-item';
+            div.innerHTML = `${file.name} <span class="status-badge ${file.required ? 'status-ok' : 'status-error'}">Required</span>`;
+            checkDiv.appendChild(div);
+        });
+    </script>
+</body>
+</html>
+

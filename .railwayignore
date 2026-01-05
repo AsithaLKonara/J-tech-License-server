@@ -1,0 +1,50 @@
+# Railway ignore file
+# Files/directories to exclude from deployment
+
+# Development files
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Documentation (optional - include if you want)
+# docs/
+
+# Git
+.git/
+.gitignore
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+vendor/
+storage/logs/*
+!storage/logs/.gitkeep
+storage/framework/cache/*
+!storage/framework/cache/.gitkeep
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+storage/framework/views/*
+!storage/framework/views/.gitkeep
+
+# Temporary files
+*.tmp
+*.log
+*.cache
