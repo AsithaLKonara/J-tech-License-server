@@ -1,0 +1,106 @@
+# Cursor Ignore File
+# Files and directories that Cursor should ignore for indexing and context
+
+# Node.js / License Server
+license_server/node_modules/
+license_server/package-lock.json
+license_server/.env
+license_server/.env.local
+license_server/.env.*.local
+license_server/keys/*.pem
+license_server/keys/private.pem
+license_server/keys/public.pem
+license_server/*.log
+license_server/logs/
+license_server/dist/
+license_server/build/
+license_server/.nyc_output/
+license_server/coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+test_results*.json
+pattern_results.txt
+tests/comprehensive/reports/*.json
+tests/gui/test_report_*.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Project specific
+*.ledproj.backup
+*.tmp
+*.bin
+*.hex
+*.elf
+*.o
+*.a
+firmware_builds/
+build_outputs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+license_server/*.db
+
+# Large binary files
+*.swf
+*.mp4
+*.avi
+*.mov
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Large documentation files
+docs/ARCHIVE/
+docs/OLD/
+
+# Test coverage
+.coverage
+htmlcov/
+.nyc_output/
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo

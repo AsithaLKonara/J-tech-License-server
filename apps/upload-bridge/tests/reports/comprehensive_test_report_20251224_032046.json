@@ -1,0 +1,294 @@
+{
+  "timestamp": "20251224_032046",
+  "total_suites": 4,
+  "suites": [
+    {
+      "name": "Layer Features",
+      "total": 7,
+      "passed": 6,
+      "failed": 1,
+      "skipped": 0,
+      "execution_time": 0.013996601104736328,
+      "tests": [
+        {
+          "name": "Scenario 1: Automation Layer Creation",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {
+            "initial_count": 1,
+            "final_count": 2
+          }
+        },
+        {
+          "name": "Scenario 2: Layer Sync Warning",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.010997295379638672,
+          "details": {}
+        },
+        {
+          "name": "Scenario 3: Brush Broadcast Feedback",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "Scenario 4: Hidden Layer Prevention",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "Scenario 5: Copy Layer to Frames",
+          "suite": "Layer Features",
+          "passed": false,
+          "skipped": false,
+          "error_message": "Copied: False, Original: True",
+          "execution_time": 0.0010006427764892578,
+          "details": {}
+        },
+        {
+          "name": "Scenario 6: Multiple Automation Layers",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "Scenario 7: Edge Cases",
+          "suite": "Layer Features",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0019986629486083984,
+          "details": {
+            "test_results": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "License System",
+      "total": 9,
+      "passed": 8,
+      "failed": 1,
+      "skipped": 0,
+      "execution_time": 0.5588889122009277,
+      "tests": [
+        {
+          "name": "Premade Key Activation (Offline)",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.28890132904052734,
+          "details": {}
+        },
+        {
+          "name": "Activation with Invalid Key",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.008995532989501953,
+          "details": {}
+        },
+        {
+          "name": "Local Validation (Cache Hit)",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.06801176071166992,
+          "details": {}
+        },
+        {
+          "name": "Validation (Cache Expired)",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.10898780822753906,
+          "details": {}
+        },
+        {
+          "name": "Expiry Checking",
+          "suite": "License System",
+          "passed": false,
+          "skipped": false,
+          "error_message": "Expired: True, Valid: True, Perpetual: True",
+          "execution_time": 0.004997730255126953,
+          "details": {}
+        },
+        {
+          "name": "Remaining Days Calculation",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.008008718490600586,
+          "details": {}
+        },
+        {
+          "name": "Cache Creation on Activation",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.06998634338378906,
+          "details": {}
+        },
+        {
+          "name": "Cache Validity Period",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "License Manager Initialization",
+          "suite": "License System",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0009996891021728516,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "Integration",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "execution_time": 0.0010046958923339844,
+      "tests": [
+        {
+          "name": "Automation + Layer Integration",
+          "suite": "Integration",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0010046958923339844,
+          "details": {}
+        },
+        {
+          "name": "Broadcast Mode + Multiple Frames",
+          "suite": "Integration",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "Copy Layer + Undo/Redo",
+          "suite": "Integration",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        },
+        {
+          "name": "Hidden Layer + Effects",
+          "suite": "Integration",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "Performance",
+      "total": 4,
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0,
+      "execution_time": 0.2799990177154541,
+      "tests": [
+        {
+          "name": "Large Pattern (64x64, 100 frames)",
+          "suite": "Performance",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.186004638671875,
+          "details": {
+            "memory_delta_mb": 6.3359375,
+            "operation_time": 0.0
+          }
+        },
+        {
+          "name": "Many Layers (10+ per frame)",
+          "suite": "Performance",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.009999513626098633,
+          "details": {
+            "layer_count": 11,
+            "operation_time": 0.0010008811950683594,
+            "render_time": 0.007001399993896484
+          }
+        },
+        {
+          "name": "Many Automation Layers (5+)",
+          "suite": "Performance",
+          "passed": true,
+          "skipped": false,
+          "error_message": null,
+          "execution_time": 0.0020062923431396484,
+          "details": {
+            "auto_layer_count": 5,
+            "render_time": 0.0009946823120117188
+          }
+        },
+        {
+          "name": "Batch Operations (Copy to 9 frames)",
+          "suite": "Performance",
+          "passed": false,
+          "skipped": false,
+          "error_message": "Time: 0.001s, Memory: 0.1MB",
+          "execution_time": 0.001998424530029297,
+          "details": {
+            "operation_time": 0.000986337661743164,
+            "memory_delta_mb": 0.11328125
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_tests": 24,
+    "total_passed": 21,
+    "total_failed": 3,
+    "total_skipped": 0,
+    "total_execution_time": 0.8538892269134521,
+    "pass_rate": 87.5
+  }
+}

@@ -1,0 +1,19 @@
+# Auth0 Configuration
+# Configure these values in your environment or override here
+
+auth0:
+  domain: "dev-oczlciw58f2a4oei.us.auth0.com"
+  audience: "http://localhost:8000"
+  client_id: "AVLPE7EULVWdJV5NIzFI56EAeHmnt2Um"
+  client_secret: "${AUTH0_CLIENT_SECRET}"
+
+# Server URL for authentication (web dashboard URL)
+# Default: http://localhost:8000 (for local development)
+# Override with LICENSE_SERVER_URL environment variable or update this value
+auth_server_url: "http://localhost:8000"
+license_server_url: "http://localhost:8000"
+
+# Token settings
+token:
+  lifetime_hours: 24  # Default token lifetime
+  refresh_threshold_hours: 1  # Refresh if expires within this time

@@ -24,6 +24,10 @@ jobs:
           - pic18f4550
           - nuvoton_m051
     
+    defaults:
+      run:
+        working-directory: apps/upload-bridge
+
     steps:
       - uses: actions/checkout@v4
       
@@ -43,7 +47,7 @@ jobs:
           docker build -t upload-bridge-${{ matrix.chip }}:latest -f docker/${{ matrix.chip }}/Dockerfile .
           # Mount build directory to extract artifacts from container
           docker run --rm \
-            -v ${{ github.workspace }}/build:/workspace/build \
+            -v ${{ github.workspace }}/apps/upload-bridge/build:/workspace/build \
             upload-bridge-${{ matrix.chip }}:latest \
             python -m pytest tests/integration/test_${{ matrix.chip }}_build.py -v
       
@@ -52,7 +56,7 @@ jobs:
         if: always()
         with:
           name: firmware-${{ matrix.chip }}
-          path: build/*.bin
+          path: apps/upload-bridge/build/*.bin
           retention-days: 7
           if-no-files-found: warn
   
@@ -61,6 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-firmware
     
+    defaults:
+      run:
+        working-directory: apps/upload-bridge
+
     steps:
       - uses: actions/checkout@v4
       
@@ -80,4 +88,3 @@ jobs:
       - name: Verify firmware hashes
         run: |
           python scripts/verify_firmware_hashes.py
-

@@ -1,0 +1,245 @@
+# Third-Party License Attributions
+# Upload Bridge v3.0.0
+
+This file lists all third-party libraries and their licenses used in Upload Bridge.
+
+For detailed license text, please refer to the official sources listed below.
+
+---
+
+## Python Dependencies
+
+### Core Dependencies
+
+#### PySide6 (Qt for Python)
+- **Version**: >=6.5.0
+- **License**: GNU Lesser General Public License v3.0 (LGPL-3.0) OR Commercial License
+- **Source**: https://www.qt.io/licensing/
+- **Note**: PySide6 is dual-licensed under LGPL v3.0 (open source) and commercial license options.
+- **License URL**: https://www.gnu.org/licenses/lgpl-3.0.html
+
+#### pathlib2
+- **Version**: >=2.3.7
+- **License**: MIT License
+- **Source**: https://github.com/mcmtroffaes/pathlib2
+- **Copyright**: Copyright (c) 2012-2014, Matthias C. M. Troffaes
+
+---
+
+### Hardware Support
+
+#### esptool
+- **Version**: >=4.6.0
+- **License**: GNU General Public License v2.0 (GPL-2.0)
+- **Source**: https://github.com/espressif/esptool
+- **Copyright**: Copyright (c) 2014 Fredrik Ahlberg
+- **License URL**: https://www.gnu.org/licenses/gpl-2.0.html
+- **Note**: GPL-2.0 is a copyleft license. Ensure compliance with GPL terms if distributing binaries.
+
+#### pyserial
+- **Version**: >=3.5
+- **License**: BSD-3-Clause License
+- **Source**: https://github.com/pyserial/pyserial
+- **Copyright**: Copyright (c) 2001-2020 Chris Liechti <cliechti@gmx.net>
+
+---
+
+### Configuration & Utilities
+
+#### PyYAML
+- **Version**: >=6.0
+- **License**: MIT License
+- **Source**: https://github.com/yaml/pyyaml
+- **Copyright**: Copyright (c) 2017-2021 Ingy döt Net, Copyright (c) 2006-2016 Kirill Simonov
+
+#### colorama
+- **Version**: >=0.4.4
+- **License**: BSD-3-Clause License
+- **Source**: https://github.com/tartley/colorama
+- **Copyright**: Copyright (c) 2010 Jonathan Hartley
+
+#### tqdm
+- **Version**: >=4.64.0
+- **License**: Mozilla Public License 2.0 (MPL-2.0) OR MIT License
+- **Source**: https://github.com/tqdm/tqdm
+- **Copyright**: Copyright (c) 2013-2022 (Python Software Foundation)
+- **License URL**: https://www.mozilla.org/en-US/MPL/2.0/
+
+#### requests
+- **Version**: >=2.25.0
+- **License**: Apache License 2.0
+- **Source**: https://github.com/psf/requests
+- **Copyright**: Copyright 2019 Kenneth Reitz
+- **License URL**: https://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+### Media Processing
+
+#### Pillow (PIL Fork)
+- **Version**: >=10.0.0
+- **License**: Historical Permission Notice and Disclaimer (HPND) License
+- **Source**: https://github.com/python-pillow/Pillow
+- **Copyright**: Copyright (c) 1997-2011 by Secret Labs AB, Copyright (c) 1995-2011 by Fredrik Lundh
+- **Note**: Pillow is distributed under the HPND license, which is similar to BSD but with historical context.
+
+#### opencv-python
+- **Version**: >=4.8.0
+- **License**: Apache License 2.0
+- **Source**: https://github.com/opencv/opencv-python
+- **Copyright**: Copyright (c) 2020, OpenCV team
+- **License URL**: https://www.apache.org/licenses/LICENSE-2.0
+- **Note**: OpenCV core library is BSD-3-Clause, but the Python bindings package uses Apache 2.0.
+
+#### imageio
+- **Version**: >=2.31.0
+- **License**: BSD-2-Clause License
+- **Source**: https://github.com/imageio/imageio
+- **Copyright**: Copyright (c) 2014-2020, imageio developers
+
+#### imageio-ffmpeg
+- **Version**: >=0.4.8
+- **License**: BSD-2-Clause License
+- **Source**: https://github.com/imageio/imageio-ffmpeg
+- **Copyright**: Copyright (c) 2018-2020, imageio developers
+- **Note**: This package includes FFmpeg binaries. FFmpeg itself is licensed under LGPL v2.1 or later.
+
+#### NumPy
+- **Version**: >=1.24.0
+- **License**: BSD-3-Clause License (NumPy License)
+- **Source**: https://github.com/numpy/numpy
+- **Copyright**: Copyright (c) 2005-2023, NumPy Developers
+- **License URL**: https://numpy.org/doc/stable/license.html
+
+---
+
+### Security & Cryptography
+
+#### cryptography
+- **Version**: >=41.0.0
+- **License**: Apache License 2.0 OR BSD-3-Clause License (dual licensed)
+- **Source**: https://github.com/pyca/cryptography
+- **Copyright**: Copyright (c) 2013-2023 individual contributors to cryptography
+- **License URL**: https://www.apache.org/licenses/LICENSE-2.0
+- **Note**: cryptography is dual-licensed. Most users can use it under Apache 2.0.
+
+---
+
+### System Monitoring
+
+#### psutil
+- **Version**: >=5.9.0
+- **License**: BSD-3-Clause License
+- **Source**: https://github.com/giampaolo/psutil
+- **Copyright**: Copyright (c) 2009, Jay Loden, Dave Daeschler, Giampaolo Rodola
+
+---
+
+### Development Tools
+
+#### pytest
+- **Version**: >=7.0.0
+- **License**: MIT License
+- **Source**: https://github.com/pytest-dev/pytest
+- **Copyright**: Copyright (c) 2004-2022 holger krekel and others
+
+#### pytest-qt
+- **Version**: >=4.0.0
+- **License**: MIT License
+- **Source**: https://github.com/pytest-dev/pytest-qt
+- **Copyright**: Copyright (c) 2012-2022 pytest-qt developers
+
+#### black
+- **Version**: >=22.0.0
+- **License**: MIT License
+- **Source**: https://github.com/psf/black
+- **Copyright**: Copyright (c) 2018 Łukasz Langa and contributors to Black
+
+#### flake8
+- **Version**: >=4.0.0
+- **License**: MIT License
+- **Source**: https://github.com/PyCQA/flake8
+- **Copyright**: Copyright (c) 2008-2021 Tarek Ziade and contributors
+
+---
+
+### Validation
+
+#### jsonschema
+- **Version**: >=4.0.0
+- **License**: MIT License
+- **Source**: https://github.com/python-jsonschema/jsonschema
+- **Copyright**: Copyright (c) 2013 Julian Berman
+
+---
+
+## External Tools (Not Python Packages)
+
+The following tools may be required for specific hardware platforms but are installed separately and have their own licenses:
+
+### Arduino CLI
+- **License**: GNU General Public License v2.0 (GPL-2.0)
+- **Source**: https://arduino.github.io/arduino-cli/
+- **Note**: Required for Arduino platform support. Install separately.
+
+### AVR Tools (avrdude, avr-gcc)
+- **License**: GNU General Public License (GPL)
+- **Source**: https://www.microchip.com/
+- **Note**: Required for AVR/Arduino chip support. Install via Microchip Studio or system package manager.
+
+### STM32 Tools (stm32flash, arm-none-eabi-gcc)
+- **License**: Various (GPL for GCC, proprietary for some STM32 tools)
+- **Source**: https://developer.arm.com/, https://github.com/stm32duino/stm32flash
+- **Note**: Required for STM32 platform support. Install separately.
+
+### MPLAB X IDE / PIC Tools
+- **License**: Proprietary / Various
+- **Source**: https://www.microchip.com/
+- **Note**: Required for PIC chip support. Install separately from Microchip.
+
+### Nu-Link Tools
+- **License**: Proprietary
+- **Source**: https://www.nuvoton.com/
+- **Note**: Required for Nuvoton chip support. Install separately from Nuvoton.
+
+---
+
+## License Summary
+
+This project uses dependencies under the following license types:
+
+- **MIT License**: Most common, permissive license
+- **BSD-2-Clause / BSD-3-Clause**: Permissive licenses similar to MIT
+- **Apache License 2.0**: Permissive license with patent grant
+- **LGPL-3.0**: Lesser GPL (PySide6, can use commercially with LGPL compliance)
+- **GPL-2.0**: GNU General Public License (esptool, requires GPL compliance)
+- **MPL-2.0**: Mozilla Public License (tqdm, permissive)
+- **HPND**: Historical Permission Notice and Disclaimer (Pillow, BSD-like)
+
+---
+
+## Compliance Notes
+
+1. **PySide6 (LGPL-3.0)**: If using PySide6 under LGPL-3.0, ensure compliance with LGPL terms, including the ability to relink with modified versions of PySide6.
+
+2. **esptool (GPL-2.0)**: The esptool library is licensed under GPL-2.0. If you are distributing binaries that include esptool code, ensure compliance with GPL-2.0 terms, which may require making source code available.
+
+3. **FFmpeg (via imageio-ffmpeg)**: FFmpeg is LGPL v2.1+. When distributing FFmpeg binaries, ensure compliance with LGPL terms.
+
+4. **External Tools**: Tools like Arduino CLI, avrdude, etc. are not bundled with this application and must be installed separately by users. Their licenses apply only when users install and use those tools.
+
+---
+
+## Full License Texts
+
+For full license texts, please refer to:
+- The LICENSE or LICENSE.txt file in each package's source repository
+- The Python package metadata (check with `pip show <package-name>`)
+- Official license pages linked above
+
+---
+
+**Generated**: 2025-01-27  
+**Project**: Upload Bridge v3.0.0  
+**Last Updated**: 2025-01-27
+

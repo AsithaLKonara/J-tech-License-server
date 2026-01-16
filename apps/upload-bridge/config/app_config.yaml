@@ -1,0 +1,46 @@
+# Upload Bridge - Application Configuration
+# Version: 3.0.0
+
+# UI Settings
+ui:
+  theme: "dark"
+  window_width: 1200
+  window_height: 800
+  auto_save: true
+  preview_fps: 30
+
+# Build Settings
+build:
+  default_output_dir: "build"
+  clean_before_build: true
+  verbose_output: false
+
+# Upload Settings
+upload:
+  verify_after_upload: true
+  auto_reset: true
+  timeout: 30
+
+# Pattern Settings
+pattern:
+  default_brightness: 1.0
+  default_speed: 1.0
+  max_leds: 2000
+  max_frames: 10000
+
+# Logging
+logging:
+  level: "DEBUG"
+  file: "upload_bridge.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# Authentication
+# Default to localhost for local development
+# Override with LICENSE_SERVER_URL or AUTH_SERVER_URL environment variables
+auth_server_url: "http://localhost:8000"
+auth:
+  domain: "dev-oczlciw58f2a4oei.us.auth0.com"
+  client_id: "AVLPE7EULVWdJV5NIzFI56EAeHmnt2Um"
+  audience: "http://localhost:8000"
+  scope: "openid profile email offline_access"

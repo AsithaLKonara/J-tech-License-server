@@ -1,61 +1,278 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-build/
-*.egg
-.venv/
-venv/
-ENV/
-env/
+.vercel
 
-# IDE
+# ============================================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================================
+.env
+.env.local
+.env.*.local
+.env.backup
+apps/web-dashboard/.env
+apps/web-dashboard/.env.backup
+apps/upload-bridge/.env
+
+# ============================================================
+# IDE & EDITOR
+# ============================================================
 .vscode/
+.vscode-insiders/
 .idea/
+*.sublime-project
+*.sublime-workspace
+.netbeans/
 *.swp
 *.swo
 *~
-.cursor/
-
-# OS
+.project
+.pydevproject
+.settings/
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
-*.log
+*.bak
+*.backup
 
-# Testing
+# ============================================================
+# BUILD & DISTRIBUTION OUTPUTS (LARGE FILES)
+# ============================================================
+dist/
+build/
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.app
+*.deb
+*.rpm
+*.whl
+*.tar.gz
+*.zip
+apps/upload-bridge/dist/
+apps/upload-bridge/build/
+apps/upload-bridge/*.exe
+apps/upload-bridge/*.spec
+installer/dist/
+installer/build/
+
+# PyInstaller / PyOxidizer
+*.manifest
+*.spec
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ============================================================
+# PYTHON DEPENDENCIES & CACHE (LARGE)
+# ============================================================
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*$py.class
+*.so
+.Python
+.venv/
+.env/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 *.cover
 .hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+sitepackages/
+site-packages/
 
-# Jupyter
-.ipynb_checkpoints/
+# ============================================================
+# NODE.JS DEPENDENCIES & ARTIFACTS (LARGE)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+*.tsbuildinfo
+.yarn/install-state.gz
+.pnp.*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# Project specific
-*.ledproj.backup
+# ============================================================
+# COMPOSER & PHP DEPENDENCIES (LARGE)
+# ============================================================
+vendor/
+apps/web-dashboard/vendor/
+composer.lock
+php/vendor/
+
+# ============================================================
+# LOGS & DEBUG FILES
+# ============================================================
+*.log
+logs/
+*.logs
+apps/web-dashboard/storage/logs/*.log
+apps/web-dashboard/storage/logs/
+apps/upload-bridge/logs/
+debug.log
+.netrc
+
+# ============================================================
+# DATABASE & DATA FILES
+# ============================================================
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+*.accdb
+apps/web-dashboard/database.sqlite
+apps/web-dashboard/database.sqlite3
+database/
+
+# ============================================================
+# TESTING & COVERAGE
+# ============================================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.nox/
+.benchmarks/
+*.xml
+test-results/
+
+# ============================================================
+# TEMPORARY & CACHE FILES
+# ============================================================
 *.tmp
-test_results*.json
-pattern_results.txt
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+*.cache
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+# Large junk files identified during deployment cleanup
+all_commits_backup.bundle
+apps/upload-bridge/tests/comprehensive/reports/
 
-# Test reports (can be very large)
-tests/comprehensive/reports/*.json
-tests/gui/test_report_*.json
+# ============================================================
+# DOCKER & VIRTUALIZATION
+# ============================================================
+.docker/
+docker/volumes/
+docker-compose.override.yml
+.dockerignore
 
-# Docker
-*.dockerignore
-
-# Build artifacts
-*.bin
-*.hex
-*.elf
+# ============================================================
+# ARTIFACTS FROM BUILD TOOLS
+# ============================================================
+.gradle/
+build/
 *.o
 *.a
+*.obj
+*.elf
+.sass-cache/
+.jekyll-cache/
+.bundle/
 
-# Firmware build outputs
-firmware_builds/
-build_outputs/
+# ============================================================
+# VERSION CONTROL & CI/CD
+# ============================================================
+.git/
+.gitignore
+.github/workflows/.env
+.gitlab-ci.yml.local
+.circleci/
+.travis.yml.local
+
+# ============================================================
+# IDE SPECIFIC DIRECTORIES
+# ============================================================
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.idea/
+*.iml
+*.iws
+*.ipr
+.netbeans/
+*.ctags
+tags
+.vim/
+.emacs.d/
+Session.vim
+
+# ============================================================
+# OS SPECIFIC
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
+Thumbs.db
+Thumbs.db:encryptable
+$RECYCLE.BIN/
+*.lnk
+.directory
+
+# ============================================================
+# SECURITY & SENSITIVE DATA
+# ============================================================
+*.pem
+*.key
+*.pub
+*.p12
+*.p8
+*.pfx
+secrets/
+.secrets/
+.env.*.secret
+config/secrets/
+config/credentials/
+private_keys/
+
+# ============================================================
+# PACKAGE MANAGER LOCK FILES (OPTIONAL - UNCOMMENT IF NEEDED)
+# ============================================================
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# composer.lock
+
+# ============================================================
+# WEB DASHBOARD - SEPARATE REPOSITORY
+# ============================================================
+# The web-dashboard is managed in a separate repository
+# (J-tech-License-server.git) and should not be tracked
+# in this main repository - UNCOMMENT BELOW IF NEEDED
+# apps/web-dashboard/

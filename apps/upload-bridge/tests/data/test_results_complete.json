@@ -1,0 +1,173 @@
+{
+  "timestamp": "2025-11-20T08:27:32.813600",
+  "summary": {
+    "total_suites": 18,
+    "total_passed": 240,
+    "total_failed": 0,
+    "total_error": 0
+  },
+  "results": [
+    {
+      "name": "L0: Structural Tests",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l0_structural",
+      "returncode": 0,
+      "passed": 39,
+      "failed": 0,
+      "error": 0,
+      "summary": "No summary"
+    },
+    {
+      "name": "L1: Unit Tests",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\unit",
+      "returncode": 0,
+      "passed": 57,
+      "failed": 0,
+      "error": 0,
+      "summary": "No summary"
+    },
+    {
+      "name": "L2: Suite 1 - Design Tools Core",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_1_design_tools_core.py",
+      "returncode": 1,
+      "passed": 24,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_1_design_tools_core.py::TestDT2_PatternLoading::test_load_dat_file"
+    },
+    {
+      "name": "L2: Suite 2 - Feature Overview",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_2_feature_overview.py",
+      "returncode": 1,
+      "passed": 22,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_2_feature_overview.py::TestFeature6_FileImportersExporters::test_auto_detect_dimensions"
+    },
+    {
+      "name": "L2: Suite 3 - Tabs Integration",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_3_all_tabs_integration.py",
+      "returncode": 1,
+      "passed": 7,
+      "failed": 0,
+      "error": 0,
+      "summary": "!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 10 failures !!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "name": "L2: Suite 4 - Signal Connections",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_4_signal_connections.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_4_signal_connections.py::TestMainWindowSignalConnections::test_pattern_loaded_connection"
+    },
+    {
+      "name": "L2: Suite 5 - Error Handling",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_5_error_handling.py",
+      "returncode": 1,
+      "passed": 21,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_5_error_handling.py::TestPlaybackErrors::test_playback_no_frames_shows_error"
+    },
+    {
+      "name": "L2: Suite 6 - UI Components",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_6_ui_components.py",
+      "returncode": 0,
+      "passed": 31,
+      "failed": 0,
+      "error": 0,
+      "summary": "No summary"
+    },
+    {
+      "name": "L2: Suite 7 - Manager Interactions",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_7_manager_interactions.py",
+      "returncode": 1,
+      "passed": 8,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_7_manager_interactions.py::TestPatternStateManager::test_pattern_state_provides_dimensions"
+    },
+    {
+      "name": "L2: Suite 8 - File I/O",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\comprehensive\\test_suite_8_file_io.py",
+      "returncode": 1,
+      "passed": 14,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/comprehensive/test_suite_8_file_io.py::TestBINFileIO::test_import_bin_file"
+    },
+    {
+      "name": "L3: Workflow - Pattern Creation",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l3_workflow\\test_workflow_pattern_creation.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "    if dialog.exec() == QDialog.Accepted:"
+    },
+    {
+      "name": "L3: Workflow - Automation",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l3_workflow\\test_workflow_automation.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "    QMessageBox.warning("
+    },
+    {
+      "name": "L3: Workflow - Export",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l3_workflow\\test_workflow_export.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "    QMessageBox.warning("
+    },
+    {
+      "name": "L4: Performance Tests",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l4_nonfunctional\\test_performance.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "    QMessageBox.warning("
+    },
+    {
+      "name": "L4: Stress Tests",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\l4_nonfunctional\\test_stress.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "    QMessageBox.warning("
+    },
+    {
+      "name": "Meta: Coverage Enforcer",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\meta\\test_coverage_enforcer.py",
+      "returncode": 1,
+      "passed": 0,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/meta/test_coverage_enforcer.py::TestCoverageThreshold::test_coverage_above_85_percent"
+    },
+    {
+      "name": "Meta: Documented Features",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\meta\\test_documented_features_exist.py",
+      "returncode": 1,
+      "passed": 14,
+      "failed": 0,
+      "error": 0,
+      "summary": "FAILED tests/meta/test_documented_features_exist.py::TestFeatureOverviewFeaturesExist::test_canvas_authoring_toolbox_exists"
+    },
+    {
+      "name": "Meta: Suite Completeness",
+      "path": "C:\\Users\\asith\\Documents\\upload_bridge\\tests\\meta\\test_suite_completeness.py",
+      "returncode": 0,
+      "passed": 3,
+      "failed": 0,
+      "error": 0,
+      "summary": "No summary"
+    }
+  ]
+}

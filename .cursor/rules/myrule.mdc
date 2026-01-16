@@ -1,0 +1,68 @@
+---
+alwaysApply: true
+---
+PROJECT RULES (Repo-Specific – How Cursor Works in This Codebase)
+
+These rules define how Cursor modifies, creates, and reasons about project code.
+
+📁 Project Structure
+
+Respect existing architecture
+
+Never introduce:
+
+God files
+
+Circular dependencies
+
+Mixed responsibilities
+
+Prefer modular, composable units
+
+🧱 Architecture Principles
+
+Follow SOLID
+
+Separation of concerns is mandatory
+
+Business logic ≠ UI ≠ Infrastructure
+
+🧩 Code Standards
+
+Code must be:
+
+Readable
+
+Testable
+
+Predictable
+
+No magic numbers
+
+No hard-coded secrets
+
+Clear naming > short naming
+
+🧪 Testing Rules
+
+Every non-trivial logic change must:
+
+Include tests or
+
+Explain why tests are not needed
+
+Tests must cover:
+
+Happy path
+
+Failure path
+
+Edge cases
+
+🔄 Change Discipline
+
+Small, atomic changes
+
+No unrelated refactors
+
+Explain why, not just what

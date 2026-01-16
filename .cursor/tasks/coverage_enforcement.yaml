@@ -1,0 +1,44 @@
+# Cursor AI Task: Confirm >= 85% coverage
+
+name: Coverage Enforcement Task
+description: Confirm >= 85% coverage and auto-write missing tests
+
+steps:
+  - name: Run coverage
+    action: |
+      - Run: pytest --cov=ui.tabs.design_tools_tab --cov=domain --cov=core --cov-report=html --cov-report=json:coverage.json
+    
+  - name: Identify modules below threshold
+    action: |
+      - Parse coverage.json
+      - List all modules with coverage < 85%
+      - Identify uncovered lines/functions
+    
+  - name: Auto-write missing tests
+    action: |
+      - For each uncovered function/method:
+        - Generate test case
+        - Test normal operation
+        - Test error cases
+        - Test edge cases
+      - Place tests in appropriate test suite
+    
+  - name: Re-run until threshold passed
+    action: |
+      - Run coverage again
+      - Check if threshold met
+      - If not, repeat auto-write step
+      - Continue until >= 85% coverage
+    
+  - name: Generate coverage report
+    action: |
+      - Generate HTML report
+      - Document coverage improvements
+      - List remaining uncovered areas
+
+threshold: 85.0
+target_modules:
+  - ui.tabs.design_tools_tab
+  - domain
+  - core
+

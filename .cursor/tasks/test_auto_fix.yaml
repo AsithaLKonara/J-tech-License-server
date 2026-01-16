@@ -1,0 +1,45 @@
+# Cursor AI Task: Fix all failing tests
+
+name: Auto-Fix Task
+description: Fix all failing tests by correcting implementation code or tests
+
+steps:
+  - name: Run tests with stop on first failure
+    action: |
+      - Run: pytest -x -v
+      - Identify first failing test
+      - Capture error message and stack trace
+    
+  - name: Analyze failure
+    action: |
+      - Determine if failure is due to:
+        - Implementation bug (fix code)
+        - Test bug (fix test)
+        - Missing implementation (skip test with reason)
+        - Environment issue (fix environment)
+    
+  - name: Fix implementation or test
+    action: |
+      - If implementation bug: Fix the code
+      - If test bug: Fix the test
+      - If missing feature: Add pytest.skip() with reason
+      - If environment: Fix environment setup
+    
+  - name: Re-run tests
+    action: |
+      - Run pytest -x again
+      - Continue until all tests pass
+      - Verify no regressions introduced
+    
+  - name: Patch signals if needed
+    action: |
+      - If signal-related failures: Ensure signals are properly connected
+      - Mock signals if testing in isolation
+      - Verify signal signatures match
+
+constraints:
+  - Fix root cause, not symptoms
+  - Preserve existing functionality
+  - Add comments explaining fixes
+  - Update tests if behavior changed intentionally
+

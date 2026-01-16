@@ -1,0 +1,55 @@
+# Repository Structure Rules
+
+## IMPORTANT: Dual Repository Setup
+
+This project uses a **dual-repository structure** that MUST be maintained:
+
+### Repository Configuration
+
+1. **Main Repository** (`J-Tech-Pixel-LED---Upload-Bridge.git`)
+   - Remote: `origin` → https://github.com/AsithaLKonara/J-Tech-Pixel-LED---Upload-Bridge.git
+   - Contains: Root project, `apps/upload-bridge/`, and all other project files
+   - **EXCLUDES**: `apps/web-dashboard/` (ignored in `.gitignore`)
+
+2. **License Server Repository** (`J-tech-License-server.git`)
+   - Location: `apps/web-dashboard/` (has its own `.git` directory)
+   - Remote: `origin` → https://github.com/AsithaLKonara/J-tech-License-server.git
+   - Contains: Only the `apps/web-dashboard/` directory contents
+   - Used for: Railway deployment
+
+### Critical Rules
+
+1. **NEVER commit `apps/web-dashboard/` to the main repository**
+   - The directory is explicitly ignored in `.gitignore`
+   - Always work in `apps/web-dashboard/` as a separate repository
+
+2. **NEVER remove the `apps/web-dashboard/` ignore from `.gitignore`
+   - This would break the repository separation
+   - The ignore rule must remain: `apps/web-dashboard/`
+
+3. **When pushing changes:**
+   - Main repo changes: Push to `origin` (main repository)
+   - Web-dashboard changes: Navigate to `apps/web-dashboard/` and push to its `origin` (license-server repository)
+
+4. **When committing:**
+   - Main repo commits: Commit from root directory (excluding web-dashboard)
+   - Web-dashboard commits: Commit from `apps/web-dashboard/` directory
+
+5. **Repository structure must NEVER be changed**
+   - Do not modify the dual-repository setup
+   - Do not merge the repositories
+   - Do not change remote URLs without explicit approval
+
+### File Locations
+
+- Main repository `.gitignore`: Root directory (includes `apps/web-dashboard/` ignore)
+- Web-dashboard repository: `apps/web-dashboard/.git/`
+- Cursor rules: Root `.cursorrules` and `.cursor/rules/repository-structure.md`
+
+### Remember
+
+**Every time you push or commit:**
+- Check which repository you're working in
+- Ensure web-dashboard changes go to the license-server repository
+- Ensure main project changes go to the main repository
+- Verify `.gitignore` still contains `apps/web-dashboard/`

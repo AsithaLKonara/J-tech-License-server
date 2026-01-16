@@ -14,6 +14,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     
+    defaults:
+      run:
+        working-directory: apps/upload-bridge
+
     steps:
       - uses: actions/checkout@v4
       
@@ -58,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: installer-${{ matrix.os }}
-          path: dist/*installer*
+          path: apps/upload-bridge/dist/*installer*
           retention-days: 90
   
   release:
@@ -84,4 +88,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

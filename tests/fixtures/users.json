@@ -1,0 +1,26 @@
+[
+  {
+    "email": "test@example.com",
+    "password": "testpassword123",
+    "name": "Test User",
+    "plan": "monthly"
+  },
+  {
+    "email": "trial@example.com",
+    "password": "testpassword123",
+    "name": "Trial User",
+    "plan": "trial"
+  },
+  {
+    "email": "yearly@example.com",
+    "password": "testpassword123",
+    "name": "Yearly User",
+    "plan": "yearly"
+  },
+  {
+    "email": "perpetual@example.com",
+    "password": "testpassword123",
+    "name": "Perpetual User",
+    "plan": "perpetual"
+  }
+]

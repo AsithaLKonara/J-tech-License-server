@@ -1,0 +1,31 @@
+{
+  "name": "upload-bridge-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for Upload Bridge license system",
+  "scripts": {
+    "test:api": "node run-test.js tests/api/auth-e2e.test.js",
+    "test:api:all": "node orchestration/test-suite-runner.js --testDir tests/api",
+    "test:api:automated": "node run-automated-tests.js",
+    "test:upload-bridge": "node run-test.js tests/upload-bridge/",
+    "test:integration": "node orchestration/test-suite-runner.js --testDir tests/integration",
+    "test:security": "node run-test.js tests/security/api-security.test.js",
+    "test:e2e": "node orchestration/test-suite-runner.js --testDir tests/e2e",
+    "test:desktop-app": "node orchestration/test-suite-runner.js --testDir tests/desktop-app",
+    "test:automated": "node run-automated-tests.js",
+    "test:all": "node orchestration/test-suite-runner.js",
+    "test:parallel": "node orchestration/test-suite-runner.js --parallel",
+    "test:complete": "node run-complete-test-suite.js",
+    "test:complete:sequential": "node run-complete-test-suite.js --sequential",
+    "setup:database": "node setup/setup-database.js setup",
+    "setup:services": "node setup/setup-services.js wait",
+    "setup:test-data": "node setup/setup-test-data.js setup",
+    "teardown": "node setup/teardown.js"
+  },
+  "devDependencies": {
+    "express": "^4.22.1",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

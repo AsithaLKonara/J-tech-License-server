@@ -1,0 +1,52 @@
+# Cursor AI Task: Auto-generate or update all tests for full coverage
+
+name: Test Generation Task
+description: Auto-generate or update all tests for full coverage using MASTER TESTING CHECKLIST as source of truth
+
+steps:
+  - name: Inspect codebase
+    action: |
+      - Analyze all modules in ui/tabs/, domain/, and core/
+      - Identify which features are documented but missing tests
+      - Check existing test coverage
+    
+  - name: Generate missing tests
+    action: |
+      - For each missing test in MASTER TESTING CHECKLIST:
+        - Generate pytest test case with appropriate fixtures
+        - Use qtbot for Qt widget tests
+        - Mock file dialogs and external dependencies
+        - Add docstrings explaining test purpose
+        - Organize into appropriate test suite (1-8 or L0-L4)
+    
+  - name: Organize tests
+    action: |
+      - Place tests in correct directories:
+        - L0: tests/l0_structural/
+        - L1: tests/unit/
+        - L2: tests/comprehensive/ or tests/feature/
+        - L3: tests/l3_workflow/
+        - L4: tests/l4_nonfunctional/
+      - Ensure test naming follows conventions
+      - Group related tests in classes
+    
+  - name: Verify test structure
+    action: |
+      - Ensure all tests use shared fixtures where possible
+      - Verify Qt tests use qtbot fixture
+      - Check file I/O tests are properly mocked
+      - Ensure no duplicate tests exist
+    
+  - name: Do not alter existing tests
+    constraint: |
+      - Only add new tests or update tests if they're failing
+      - Do not modify passing tests unless necessary
+      - Preserve existing test logic and structure
+
+requirements:
+  - Use MASTER TESTING CHECKLIST as source of truth
+  - All tests must have docstrings
+  - All tests must use appropriate fixtures
+  - All Qt tests must use qtbot
+  - All file I/O must be mocked
+

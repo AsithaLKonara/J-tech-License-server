@@ -1,0 +1,27 @@
+{
+  "name": "upload-bridge-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo for Upload Bridge project",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev:backend": "npm run dev --workspace=@upload-bridge/license-backend",
+    "dev:frontend": "npm run dev --workspace=@upload-bridge/license-frontend",
+    "build:backend": "npm run build --workspace=@upload-bridge/license-backend",
+    "build:frontend": "npm run build --workspace=@upload-bridge/license-frontend",
+    "test:backend": "npm test --workspace=@upload-bridge/license-backend",
+    "test:python": "pytest apps/upload-bridge/tests"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "joi": "^18.0.2",
+    "pg": "^8.16.3"
+  }
+}

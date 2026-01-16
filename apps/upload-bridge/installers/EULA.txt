@@ -1,0 +1,46 @@
+END USER LICENSE AGREEMENT (EULA)
+Upload Bridge v3.0.0
+
+IMPORTANT - READ CAREFULLY: This End User License Agreement ("Agreement") is a legal agreement between you (either an individual or a single entity) and LED Matrix Studio ("Licensor") for the Upload Bridge software product, which includes computer software and may include associated media, printed materials, and "online" or electronic documentation ("Software").
+
+BY INSTALLING, COPYING, OR OTHERWISE USING THE SOFTWARE, YOU AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO THE TERMS OF THIS AGREEMENT, DO NOT INSTALL OR USE THE SOFTWARE.
+
+1. GRANT OF LICENSE
+Subject to the terms and conditions of this Agreement, Licensor grants you a limited, non-exclusive, non-transferable license to install and use the Software on a single computer or device for your personal or internal business purposes.
+
+2. RESTRICTIONS
+You may NOT:
+- Copy, modify, adapt, alter, translate, or create derivative works of the Software
+- Reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of the Software
+- Remove, alter, or obscure any proprietary notices, labels, or marks on the Software
+- Rent, lease, lend, sell, sublicense, or otherwise transfer the Software to any third party
+- Use the Software for any illegal purpose or in violation of any laws
+
+3. INTELLECTUAL PROPERTY
+The Software is protected by copyright laws and international copyright treaties, as well as other intellectual property laws and treaties. The Software is licensed, not sold. All rights, title, and interest in and to the Software remain with Licensor.
+
+4. TERMINATION
+This license is effective until terminated. Your rights under this license will terminate automatically without notice if you fail to comply with any of its terms. Upon termination, you must destroy all copies of the Software.
+
+5. DISCLAIMER OF WARRANTIES
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH YOU.
+
+6. LIMITATION OF LIABILITY
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION, OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. EXPORT RESTRICTIONS
+You agree to comply with all applicable international and national laws that apply to the Software, including the Export Administration Regulations, as well as end-user, end-use, and destination restrictions issued by U.S. and other governments.
+
+8. GOVERNING LAW
+This Agreement shall be governed by and construed in accordance with the laws of the jurisdiction in which Licensor operates, without regard to its conflict of law provisions.
+
+9. ENTIRE AGREEMENT
+This Agreement constitutes the entire agreement between you and Licensor relating to the Software and supersedes all prior or contemporaneous oral or written communications, proposals, and representations with respect to the Software.
+
+10. CONTACT INFORMATION
+For questions about this Agreement, please contact:
+LED Matrix Studio
+Email: support@example.com
+Website: https://example.com
+
+By clicking "I Agree" or installing the Software, you acknowledge that you have read this Agreement, understand it, and agree to be bound by its terms and conditions.

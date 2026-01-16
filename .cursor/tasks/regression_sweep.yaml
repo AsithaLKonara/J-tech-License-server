@@ -1,0 +1,44 @@
+# Cursor AI Task: Run all workflows end-to-end
+
+name: Regression Sweep Task
+description: Run all workflows end-to-end and identify breakpoints
+
+steps:
+  - name: Run all L3 workflow tests
+    action: |
+      - Run: pytest tests/l3_workflow/ -v
+      - Capture all failures
+      - Document workflow breakpoints
+    
+  - name: Identify breakpoints in state transitions
+    action: |
+      - Analyze failures
+      - Identify where state transitions fail
+      - Document expected vs actual state
+    
+  - name: Auto-generate fixes
+    action: |
+      - For each breakpoint:
+        - Identify root cause
+        - Generate fix
+        - Verify fix doesn't break other workflows
+        - Add regression test if needed
+    
+  - name: Verify all workflows pass
+    action: |
+      - Re-run all workflow tests
+      - Verify no regressions
+      - Document workflow completion
+
+workflows_to_test:
+  - Pattern Creation Workflow
+  - Full Editing Workflow
+  - Full Automation Workflow
+  - Full Effects Workflow
+  - Export Workflow (all formats)
+  - Import + Modify + Export chain
+  - Timeline + Frame control workflow
+  - Multi-layer workflow
+  - Text animation creation workflow
+  - Gradient creation workflow
+

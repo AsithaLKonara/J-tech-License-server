@@ -1,0 +1,22 @@
+# Auth0 Test Configuration
+# Copy this file to auth_config.yaml and update with your actual Auth0 credentials
+# Or use environment variables instead
+
+auth0:
+  # Replace these with your actual Auth0 credentials
+  domain: "dev-test-123.us.auth0.com"  # Or use "${AUTH0_DOMAIN}" to read from env var
+  client_id: "test-client-id-abc123"   # Or use "${AUTH0_CLIENT_ID}" to read from env var
+  audience: "https://api.test.example.com"  # Optional, or use "${AUTH0_AUDIENCE}"
+
+# Server URL for authentication
+auth_server_url: "http://localhost:3000"  # Or use "${AUTH_SERVER_URL:http://localhost:3000}"
+
+# Token settings
+token:
+  lifetime_hours: 24  # Default token lifetime
+  refresh_threshold_hours: 1  # Refresh if expires within this time
+
+# Test Mode (for development)
+test_mode: true
+test_user_email: "test@example.com"
+

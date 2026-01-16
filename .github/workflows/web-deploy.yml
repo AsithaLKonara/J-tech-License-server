@@ -1,0 +1,43 @@
+name: Web Dashboard CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mbstring, xml, ctype, iconv, mysql, openssl
+        coverage: xdebug
+    - name: Install dependencies
+      run: |
+        cd apps/web-dashboard
+        composer install --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+    - name: Run tests
+      run: |
+        cd apps/web-dashboard
+        php artisan test
+
+  build-deployment:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Production Packager
+      run: |
+        powershell -ExecutionPolicy Bypass -File prepare_production_zip.ps1
+    - name: Upload Deployment Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: UploadBridge-Web-Deployment
+        path: dist/

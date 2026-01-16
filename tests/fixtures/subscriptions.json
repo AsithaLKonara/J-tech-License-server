@@ -1,0 +1,30 @@
+[
+  {
+    "plan": "trial",
+    "status": "active",
+    "max_devices": 1,
+    "features": ["pattern_upload"],
+    "offline_days": 0
+  },
+  {
+    "plan": "monthly",
+    "status": "active",
+    "max_devices": 3,
+    "features": ["pattern_upload", "firmware_generation", "wifi_upload"],
+    "offline_days": 3
+  },
+  {
+    "plan": "yearly",
+    "status": "active",
+    "max_devices": 5,
+    "features": ["pattern_upload", "firmware_generation", "wifi_upload", "advanced_effects"],
+    "offline_days": 14
+  },
+  {
+    "plan": "perpetual",
+    "status": "active",
+    "max_devices": 10,
+    "features": ["pattern_upload", "firmware_generation", "wifi_upload", "advanced_effects", "priority_support"],
+    "offline_days": 30
+  }
+]

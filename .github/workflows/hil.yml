@@ -23,6 +23,10 @@ jobs:
           - pic18f4550
           - nuvoton_m051
     
+    defaults:
+      run:
+        working-directory: apps/upload-bridge
+
     steps:
       - uses: actions/checkout@v4
       
@@ -81,6 +85,5 @@ jobs:
         with:
           name: hil-results-${{ matrix.chip }}
           path: |
-            hardware_output.log
-            build/firmware.bin
-
+            apps/upload-bridge/hardware_output.log
+            apps/upload-bridge/build/firmware.bin
