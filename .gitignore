@@ -177,9 +177,6 @@ Thumbs.db
 .AppleDouble
 .LSOverride
 ._*
-# Large junk files identified during deployment cleanup
-all_commits_backup.bundle
-apps/upload-bridge/tests/comprehensive/reports/
 
 # ============================================================
 # DOCKER & VIRTUALIZATION
@@ -275,4 +272,19 @@ private_keys/
 # The web-dashboard is managed in a separate repository
 # (J-tech-License-server.git) and should not be tracked
 # in this main repository - UNCOMMENT BELOW IF NEEDED
-# apps/web-dashboard/
+apps/web-dashboard/
+tests/
+dist/
+build/
+web-dashboard/docs/
+web-dashboard/tests/
+apps/upload-bridge/dist/
+apps/upload-bridge/build/
+apps/upload-bridge/*.exe
+apps/upload-bridge/*.spec
+apps/upload-bridge/tests/
+apps/upload-bridge/logs/
+apps/upload-bridge/.venv/
+apps/upload-bridge/venv/
+apps/upload-bridge/env/
+apps/upload-bridge/ENV/
