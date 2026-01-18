@@ -17,7 +17,7 @@ from math import cos, sin, pi
 from collections import deque
 import random
 
-from PySide6.QtCore import Qt, Signal, QPoint, QRect, QTimer
+from PySide6.QtCore import Qt, Signal, QPoint, QRect, QTimer, QSize
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QPixmap, QImage, QPainterPath
 from PySide6.QtGui import QPainter as QPainterEnum
 from PySide6.QtWidgets import QWidget
