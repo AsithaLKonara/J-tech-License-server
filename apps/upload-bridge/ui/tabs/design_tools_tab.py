@@ -2294,6 +2294,18 @@ class DesignToolsTab(QWidget):
         self.shape_filled_checkbox.toggled.connect(self._on_shape_filled_changed)
         layout.addWidget(self.shape_filled_checkbox)
 
+        # Bucket fill tolerance row (visible only when bucket tool selected)
+        tolerance_row = QHBoxLayout()
+        tolerance_row.setContentsMargins(0, 0, 0, 0)
+        
+        self.bucket_fill_tolerance_spin = QSpinBox()
+        self.bucket_fill_tolerance_spin.setRange(0, 255)
+        self.bucket_fill_tolerance_spin.setValue(0)
+        self.bucket_fill_tolerance_spin.setSuffix(" tol")
+        self.bucket_fill_tolerance_spin.setToolTip("Color tolerance for bucket fill (0-255)")
+        self.bucket_fill_tolerance_spin.setEnabled(False)
+        self.bucket_fill_tolerance_spin.valueChanged.connect(self._on_bucket_fill_tolerance_changed)
+
         tolerance_row.addWidget(self.bucket_fill_tolerance_spin)
         
         # Bucket fill contiguous option
@@ -4434,10 +4446,10 @@ class DesignToolsTab(QWidget):
         layout = QVBoxLayout()
 
         self.source_button_group = QButtonGroup(self)
-        use_first = QRadioButton("Use first frame as source")
-        each_frame = QRadioButton("Use each frame independently")
+        use_first = QRadioButton("Use first frame (Frame 0) as source")
+        each_frame = QRadioButton("Use selected frame as source")
         increment_frame = QRadioButton("Increment parameters per frame")
-        use_first.setChecked(True)
+        each_frame.setChecked(True)
         self.source_button_group.addButton(use_first, 0)
         self.source_button_group.addButton(each_frame, 1)
         self.source_button_group.addButton(increment_frame, 2)
@@ -7197,6 +7209,9 @@ class DesignToolsTab(QWidget):
             # Store in repository and sync legacy reference
             self.repository.set_current_pattern(pattern)
             self._pattern = pattern  # Legacy reference for backward compatibility
+            # Flag pattern as Design Order (unwrapped) so Preview Tab doesn't scramble it
+            if not hasattr(self._pattern.metadata, 'already_unwrapped'):
+                self._pattern.metadata.already_unwrapped = True
             
             self.frame_manager.set_pattern(pattern)
             self.layer_manager.set_pattern(pattern)
@@ -7394,6 +7409,9 @@ class DesignToolsTab(QWidget):
             # Store in repository and sync legacy reference
             self.repository.set_current_pattern(pattern_copy, file_path)
             self._pattern = pattern_copy  # Legacy reference for backward compatibility
+            # Flag pattern as Design Order (unwrapped) so Preview Tab doesn't scramble it
+            if not hasattr(self._pattern.metadata, 'already_unwrapped'):
+                self._pattern.metadata.already_unwrapped = True
             
             self.frame_manager.set_pattern(pattern_copy)
             self.layer_manager.set_pattern(pattern_copy)
@@ -9646,7 +9664,7 @@ class DesignToolsTab(QWidget):
                 # Convert DesignAction to LayerAction for LMS-style step calculation
                 layer_action = LayerAction(
                     type=design_action.action_type.lower(),
-                    start_frame=starting_frame_index,  # Action starts at generation start
+                    start_frame=starting_frame_index - 1 if initial_frame_count > 0 else starting_frame_index,  # Bias step to avoid static first frame
                     end_frame=None,  # No end frame - continues for all generated frames
                     params=design_action.params or {},
                     finalized=False,
@@ -9676,9 +9694,9 @@ class DesignToolsTab(QWidget):
             # Apply all actions in priority order in ONE unified pipeline
             frame_pixels = [tuple(pixel) for pixel in original_pixels]
             for design_action, layer_action, local_step, repeat in active_actions_with_steps:
-                # Repeat wraps step (modulo), never multiplies it
-                # effective_step = step % action_length (where action_length = repeat)
-                effective_step = local_step % repeat if repeat > 0 else local_step
+                # FIXED: Do not modulo by repeat count (default 1) as it creates 0 step (static)
+                # Pass full local_step to allow progressive animation (scroll/rotate handle wrapping internally)
+                effective_step = local_step
                 transformed = self._transform_pixels(frame_pixels, design_action, width, height, effective_step)
                 if transformed:
                     frame_pixels = transformed
@@ -9726,32 +9744,20 @@ class DesignToolsTab(QWidget):
         unique_new_frames = []
         duplicate_count = 0
         
+        # Check if actions are cyclic (Scroll/Rotate) to enable smart trimming
+        is_cyclic = any(a.action_type.lower() in ['scroll', 'rotate'] for a in actions)
+        source_frame = self._pattern.frames[source_frame_idx] if self._pattern.frames else None
+
         for i, new_frame in enumerate(new_frames):
-            is_duplicate = False
+            # Disable standard duplicate filtering to allow blank canvas animation.
+            # BUT: If Appending, Cyclic, and Frame == Source, drop it to prevent loop stutter (e.g. F12==F0).
+            drop_cyclic_duplicate = False
+            if is_cyclic and initial_frame_count > 0 and source_frame:
+                 if self._frames_are_identical(new_frame, source_frame):
+                     drop_cyclic_duplicate = True
+                     self._log_frame_generation("CYCLIC_DUPLICATE_TRIMMED", len(unique_new_frames), {"index": i})
             
-            # Check if this frame is identical to any existing frame
-            if self._pattern.frames:
-                for existing_frame in self._pattern.frames:
-                    if self._frames_are_identical(new_frame, existing_frame):
-                        is_duplicate = True
-                        duplicate_count += 1
-                        self._log_frame_generation("DUPLICATE_DETECTED", len(self._pattern.frames), {
-                            "duplicate_index": i,
-                            "existing_frame_count": len(self._pattern.frames)
-                        })
-                        break
-            
-            # Also check against already-added new frames to avoid duplicates within the batch
-            for unique_frame in unique_new_frames:
-                if self._frames_are_identical(new_frame, unique_frame):
-                    is_duplicate = True
-                    duplicate_count += 1
-                    self._log_frame_generation("DUPLICATE_IN_BATCH", len(unique_new_frames), {
-                        "duplicate_index": i
-                    })
-                    break
-            
-            if not is_duplicate:
+            if not drop_cyclic_duplicate:
                 unique_new_frames.append(new_frame)
         
         if duplicate_count > 0:
@@ -9790,15 +9796,31 @@ class DesignToolsTab(QWidget):
         # This preserves layer content and animations in the generated frames
         try:
             tracks = self.layer_manager.get_layer_tracks()
+            
+            # Sort actions by priority once (for consistency)
+            sorted_actions = sorted(actions, key=lambda x: ACTION_PRIORITY.get(x.action_type.lower(), 100))
+            
             for i, new_frame in enumerate(unique_new_frames):
                 new_frame_idx = new_frame_start_idx + i
+                # Step correlates to index i. If appending (initial > 0), bias by 1 to skip static Step 0.
+                current_step = i + 1 if initial_frame_count > 0 else i
                 
-                # For each track, copy frame data from source if it exists
+                # For each track, apply TRANSFORMATION to source frame
                 for track in tracks:
                     source_layer_frame = track.get_frame(source_frame_idx)
                     if source_layer_frame:
-                        # Copy layer frame data to new frame
+                        # Start with source pixels
+                        layer_pixels = [tuple(p) for p in source_layer_frame.pixels]
+                        
+                        # Apply all actions to this layer's pixels
+                        for action in sorted_actions:
+                            transformed = self._transform_pixels(layer_pixels, action, width, height, current_step)
+                            if transformed:
+                                layer_pixels = transformed
+                                
+                        # Save transformed frame to track
                         new_layer_frame = source_layer_frame.copy()
+                        new_layer_frame.pixels = layer_pixels
                         track.set_frame(new_frame_idx, new_layer_frame)
             
             # NOTE: Do NOT sync_frame_from_layers() here - composite is derived via render_frame()
@@ -10670,10 +10692,10 @@ class DesignToolsTab(QWidget):
         dx, dy = offsets.get(direction, (offset, 0))
         for y in range(height):
             for x in range(width):
-                src_x = x - dx
-                src_y = y - dy
-                if 0 <= src_x < width and 0 <= src_y < height:
-                    new_grid[y][x] = grid[src_y][src_x]
+                # Use modulo for wrapping behavior (standard LED matrix scroll)
+                src_x = (x - dx) % width
+                src_y = (y - dy) % height
+                new_grid[y][x] = grid[src_y][src_x]
         return self._grid_to_pixels(new_grid)
     
     def _transform_rotate(self, pixels: List[Tuple[int, int, int]], width: int, height: int, mode: str) -> List[Tuple[int, int, int]]:
