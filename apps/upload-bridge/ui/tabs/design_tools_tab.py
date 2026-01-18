@@ -9518,7 +9518,7 @@ class DesignToolsTab(QWidget):
         
         # Calculate suggested frame count based on action parameters (UI-only, not enforced)
         # User can override this or specify their own count
-        max_frames_suggestion = 10  # Minimum suggestion
+        max_frames_suggestion = 0
         
         for action in actions:
             params = action.params or {}
@@ -9550,7 +9550,7 @@ class DesignToolsTab(QWidget):
                 max_frames_suggestion = max(max_frames_suggestion, repeat * 5)
         
         # Use suggestion as default (can be overridden by user or action.end_frame)
-        frame_count = max(10, max_frames_suggestion)
+        frame_count = max(1, max_frames_suggestion)
         
         # Get source frame (use first frame or current frame)
         if hasattr(self, 'source_button_group'):
@@ -11182,53 +11182,58 @@ class DesignToolsTab(QWidget):
     def _refresh_timeline(self):
         if self._suspend_timeline_refresh:
             return
-        if not self._pattern:
-            self.timeline.set_frames([])
-            self.timeline.set_markers([])
-            self.timeline.set_overlays([])
-            self.timeline.set_layer_tracks([])
-            self.timeline.set_frame_durations([])
-            return
-
-        frames_data: List[Tuple[str, Optional[QPixmap]]] = []
-        frame_durations: List[int] = []
-        
-        for idx, frame in enumerate(self._pattern.frames):
-            pixel_count = len(frame.pixels) if frame.pixels else 0
-            display = f"Frame {idx + 1:02d}  •  {frame.duration_ms} ms  •  {pixel_count} px"
             
-            # Generate composite thumbnail from layers
-            composite_thumbnail = self._make_composite_frame_thumbnail(idx)
-            frames_data.append((display, composite_thumbnail))
-            frame_durations.append(frame.duration_ms)
-        
-        self.timeline.set_frames(frames_data)
-        self.timeline.set_frame_durations(frame_durations)
-        self.timeline.set_playhead(self._current_frame_index)
+        self._frame_switch_locked = True
+        try:
+            if not self._pattern:
+                self.timeline.set_frames([])
+                self.timeline.set_markers([])
+                self.timeline.set_overlays([])
+                self.timeline.set_layer_tracks([])
+                self.timeline.set_frame_durations([])
+                return
 
-        total_frames = len(self._pattern.frames)
-        self.frame_start_spin.setMaximum(total_frames)
-        self.frame_end_spin.setMaximum(total_frames)
-        self.frame_end_spin.setValue(total_frames)
+            frames_data: List[Tuple[str, Optional[QPixmap]]] = []
+            frame_durations: List[int] = []
+            
+            for idx, frame in enumerate(self._pattern.frames):
+                pixel_count = len(frame.pixels) if frame.pixels else 0
+                display = f"Frame {idx + 1:02d}  •  {frame.duration_ms} ms  •  {pixel_count} px"
+                
+                # Generate composite thumbnail from layers
+                composite_thumbnail = self._make_composite_frame_thumbnail(idx)
+                frames_data.append((display, composite_thumbnail))
+                frame_durations.append(frame.duration_ms)
+            
+            self.timeline.set_frames(frames_data)
+            self.timeline.set_frame_durations(frame_durations)
+            self.timeline.set_playhead(self._current_frame_index)
 
-        markers: List[TimelineMarker] = []
-        start_idx = self.frame_start_spin.value() - 1
-        end_idx = self.frame_end_spin.value() - 1
-        if 0 <= start_idx < total_frames:
-            markers.append(TimelineMarker(frame_index=start_idx, label="Start"))
-        if 0 <= end_idx < total_frames:
-            markers.append(TimelineMarker(frame_index=end_idx, label="End", color=QColor("#E55B5B")))
-        self.timeline.set_markers(markers)
+            total_frames = len(self._pattern.frames)
+            self.frame_start_spin.setMaximum(total_frames)
+            self.frame_end_spin.setMaximum(total_frames)
+            self.frame_end_spin.setValue(total_frames)
 
-        overlays = self._build_timeline_overlays(total_frames)
-        self.timeline.set_overlays(overlays)
+            markers: List[TimelineMarker] = []
+            start_idx = self.frame_start_spin.value() - 1
+            end_idx = self.frame_end_spin.value() - 1
+            if 0 <= start_idx < total_frames:
+                markers.append(TimelineMarker(frame_index=start_idx, label="Start"))
+            if 0 <= end_idx < total_frames:
+                markers.append(TimelineMarker(frame_index=end_idx, label="End", color=QColor("#E55B5B")))
+            self.timeline.set_markers(markers)
 
-        layer_tracks = self._build_timeline_layer_tracks(total_frames)
-        self.timeline.set_layer_tracks(layer_tracks)
-        if hasattr(self, "layer_panel") and self.layer_panel:
-            self.timeline.set_selected_layer(self.layer_panel.get_active_layer_index())
-        self._update_transport_controls()
-        self._update_status_labels()
+            overlays = self._build_timeline_overlays(total_frames)
+            self.timeline.set_overlays(overlays)
+
+            layer_tracks = self._build_timeline_layer_tracks(total_frames)
+            self.timeline.set_layer_tracks(layer_tracks)
+            if hasattr(self, "layer_panel") and self.layer_panel:
+                self.timeline.set_selected_layer(self.layer_panel.get_active_layer_index())
+            self._update_transport_controls()
+            self._update_status_labels()
+        finally:
+            self._frame_switch_locked = False
     
     def _make_composite_frame_thumbnail(self, frame_idx: int) -> Optional[QPixmap]:
         """
@@ -11575,7 +11580,9 @@ class DesignToolsTab(QWidget):
         self.duration_spin.blockSignals(True)
         self.duration_spin.setValue(self._frame_duration_ms)
         self.duration_spin.blockSignals(False)
+        self.duration_spin.blockSignals(False)
         self.timeline.set_playhead(index)
+        self.history_manager.set_current_frame(index)
         
         # Update layer panel to show layers for current frame
         if hasattr(self, "layer_panel"):
