@@ -239,6 +239,38 @@ class PatternConverter:
         Returns:
             Pattern object
         """
+        # Backward compatibility: inject schema_version if missing
+        if "schema_version" not in data:
+            if "version" in data:
+                 data["schema_version"] = data["version"]
+            else:
+                 data["schema_version"] = "1.0"  # Default for legacy files
+
+        # Backward compatibility: migrate to "matrix" object if missing
+        if "matrix" not in data:
+            data["matrix"] = {}
+            # Check root for matrix properties
+            for key in ["width", "height", "layout", "wiring", "default_color_order"]:
+                if key in data:
+                    data["matrix"][key] = data[key]
+            
+            # Check metadata for matrix properties (sometimes things were stored there)
+            if "metadata" in data and isinstance(data["metadata"], dict):
+                for key in ["width", "height", "layout", "wiring"]:
+                    if key in data["metadata"]:
+                         data["matrix"][key] = data["metadata"][key]
+
+            # Ensure minimal requirements
+            if "width" not in data["matrix"]:
+                 data["matrix"]["width"] = data.get("width", 16) # Default
+            if "height" not in data["matrix"]:
+                 data["matrix"]["height"] = data.get("height", 16) # Default
+
+        # Clean up legacy/extra fields before validation
+        lms_instructions = data.pop("lms_pattern_instructions", [])
+        scratchpads_raw = data.pop("scratchpads", {})
+        data.pop("version", None) # Removed as it's now mapped to schema_version
+
         # Validate JSON first
         try:
             validate_pattern_json(data)
@@ -308,6 +340,14 @@ class PatternConverter:
         for frame_data in data["frames"]:
             # Get first layer's pixels (or composite all visible layers)
             layers = frame_data.get("layers", [])
+            
+            # Legacy support: if no layers, check for direct pixels
+            if not layers and "pixels" in frame_data:
+                 layers = [{
+                     "pixels": frame_data["pixels"],
+                     "encoding": "raw+rgb8" # Standard list of lists [r,g,b]
+                 }] 
+
             if not layers:
                 pixels = [(0, 0, 0)] * pixel_count
             else:
@@ -345,12 +385,25 @@ class PatternConverter:
             )
             frames.append(frame)
         
+        # Process scratchpads
+        scratchpads: Dict[str, List[Tuple[int, int, int]]] = {}
+        for slot, pixels_list in scratchpads_raw.items():
+            normalized = []
+            for pixel in pixels_list:
+                if isinstance(pixel, (list, tuple)) and len(pixel) >= 3:
+                     normalized.append((int(pixel[0]), int(pixel[1]), int(pixel[2])))
+                else:
+                     normalized.append((0, 0, 0))
+            scratchpads[str(slot)] = normalized
+
         # Create Pattern
         pattern = Pattern(
             id=data.get("id", str(uuid.uuid4())),
             name=data.get("name", "Untitled Pattern"),
             metadata=metadata,
-            frames=frames
+            frames=frames,
+            lms_pattern_instructions=lms_instructions,
+            scratchpads=scratchpads
         )
         
         return pattern
