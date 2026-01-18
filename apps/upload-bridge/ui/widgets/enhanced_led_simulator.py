@@ -844,6 +844,11 @@ class LEDDisplayWidget(QWidget):
         if self.pattern and hasattr(self.pattern, 'metadata'):
             layout_type = getattr(self.pattern.metadata, 'layout_type', 'rectangular')
         
+        # FIX: Allow user to force Matrix view (Rectangular) via dropdown
+        # This overrides metadata layout (e.g. if auto-detected as circle but user wants grid check)
+        if self.display_mode == "Matrix":
+            layout_type = "rectangular"
+        
         # Use circular rendering if pattern has circular layout
         # The preview uses the mapping table to get pixel colors from grid
         if layout_type and layout_type != "rectangular":
