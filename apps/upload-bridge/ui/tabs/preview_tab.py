@@ -408,7 +408,13 @@ class PreviewTab(QWidget):
                 logger.info(f"   Checksum BEFORE: {before_checksum}")
             
             # Unwrap from file format to design order
-            unwrapped_pattern = hardware_to_design_order(pattern, file_format, file_datain)
+            # Check if already unwrapped (from Design Tools) to avoid double-conversion scrambling
+            if getattr(pattern.metadata, 'already_unwrapped', False):
+                logger.info("Pattern is flagged as 'already_unwrapped' (Design Order) - Skipping hardware unwrapping")
+                unwrapped_pattern = pattern
+            else:
+                unwrapped_pattern = hardware_to_design_order(pattern, file_format, file_datain)
+
             unwrapped_pattern.metadata.original_wiring_mode = file_format
             unwrapped_pattern.metadata.original_data_in_corner = file_datain
             unwrapped_pattern.metadata.already_unwrapped = True  # This is just for preview
