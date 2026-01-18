@@ -10,7 +10,7 @@
         <h2>{{ $user->name }} ({{ $user->email }})</h2>
         <p><strong>ID:</strong> {{ $user->id }}</p>
         <p><strong>Admin:</strong> {{ $user->is_admin ? 'Yes' : 'No' }}</p>
-        <p><strong>Created:</strong> {{ $user->created_at->format('Y-m-d H:i') }}</p>
+        <p><strong>Created:</strong> {{ $user->created_at instanceof \DateTime || $user->created_at instanceof \Carbon\Carbon ? $user->created_at->format('Y-m-d H:i') : $user->created_at }}</p>
     </div>
     
     <div class="user-subscriptions">
@@ -31,7 +31,7 @@
                 <tr>
                     <td>{{ ucfirst($subscription->plan_type) }}</td>
                     <td><span class="badge badge-{{ $subscription->status === 'active' ? 'success' : 'error' }}">{{ ucfirst($subscription->status) }}</span></td>
-                    <td>{{ $subscription->expires_at ? $subscription->expires_at->format('Y-m-d') : 'Never' }}</td>
+                    <td>{{ $subscription->expires_at ? ($subscription->expires_at instanceof \DateTime || $subscription->expires_at instanceof \Carbon\Carbon ? $subscription->expires_at->format('Y-m-d') : $subscription->expires_at) : 'Never' }}</td>
                 </tr>
                 @endforeach
             </tbody>
