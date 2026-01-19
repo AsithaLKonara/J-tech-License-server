@@ -168,25 +168,26 @@ class LayerAnimationManager:
     """
     
     def __init__(self):
-        # Store animations per layer track: {layer_track_index: LayerAnimation}
-        self._animations: Dict[int, LayerAnimation] = {}
+        # Store animations per layer track: {layer_track_id: LayerAnimation}
+        self._animations: Dict[str, LayerAnimation] = {}
     
     def set_animation(
         self,
-        layer_track_index: int,
+        layer_track_id: str,
         animation: LayerAnimation
     ) -> None:
-        """Set animation for a layer track."""
-        self._animations[layer_track_index] = animation
+        """Set animation for a layer track by its unique ID."""
+        self._animations[str(layer_track_id)] = animation
     
-    def get_animation(self, layer_track_index: int) -> Optional[LayerAnimation]:
-        """Get animation for a layer track."""
-        return self._animations.get(layer_track_index)
+    def get_animation(self, layer_track_id: str) -> Optional[LayerAnimation]:
+        """Get animation for a layer track by its unique ID."""
+        return self._animations.get(str(layer_track_id))
     
-    def remove_animation(self, layer_track_index: int) -> None:
-        """Remove animation from a layer track."""
-        if layer_track_index in self._animations:
-            del self._animations[layer_track_index]
+    def remove_animation(self, layer_track_id: str) -> None:
+        """Remove animation from a layer track by its unique ID."""
+        tid = str(layer_track_id)
+        if tid in self._animations:
+            del self._animations[tid]
     
     def apply_animation_to_frame(
         self,
