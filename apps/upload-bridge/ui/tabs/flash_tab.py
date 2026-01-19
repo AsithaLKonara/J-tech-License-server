@@ -538,23 +538,23 @@ class FlashTab(QWidget):
         # Preview tab stores the original file pattern in _original_file_pattern
         import copy
         
-        # Get original file pattern from preview tab
+        # 1. Prefer current pattern from repository (includes latest edits)
+        original_pattern = self.repository.get_current_pattern() or self.pattern
+        
+        # 2. Check if we have original file pattern reference in preview tab (for file format info)
         main_window = self.window()
-        original_pattern = None
-        
+        file_basis_pattern = None
         if hasattr(main_window, 'preview_tab') and main_window.preview_tab:
-            if hasattr(main_window.preview_tab, '_original_file_pattern') and main_window.preview_tab._original_file_pattern:
-                original_pattern = main_window.preview_tab._original_file_pattern
-                self.log("📂 Using ORIGINAL file data (not unwrapped preview data)")
-        
-        # Fallback to preview pattern if original not available
+            file_basis_pattern = getattr(main_window.preview_tab, '_original_file_pattern', None)
+            
         if original_pattern is None:
-            # Try repository first, then legacy reference
-            original_pattern = self.repository.get_current_pattern() or self.pattern
+            original_pattern = file_basis_pattern
             if original_pattern is None:
                 QMessageBox.warning(self, "No Pattern", "Please load a pattern first!")
                 return
-            self.log("⚠️ Original file pattern not found, using current pattern")
+            self.log("⚠️ Using original file pattern as primary source")
+        else:
+            self.log("📂 Using current pattern (including latest edits)")
         
         # Create working copy
         pattern_copy = Pattern(
