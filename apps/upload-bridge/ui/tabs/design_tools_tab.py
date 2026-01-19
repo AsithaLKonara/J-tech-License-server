@@ -151,6 +151,7 @@ class DesignToolsTab(QWidget):
     pattern_created = Signal(Pattern)
     playback_state_changed = Signal(bool)  # Emitted when playback state changes (True=playing, False=paused/stopped)
     frame_changed = Signal(int)  # Emitted when frame index changes
+    undo_redo_state_changed = Signal()  # Emitted when undo/redo status changes
 
     DEFAULT_COLORS = [
         (0, 0, 0),
@@ -7521,6 +7522,13 @@ class DesignToolsTab(QWidget):
             self._update_status_labels()
             self._maybe_autosync_preview()
             self._update_transport_controls()
+            
+            # Sync playback FPS from metadata
+            if hasattr(pattern_copy.metadata, 'fps') and pattern_copy.metadata.fps > 0:
+                self._set_playback_fps(int(pattern_copy.metadata.fps))
+            elif pattern_copy.average_fps > 0:
+                self._set_playback_fps(int(pattern_copy.average_fps))
+                
             self._update_dimension_source_label()
             self._sync_lms_sequence_from_pattern()
             # Update history manager current frame
@@ -7800,6 +7808,9 @@ class DesignToolsTab(QWidget):
                 self.canvas_redo_btn.setToolTip(f"Redo (Ctrl+Y) - {redo_count} action(s) available")
             else:
                 self.canvas_redo_btn.setToolTip("Nothing to redo")
+        
+        # Notify parent/controller that state has changed
+        self.undo_redo_state_changed.emit()
 
     def _on_undo(self):
         """Handle undo action."""
@@ -7822,17 +7833,31 @@ class DesignToolsTab(QWidget):
         
         command = self.history_manager.undo(self._current_frame_index)
         if command:
+            pixels = command.undo()
+            
+            # Update layer manager if present to ensure next render uses undone state
+            if hasattr(self, 'layer_manager'):
+                # Get active layer index from layer panel if available
+                active_layer = 0
+                if hasattr(self, 'layer_panel'):
+                    active_layer = self.layer_panel.get_active_layer_index()
+                    if active_layer < 0: active_layer = 0
+                
+                # Replace pixels in the active layer track
+                self.layer_manager.replace_pixels(self._current_frame_index, pixels, active_layer)
+            
+            # Also update legacy frame pixels for fallback and consistency
             frame = self._pattern.frames[self._current_frame_index]
-            frame.pixels = command.undo()
+            frame.pixels = pixels
+            
+            # Refresh UI
             self._load_current_frame_into_canvas()
-            # Don't emit pattern_modified for undo/redo - these are restoring previous states,
-            # not creating new modifications. This prevents marking pattern as dirty when
-            # user is just exploring history.
-            # UI updates still happen via _load_current_frame_into_canvas and other refresh methods
+            
+            # Don't emit pattern_modified for undo/redo - these are restoring previous states
             self._maybe_autosync_preview()
-            self._sync_detached_preview()  # Sync detached preview without marking as dirty
+            self._sync_detached_preview()
             self._update_status_labels()
-            self._update_undo_redo_states()  # Update button states after undo
+            self._update_undo_redo_states()
 
     def _on_redo(self):
         """Handle redo action."""
@@ -7853,17 +7878,28 @@ class DesignToolsTab(QWidget):
         
         command = self.history_manager.redo(self._current_frame_index)
         if command:
+            pixels = command.execute()
+            
+            # Update layer manager if present
+            if hasattr(self, 'layer_manager'):
+                active_layer = 0
+                if hasattr(self, 'layer_panel'):
+                    active_layer = self.layer_panel.get_active_layer_index()
+                    if active_layer < 0: active_layer = 0
+                
+                self.layer_manager.replace_pixels(self._current_frame_index, pixels, active_layer)
+            
+            # Update legacy frame pixels
             frame = self._pattern.frames[self._current_frame_index]
-            frame.pixels = command.execute()
+            frame.pixels = pixels
+            
+            # Refresh UI
             self._load_current_frame_into_canvas()
-            # Don't emit pattern_modified for undo/redo - these are restoring previous states,
-            # not creating new modifications. This prevents marking pattern as dirty when
-            # user is just exploring history.
-            # UI updates still happen via _load_current_frame_into_canvas and other refresh methods
+            
             self._maybe_autosync_preview()
-            self._sync_detached_preview()  # Sync detached preview without marking as dirty
+            self._sync_detached_preview()
             self._update_status_labels()
-            self._update_undo_redo_states()  # Update button states after redo
+            self._update_undo_redo_states()
 
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts."""
@@ -8909,6 +8945,19 @@ class DesignToolsTab(QWidget):
         if value <= 0:
             self._set_playback_fps(1)
             return
+        
+        # Sync to pattern metadata so other tabs see the change
+        if self._pattern:
+            # Update metadata FPS
+            self._pattern.metadata.fps = float(value)
+            # Apply to all frames if needed (set_global_fps)
+            try:
+                self._pattern.set_global_fps(float(value))
+            except Exception:
+                pass
+            # Broadcast modification
+            self.pattern_modified.emit()
+            
         if self._playback_timer.isActive():
             self._playback_timer.start(self._compute_playback_interval_ms())
         self._update_status_labels()

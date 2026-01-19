@@ -242,9 +242,16 @@ class PatternConverter:
         # Backward compatibility: inject schema_version if missing
         if "schema_version" not in data:
             if "version" in data:
-                 data["schema_version"] = data["version"]
+                 data["schema_version"] = str(data["version"])
             else:
                  data["schema_version"] = "1.0"  # Default for legacy files
+        else:
+            # Ensure it is a string for validation
+            data["schema_version"] = str(data["schema_version"])
+        
+        # Canonicalize to "1.0" if it's "1" or similar
+        if data["schema_version"] == "1":
+            data["schema_version"] = "1.0"
 
         # Backward compatibility: migrate to "matrix" object if missing
         if "matrix" not in data:
@@ -265,6 +272,35 @@ class PatternConverter:
                  data["matrix"]["width"] = data.get("width", 16) # Default
             if "height" not in data["matrix"]:
                  data["matrix"]["height"] = data.get("height", 16) # Default
+
+        # Ensure root properties exist for schema validation
+        if "name" not in data:
+            data["name"] = "Untitled Pattern"
+        if "id" not in data:
+            data["id"] = str(uuid.uuid4())
+            
+        # Ensure frames have required fields for schema validation
+        if "frames" in data and isinstance(data["frames"], list):
+            for i, frame_data in enumerate(data["frames"]):
+                if isinstance(frame_data, dict):
+                    if "index" not in frame_data:
+                        frame_data["index"] = i
+                    if "duration_ms" not in frame_data:
+                        frame_data["duration_ms"] = 100
+                    
+                    # Ensure layers exist (v1.0 schema requirement)
+                    if "layers" not in frame_data or not frame_data["layers"]:
+                        # Synthesize layer from frame pixels if they exist
+                        pixels = frame_data.get("pixels", [])
+                        frame_data["layers"] = [{
+                            "id": str(uuid.uuid4()),
+                            "name": "base",
+                            "opacity": 1.0,
+                            "blend_mode": "normal",
+                            "visible": True,
+                            "pixels": pixels,
+                            "encoding": "raw+rgb8" if pixels else "rle+rgba8"
+                        }]
 
         # Clean up legacy/extra fields before validation
         lms_instructions = data.pop("lms_pattern_instructions", [])

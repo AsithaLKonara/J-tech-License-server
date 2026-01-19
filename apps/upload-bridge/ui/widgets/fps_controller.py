@@ -148,6 +148,9 @@ class FPSController(QWidget):
             return
         
         self.pattern.set_global_fps(fps)
+        if hasattr(self.pattern, 'metadata'):
+            self.pattern.metadata.fps = float(fps)
+            
         self.update_info()
         self.fps_changed.emit(fps)
     

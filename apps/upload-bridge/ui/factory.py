@@ -355,6 +355,10 @@ class EditorController(QMainWindow):
                 if hasattr(self.design_tab, 'pattern_modified'):
                     self.design_tab.pattern_modified.connect(self._on_design_pattern_modified)
                 
+                # Connect undo/redo state change signal
+                if hasattr(self.design_tab, 'undo_redo_state_changed'):
+                    self.design_tab.undo_redo_state_changed.connect(lambda: self._update_undo_redo_states())
+                
                 # Connect pattern created signal
                 if hasattr(self.design_tab, 'pattern_created'):
                     self.design_tab.pattern_created.connect(self._on_design_pattern_created)
@@ -505,7 +509,11 @@ class EditorController(QMainWindow):
                 self._playback_signals_connected = True
     
     def _on_design_pattern_modified(self):
-        """Handle pattern modification in design tab - sync to preview"""
+        """Handle pattern modification in design tab - sync to all other tabs"""
+        # Mark as dirty
+        self.on_pattern_modified()
+        
+        # Debounced sync to preview for high-performance live view
         if self.design_tab and self.preview_tab:
             # Get current pattern from design tab
             pattern = getattr(self.design_tab, '_pattern', None)
@@ -517,7 +525,7 @@ class EditorController(QMainWindow):
                     self._pattern_sync_timer.setSingleShot(True)
                     self._pattern_sync_timer.timeout.connect(lambda: self.preview_tab.update_pattern(pattern))
                 self._pattern_sync_timer.stop()
-                self._pattern_sync_timer.start(100)  # 100ms debounce
+                self._pattern_sync_timer.start(50)  # Faster 50ms debounce for design feedback
     
     def get_tab(self, tab_name: str):
         """Get a tab, initializing it if necessary"""
@@ -869,13 +877,13 @@ class EditorController(QMainWindow):
         undo_action.setShortcut("Ctrl+Z")
         undo_action.triggered.connect(self.undo_action)
         edit_menu.addAction(undo_action)
-        self.undo_action = undo_action  # Store reference for state updates
+        self.undo_menu_action = undo_action  # Use a different name to avoid shadowing self.undo_action method
         
         redo_action = QAction("&Redo", self)
         redo_action.setShortcut("Ctrl+Y")
         redo_action.triggered.connect(self.redo_action)
         edit_menu.addAction(redo_action)
-        self.redo_action = redo_action  # Store reference for state updates
+        self.redo_menu_action = redo_action  # Use a different name to avoid shadowing self.redo_action method
         
         # Connect undo/redo manager signals to update menu states
         self.undo_redo_manager.undo_available_changed.connect(self._on_undo_available_changed)
@@ -1353,20 +1361,26 @@ class EditorController(QMainWindow):
             QMessageBox.critical(self, "Save Error", f"Failed to save:\\n\\n{str(e)}")
     
     def on_pattern_modified(self):
-        """Pattern was modified in preview"""
+        """Pattern was modified - update state and notify all tabs"""
         old_dirty = self.repository.is_dirty()
         self.repository.set_dirty(True)
         self.status_bar.showMessage("Pattern modified")
+        
         # Update window title to show unsaved changes
         current_file = self.repository.get_current_file()
         if current_file:
             base_name = os.path.basename(current_file)
             if not self.windowTitle().endswith('*'):
                 self.setWindowTitle(f"Upload Bridge - {base_name} *")
+        
         # Emit signals for cross-tab synchronization
         pattern = self.repository.get_current_pattern()
         if pattern:
             self.pattern_changed.emit(pattern)
+        
+        # Update undo/redo menu states
+        self._update_undo_redo_states()
+        
         if old_dirty != self.repository.is_dirty():
             self.save_state_changed.emit(self.repository.is_dirty())
     
@@ -1542,34 +1556,53 @@ class EditorController(QMainWindow):
     def undo_action(self):
         """Undo last action in current tab"""
         current_tab = self.tabs.currentWidget()
-        if current_tab:
-            tab_name = self._get_tab_name(current_tab)
-            if tab_name and self.undo_redo_manager.can_undo(tab_name):
-                self.undo_redo_manager.undo(tab_name)
-                self.status_bar.showMessage("Undo")
-            else:
-                # Try design_tools tab (most common for undo)
-                if self.design_tab and hasattr(self.design_tab, 'history_manager'):
-                    # Use design tab's internal undo if available
-                    if hasattr(self.design_tab.history_manager, 'undo'):
-                        self.design_tab.history_manager.undo()
-                        self.status_bar.showMessage("Undo")
+        if not current_tab:
+            return
+            
+        tab_name = self._get_tab_name(current_tab)
+        
+        # Priority 1: Use shared undo manager if it has commands for this tab
+        if tab_name and self.undo_redo_manager.can_undo(tab_name):
+            self.undo_redo_manager.undo(tab_name)
+            self.status_bar.showMessage("Undo (Shared)")
+            return
+            
+        # Priority 2: Use design_tools internal undo system if on that tab
+        if (tab_name == 'design_tools' or current_tab == self.design_tab) and self.design_tab:
+            if hasattr(self.design_tab, '_on_undo'):
+                self.design_tab._on_undo()
+                self.status_bar.showMessage("Undo (Design)")
+            elif hasattr(self.design_tab, 'history_manager') and hasattr(self.design_tab.history_manager, 'undo'):
+                self.design_tab.history_manager.undo()
+                # If we manually call history_manager, we might need more sync
+                if hasattr(self.design_tab, '_load_current_frame_into_canvas'):
+                    self.design_tab._load_current_frame_into_canvas()
+                self.status_bar.showMessage("Undo (History)")
     
     def redo_action(self):
         """Redo last undone action in current tab"""
         current_tab = self.tabs.currentWidget()
-        if current_tab:
-            tab_name = self._get_tab_name(current_tab)
-            if tab_name and self.undo_redo_manager.can_redo(tab_name):
-                self.undo_redo_manager.redo(tab_name)
-                self.status_bar.showMessage("Redo")
-            else:
-                # Try design_tools tab (most common for redo)
-                if self.design_tab and hasattr(self.design_tab, 'history_manager'):
-                    # Use design tab's internal redo if available
-                    if hasattr(self.design_tab.history_manager, 'redo'):
-                        self.design_tab.history_manager.redo()
-                        self.status_bar.showMessage("Redo")
+        if not current_tab:
+            return
+            
+        tab_name = self._get_tab_name(current_tab)
+        
+        # Priority 1: Use shared undo manager if it has commands for this tab
+        if tab_name and self.undo_redo_manager.can_redo(tab_name):
+            self.undo_redo_manager.redo(tab_name)
+            self.status_bar.showMessage("Redo (Shared)")
+            return
+            
+        # Priority 2: Use design_tools internal redo system if on that tab
+        if (tab_name == 'design_tools' or current_tab == self.design_tab) and self.design_tab:
+            if hasattr(self.design_tab, '_on_redo'):
+                self.design_tab._on_redo()
+                self.status_bar.showMessage("Redo (Design)")
+            elif hasattr(self.design_tab, 'history_manager') and hasattr(self.design_tab.history_manager, 'redo'):
+                self.design_tab.history_manager.redo()
+                if hasattr(self.design_tab, '_load_current_frame_into_canvas'):
+                    self.design_tab._load_current_frame_into_canvas()
+                self.status_bar.showMessage("Redo (History)")
     
     def _get_tab_name(self, tab_widget) -> Optional[str]:
         """Get tab name from widget"""
@@ -1605,18 +1638,18 @@ class EditorController(QMainWindow):
     def _update_undo_redo_states(self):
         """Update undo/redo menu item states based on current tab"""
         if not hasattr(self, 'tabs') or not self.tabs:
-            if hasattr(self, 'undo_action'):
-                self.undo_action.setEnabled(False)
-            if hasattr(self, 'redo_action'):
-                self.redo_action.setEnabled(False)
+            if hasattr(self, 'undo_menu_action'):
+                self.undo_menu_action.setEnabled(False)
+            if hasattr(self, 'redo_menu_action'):
+                self.redo_menu_action.setEnabled(False)
             return
         
         current_tab = self.tabs.currentWidget()
         if not current_tab:
-            if hasattr(self, 'undo_action'):
-                self.undo_action.setEnabled(False)
-            if hasattr(self, 'redo_action'):
-                self.redo_action.setEnabled(False)
+            if hasattr(self, 'undo_menu_action'):
+                self.undo_menu_action.setEnabled(False)
+            if hasattr(self, 'redo_menu_action'):
+                self.redo_menu_action.setEnabled(False)
             return
         
         tab_name = self._get_tab_name(current_tab)
@@ -1632,11 +1665,15 @@ class EditorController(QMainWindow):
                     if hasattr(self.design_tab.history_manager, 'can_redo'):
                         can_redo = can_redo or self.design_tab.history_manager.can_redo()
             
-            self.undo_action.setEnabled(can_undo)
-            self.redo_action.setEnabled(can_redo)
+            if hasattr(self, 'undo_menu_action'):
+                self.undo_menu_action.setEnabled(can_undo)
+            if hasattr(self, 'redo_menu_action'):
+                self.redo_menu_action.setEnabled(can_redo)
         else:
-            self.undo_action.setEnabled(False)
-            self.redo_action.setEnabled(False)
+            if hasattr(self, 'undo_menu_action'):
+                self.undo_menu_action.setEnabled(False)
+            if hasattr(self, 'redo_menu_action'):
+                self.redo_menu_action.setEnabled(False)
     
     def on_pattern_library_selected(self, pattern: Pattern, file_path: str):
         """Handle pattern selection from library"""

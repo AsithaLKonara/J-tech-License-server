@@ -167,6 +167,7 @@ def setup_exception_hook(logger: logging.Logger):
         tb_text = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
         logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
         
+        from PySide6.QtWidgets import QApplication
         if not QApplication.instance():
             print(tb_text, file=sys.stderr)
             return
@@ -310,11 +311,15 @@ def run_app():
         sys.exit(1)
     except Exception as e:
         logger.critical("License verification failed: %s", e, exc_info=True)
-        QMessageBox.critical(
-            None,
-            "License Verification Failed",
-            f"Failed to verify license:\n\n{e}\n\nApplication cannot start."
-        )
+        try:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                None,
+                "License Verification Failed",
+                f"Failed to verify license:\n\n{e}\n\nApplication cannot start."
+            )
+        except Exception:
+            print(f"CRITICAL ERROR: License verification failed: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Create main controller

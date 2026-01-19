@@ -600,6 +600,10 @@ class PreviewTab(QWidget):
         
         # Sync wiring settings from metadata (design tools settings)
         self._sync_wiring_from_metadata(pattern)
+        
+        # Update FPS controller UI to match pattern metadata
+        if hasattr(self, 'fps_controller') and self.fps_controller:
+            self.fps_controller.set_pattern(pattern)
     
     def _sync_wiring_from_metadata(self, pattern: Pattern):
         """

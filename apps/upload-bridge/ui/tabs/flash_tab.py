@@ -585,19 +585,25 @@ class FlashTab(QWidget):
                 
                 self.log(f"🔧 Target wiring from UI: {wiring_text}, Data-In: {datain_text}")
         
-        # Get FPS setting from preview tab
+        # Get FPS setting (prefer preview tab UI, then metadata, then default)
+        target_fps = 30.0
+        if hasattr(pattern_copy.metadata, 'fps') and pattern_copy.metadata.fps:
+            target_fps = pattern_copy.metadata.fps
+            
         if hasattr(main_window, 'preview_tab') and main_window.preview_tab:
             preview_tab = main_window.preview_tab
             if hasattr(preview_tab, 'fps_controller'):
+                # Prefer live UI value if available
                 target_fps = preview_tab.fps_controller.fps_spinbox.value()
-                pattern_copy.metadata.target_fps = target_fps
-                self.log(f"🔧 Target FPS from UI: {target_fps}")
             
             # Get brightness setting from preview tab
             if hasattr(preview_tab, 'advanced_brightness'):
                 brightness_pct = preview_tab.advanced_brightness.brightness_slider.value()
                 pattern_copy.metadata.brightness = brightness_pct / 100.0
                 self.log(f"🔧 Brightness from UI: {brightness_pct}%")
+        
+        pattern_copy.metadata.target_fps = float(target_fps)
+        self.log(f"🔧 Target FPS for firmware: {target_fps}")
         
         # Mark pattern as locked
         self._pattern_locked = True
