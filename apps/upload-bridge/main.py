@@ -6,8 +6,23 @@ Universal LED Pattern Flasher
 
 import sys
 import os
+import io
 from pathlib import Path
 import logging
+
+# Patch stdout/stderr for Unicode support on Windows consoles
+if sys.platform == "win32":
+    # Reconfigure sys.stdout and sys.stderr to use utf-8 encoding
+    if hasattr(sys.stdout, "buffer"):
+        try:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "buffer"):
+        try:
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 # Ensure app root is in path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
