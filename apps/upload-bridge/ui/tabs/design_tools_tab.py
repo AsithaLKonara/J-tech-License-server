@@ -420,6 +420,13 @@ class DesignToolsTab(QWidget):
         self.state = PatternState()
         self.frame_manager = FrameManager(self.state)
         self.layer_manager = LayerManager(self.state)
+        
+        # Connect timeline sync
+        self.frame_manager.frame_inserted.connect(self.layer_manager.handle_frame_inserted)
+        self.frame_manager.frame_deleted.connect(self.layer_manager.handle_frame_deleted)
+        self.frame_manager.frame_duplicated.connect(self.layer_manager.handle_frame_duplicated)
+        self.frame_manager.frame_moved.connect(self.layer_manager.handle_frame_moved)
+        
         self.layer_manager.layers_changed.connect(self._on_layers_structure_updated)
         self.layer_manager.layer_added.connect(self._on_layers_structure_updated)
         self.layer_manager.layer_removed.connect(self._on_layers_structure_updated)
@@ -590,6 +597,22 @@ class DesignToolsTab(QWidget):
         open_button.setToolTip("Open an existing pattern file")
         open_button.clicked.connect(self._on_open_pattern_clicked)
         layout.addWidget(open_button)
+        
+        layout.addStretch()
+
+        # Active Layer Status Badge
+        self.active_layer_label = QLabel("Layer: -")
+        self.active_layer_label.setStyleSheet("""
+            QLabel {
+                background-color: #2D2D2D;
+                color: #00FF78;
+                font-weight: bold;
+                padding: 4px 12px;
+                border-radius: 12px;
+                border: 1px solid #3D3D3D;
+            }
+        """)
+        layout.addWidget(self.active_layer_label)
         
         # Version History button
         version_history_btn = QPushButton("📜 Versions")
@@ -843,6 +866,9 @@ class DesignToolsTab(QWidget):
 
         self.timeline = TimelineWidget()
         self.timeline.frameSelected.connect(self._on_frame_selected)
+        # Ensure EditContext is updated on frame change (Phase 1 Integration)
+        self.timeline.frameSelected.connect(lambda f: self._update_edit_context(frame_index=f))
+        
         self.timeline.framesSelected.connect(self._on_frames_selected)  # Multi-select
         self.timeline.playheadDragged.connect(self._on_timeline_playhead_dragged)
         self.timeline.contextMenuRequested.connect(self._on_timeline_context_menu)
@@ -2189,6 +2215,41 @@ class DesignToolsTab(QWidget):
             return
         layer_index = max(0, min(layer_index, len(layers) - 1))
         self.layer_panel.set_active_layer(layer_index)
+        
+        # New: Update Edit Context (Phase 1 Integration)
+        self._update_edit_context(layer_index=layer_index)
+    
+    def _update_edit_context(self, layer_index: Optional[int] = None, frame_index: Optional[int] = None):
+        """Update the global edit context based on current selection."""
+        try:
+            from domain.edit_context import EditContext, set_edit_context
+            
+            if layer_index is None and hasattr(self, 'layer_panel'):
+                layer_index = self.layer_panel.active_layer_index
+            
+            if frame_index is None:
+                frame_index = self._current_frame_index
+                
+            # Get layer track ID
+            tracks = self.layer_manager.get_layer_tracks()
+            if layer_index is not None and 0 <= layer_index < len(tracks):
+                track = tracks[layer_index]
+                # Default dimensions if pattern not loaded
+                width = 1
+                height = 1
+                if hasattr(self, 'pattern') and self.pattern:
+                    width = self.pattern.width
+                    height = self.pattern.height
+                
+                ctx = EditContext(
+                    active_layer_id=track.id,
+                    active_frame_index=frame_index,
+                    pattern_width=width,
+                    pattern_height=height
+                )
+                set_edit_context(ctx)
+        except (ImportError, AttributeError):
+            pass
 
     def _create_appearance_group(self) -> QGroupBox:
         group = QGroupBox("Appearance")
@@ -5093,8 +5154,14 @@ class DesignToolsTab(QWidget):
         logger = logging.getLogger(__name__)
         logger.debug(f"Applying effect '{effect.name}' to frames {start+1}-{end+1} (indices {start}-{end}, total: {len(frame_indices)} frames)")
 
+        active_idx = self.layer_panel.get_active_layer_index() if hasattr(self, 'layer_panel') else 0
+        layers_before = {
+            idx: self.layer_manager.get_layers(idx)
+            for idx in frame_indices
+        }
+        
         before_states: Dict[int, List[Tuple[int, int, int]]] = {
-            idx: list(self._pattern.frames[idx].pixels)
+            idx: list(layers_before[idx][active_idx].pixels) if active_idx < len(layers_before[idx]) else list(self._pattern.frames[idx].pixels)
             for idx in frame_indices
         }
 
@@ -5110,15 +5177,24 @@ class DesignToolsTab(QWidget):
                 QApplication.processEvents()
                 return not progress.wasCanceled()
             
-            apply_effect_to_frames(self._pattern, effect, frame_indices, intensity, progress_callback=progress_callback)
+            apply_effect_to_frames(
+                self._pattern, effect, frame_indices, intensity, 
+                progress_callback=progress_callback,
+                layer_manager=self.layer_manager,
+                layer_index=active_idx
+            )
             progress.close()
         else:
-            apply_effect_to_frames(self._pattern, effect, frame_indices, intensity)
+            apply_effect_to_frames(
+                self._pattern, effect, frame_indices, intensity,
+                layer_manager=self.layer_manager,
+                layer_index=active_idx
+            )
 
         any_changes = False
         for idx in frame_indices:
-            frame = self._pattern.frames[idx]
-            after_pixels = list(frame.pixels)
+            layers_after = self.layer_manager.get_layers(idx)
+            after_pixels = list(layers_after[active_idx].pixels) if active_idx < len(layers_after) else list(self._pattern.frames[idx].pixels)
             before_pixels = before_states[idx]
             if after_pixels != before_pixels:
                 command = FrameStateCommand(
@@ -5126,6 +5202,7 @@ class DesignToolsTab(QWidget):
                     before_pixels,
                     after_pixels,
                     f"Effect: {effect.name}",
+                    layer_index=active_idx
                 )
                 self.history_manager.push_command(command, idx)
                 any_changes = True
@@ -5375,7 +5452,7 @@ class DesignToolsTab(QWidget):
         layout.setSpacing(8)
 
         # Import button
-        import_btn = QPushButton("📁 Import Image/GIF")
+        import_btn = QPushButton("📁 Import Media (Photo/GIF/Video)")
         import_btn.clicked.connect(self._on_import_image)
         layout.addWidget(import_btn)
 
@@ -5499,25 +5576,42 @@ class DesignToolsTab(QWidget):
             }
             resize_mode = resize_map.get(resize_mode, "fit")
 
-            # Check if it's a GIF
+            # Get active layer index from layer panel
+            active_layer = 0
+            if hasattr(self, 'layer_panel') and self.layer_panel:
+                active_layer = self.layer_panel.get_active_layer_index()
+                if active_layer < 0:
+                    active_layer = 0
+
+            # Check file type
             is_gif = ImageImporter.is_gif(filepath)
+            is_video = file_ext in [".mp4", ".avi", ".mov", ".mkv"]
             
-            if is_gif:
-                # Import GIF frames
-                frames_data = ImageImporter.import_gif(
-                    filepath,
-                    width,
-                    height,
-                    resize_mode,
-                    extract_all_frames=True
-                )
+            if is_gif or is_video:
+                # Import multi-frame data (GIF or Video)
+                media_type = "Video" if is_video else "GIF"
+                if is_video:
+                    frames_data = ImageImporter.import_video(
+                        filepath,
+                        width,
+                        height,
+                        resize_mode
+                    )
+                else:
+                    frames_data = ImageImporter.import_gif(
+                        filepath,
+                        width,
+                        height,
+                        resize_mode,
+                        extract_all_frames=True
+                    )
                 
                 # Ask user if they want to replace or append
                 reply = QMessageBox.question(
                     self,
-                    "Import GIF",
-                    f"Found {len(frames_data)} frames in GIF.\n\n"
-                    "Replace current frames or append to existing frames?",
+                    f"Import {media_type}",
+                    f"Found {len(frames_data)} frames in {media_type}.\n\n"
+                    f"Replace content on current layer ('{self.layer_manager.get_layer_track(active_layer).name}') or append?",
                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
                     QMessageBox.Yes
                 )
@@ -5525,30 +5619,44 @@ class DesignToolsTab(QWidget):
                 if reply == QMessageBox.Cancel:
                     return
                 
-                # Create frames
-                new_frames = []
-                for pixels in frames_data:
-                    frame = Frame(pixels=pixels, duration_ms=self._frame_duration_ms)
-                    new_frames.append(frame)
+                # Ensure pattern has enough frames
+                current_count = len(self._pattern.frames)
+                media_frame_count = len(frames_data)
                 
-                if reply == QMessageBox.Yes:  # Replace
-                    self._pattern.frames = new_frames
+                if reply == QMessageBox.Yes:  # Replace (start from index 0)
+                    start_at = 0
+                    # If Media has more frames than current pattern, we must add frames
+                    if media_frame_count > current_count:
+                        for _ in range(media_frame_count - current_count):
+                            self.frame_manager.add_blank_after_current(self._frame_duration_ms)
+                    
+                    # Use bulk import helper for targeted layer
+                    self.layer_manager.import_gif_to_layer(frames_data, active_layer, start_at, self._frame_duration_ms)
                     self._current_frame_index = 0
                 else:  # Append
-                    self._pattern.frames.extend(new_frames)
+                    start_at = current_count
+                    # Add necessary frames to pattern
+                    for _ in range(media_frame_count):
+                        # Moving to the end to append
+                        self._current_frame_index = len(self._pattern.frames) - 1
+                        self.frame_manager.add_blank_after_current(self._frame_duration_ms)
+                    
+                    # Import to the newly added frames on specific layer
+                    self.layer_manager.import_gif_to_layer(frames_data, active_layer, start_at, self._frame_duration_ms)
+                    self._current_frame_index = start_at
                 
                 self.import_preview_label.setText(
-                    f"Imported {len(frames_data)} frames from GIF"
+                    f"Imported {len(frames_data)} frames from {media_type} to Layer '{self.layer_manager.get_layer_track(active_layer).name}'"
                 )
             else:
-                # Import single image
+                # Import single image (Photo)
                 pixels = ImageImporter.import_image(filepath, width, height, resize_mode)
                 
                 # Ask user if they want to replace current frame or add as new frame
                 reply = QMessageBox.question(
                     self,
-                    "Import Image",
-                    "Replace current frame or add as new frame?",
+                    "Import Photo",
+                    f"Replace current frame on layer '{self.layer_manager.get_layer_track(active_layer).name}' or add as new frame?",
                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
                     QMessageBox.Yes
                 )
@@ -5556,20 +5664,19 @@ class DesignToolsTab(QWidget):
                 if reply == QMessageBox.Cancel:
                     return
                 
-                frame = Frame(pixels=pixels, duration_ms=self._frame_duration_ms)
-                
-                if reply == QMessageBox.Yes:  # Replace current frame
-                    if self._pattern.frames:
-                        self._pattern.frames[self._current_frame_index] = frame
-                    else:
-                        self._pattern.frames = [frame]
-                else:  # Add as new frame
+                if reply == QMessageBox.Yes:  # Replace current frame on active layer
                     if not self._pattern.frames:
-                        self._pattern.frames = []
-                    self._pattern.frames.append(frame)
+                        self.frame_manager.add_blank_after_current(self._frame_duration_ms)
+                    
+                    self.layer_manager.replace_pixels(self._current_frame_index, pixels, active_layer)
+                else:  # Add as new frame
+                    # Add frame to pattern correctly via frame_manager
                     self._current_frame_index = len(self._pattern.frames) - 1
+                    new_idx = self.frame_manager.add_blank_after_current(self._frame_duration_ms)
+                    self.layer_manager.replace_pixels(new_idx, pixels, active_layer)
+                    self._current_frame_index = new_idx
                 
-                self.import_preview_label.setText("Image imported successfully")
+                self.import_preview_label.setText("Image imported successfully to active layer")
             
             # Update UI
             self.history_manager.set_frame_count(len(self._pattern.frames))
@@ -7591,8 +7698,12 @@ class DesignToolsTab(QWidget):
             if self._pending_broadcast_states is None:
                 self._pending_broadcast_states = {}
                 for idx in range(len(self._pattern.frames)):
-                    frame = self._pattern.frames[idx]
-                    self._pending_broadcast_states[idx] = list(frame.pixels)
+                    layers = self.layer_manager.get_layers(idx)
+                    active_layer = self.layer_panel.get_active_layer_index() if hasattr(self, 'layer_panel') else 0
+                    if active_layer < len(layers):
+                        self._pending_broadcast_states[idx] = list(layers[active_layer].pixels)
+                    else:
+                        self._pending_broadcast_states[idx] = list(self._pattern.frames[idx].pixels)
         elif apply_to_first:
             # For "first frame only" mode, save state of first frame
             if self._pending_broadcast_states is None:
@@ -7603,8 +7714,12 @@ class DesignToolsTab(QWidget):
         else:
             # For single frame mode, save state of current frame only
             if self._pending_paint_state is None:
-                frame = self._pattern.frames[self._current_frame_index]
-                self._pending_paint_state = list(frame.pixels)
+                layers = self.layer_manager.get_layers(self._current_frame_index)
+                active_idx = self.layer_panel.get_active_layer_index() if hasattr(self, 'layer_panel') else 0
+                if active_idx < len(layers):
+                    self._pending_paint_state = list(layers[active_idx].pixels)
+                else:
+                    self._pending_paint_state = list(self._pattern.frames[self._current_frame_index].pixels)
         
         width = self.state.width()
         height = self.state.height()
@@ -7672,6 +7787,12 @@ class DesignToolsTab(QWidget):
         
         # Apply pixel updates (but defer sync for batch optimization)
         frames_to_sync = set()
+        # PROOF: Explicitly log target layer for drawing
+        if hasattr(self, "layer_panel"):
+            target_layer_name = self.layer_manager.get_layer_track(active_layer).name
+            import logging
+            logging.getLogger("root").info(f"[DRAW] Target: Layer {active_layer} ('{target_layer_name}') | Pos: ({x}, {y})")
+
         for frame_index in target_frames:
             self.layer_manager.apply_pixel(frame_index, x, y, color, width, height, active_layer)
             # Don't sync immediately - batch sync at end of paint operation
@@ -7759,8 +7880,12 @@ class DesignToolsTab(QWidget):
             if self._pending_paint_state is None:
                 return
         
-        frame = self._pattern.frames[self._current_frame_index]
-        new_pixels = list(frame.pixels)
+        layers = self.layer_manager.get_layers(self._current_frame_index)
+        active_idx = self.layer_panel.get_active_layer_index() if hasattr(self, 'layer_panel') else 0
+        if active_idx < len(layers):
+            new_pixels = list(layers[active_idx].pixels)
+        else:
+            new_pixels = list(self._pattern.frames[self._current_frame_index].pixels)
         
         # Only save if pixels actually changed
         if new_pixels != self._pending_paint_state:
@@ -7768,7 +7893,8 @@ class DesignToolsTab(QWidget):
                 self._current_frame_index,
                 self._pending_paint_state,
                 new_pixels,
-                "Paint pixels"
+                "Paint pixels",
+                layer_index=active_idx
             )
             self.history_manager.push_command(command, self._current_frame_index)
             self._update_undo_redo_states()  # Update button states after paint operation
@@ -7837,14 +7963,11 @@ class DesignToolsTab(QWidget):
             
             # Update layer manager if present to ensure next render uses undone state
             if hasattr(self, 'layer_manager'):
-                # Get active layer index from layer panel if available
-                active_layer = 0
-                if hasattr(self, 'layer_panel'):
-                    active_layer = self.layer_panel.get_active_layer_index()
-                    if active_layer < 0: active_layer = 0
+                # Use stored layer index from command (critical for multi-layer isolation)
+                target_layer = getattr(command, 'layer_index', 0)
                 
-                # Replace pixels in the active layer track
-                self.layer_manager.replace_pixels(self._current_frame_index, pixels, active_layer)
+                # Replace pixels in the correct layer track
+                self.layer_manager.replace_pixels(self._current_frame_index, pixels, target_layer)
             
             # Also update legacy frame pixels for fallback and consistency
             frame = self._pattern.frames[self._current_frame_index]
@@ -7882,12 +8005,10 @@ class DesignToolsTab(QWidget):
             
             # Update layer manager if present
             if hasattr(self, 'layer_manager'):
-                active_layer = 0
-                if hasattr(self, 'layer_panel'):
-                    active_layer = self.layer_panel.get_active_layer_index()
-                    if active_layer < 0: active_layer = 0
+                # Use stored layer index from command
+                target_layer = getattr(command, 'layer_index', 0)
                 
-                self.layer_manager.replace_pixels(self._current_frame_index, pixels, active_layer)
+                self.layer_manager.replace_pixels(self._current_frame_index, pixels, target_layer)
             
             # Update legacy frame pixels
             frame = self._pattern.frames[self._current_frame_index]
@@ -9824,8 +9945,10 @@ class DesignToolsTab(QWidget):
             QMessageBox.warning(
                 self,
                 "No Unique Frames",
-                f"All {len(new_frames)} generated frame(s) were duplicates of existing frames.\n"
-                "No new frames were added."
+                f"All {len(new_frames)} generated frame(s) were duplicates of existing frames.\n\n"
+                "Tip: If you are animating a blank layer or a layer with a solid color, "
+                "scrolling or rotating it will not produce unique visual changes. "
+                "Ensure your active layer has drawing content before generating animations."
             )
             return
         
@@ -9849,25 +9972,43 @@ class DesignToolsTab(QWidget):
             # Sort actions by priority once (for consistency)
             sorted_actions = sorted(actions, key=lambda x: ACTION_PRIORITY.get(x.action_type.lower(), 100))
             
+            # Get active layer index
+            active_idx = 0
+            if hasattr(self, 'layer_panel') and self.layer_panel:
+                active_idx = self.layer_panel.get_active_layer_index()
+                if active_idx < 0:
+                    active_idx = 0
+
             for i, new_frame in enumerate(unique_new_frames):
                 new_frame_idx = new_frame_start_idx + i
                 # Step correlates to index i. If appending (initial > 0), bias by 1 to skip static Step 0.
                 current_step = i + 1 if initial_frame_count > 0 else i
                 
-                # For each track, apply TRANSFORMATION to source frame
-                for track in tracks:
+                # For each track, apply TRANSFORMATION ONLY if it is the active layer
+                for track_idx, track in enumerate(tracks):
                     source_layer_frame = track.get_frame(source_frame_idx)
                     if source_layer_frame:
                         # Start with source pixels
                         layer_pixels = [tuple(p) for p in source_layer_frame.pixels]
                         
-                        # Apply all actions to this layer's pixels
-                        for action in sorted_actions:
-                            transformed = self._transform_pixels(layer_pixels, action, width, height, current_step)
-                            if transformed:
-                                layer_pixels = transformed
-                                
-                        # Save transformed frame to track
+                        # Apply actions ONLY to the active layer
+                        if track_idx == active_idx:
+                            # PROOF: Log transformation targeting specific layer
+                            if i == 0:  # Log only once per generation batch
+                                import logging
+                                logging.getLogger("root").info(f"[LAYER_ANIM] Transforming Layer {track_idx} ('{track.name}') while preserving others.")
+                            
+                            for action in sorted_actions:
+                                transformed = self._transform_pixels(layer_pixels, action, width, height, current_step)
+                                if transformed:
+                                    layer_pixels = transformed
+                        else:
+                            # PROOF: Log preservation of other layers
+                            if i == 0:  # Log only once per generation batch
+                                import logging
+                                logging.getLogger("root").info(f"[LAYER_ANIM] KEEPALIVE: Preserving Layer {track_idx} ('{track.name}') state.")
+                        
+                        # Save transformed (or copied) frame to track
                         new_layer_frame = source_layer_frame.copy()
                         new_layer_frame.pixels = layer_pixels
                         track.set_frame(new_frame_idx, new_layer_frame)
@@ -10360,9 +10501,36 @@ class DesignToolsTab(QWidget):
     # Frame transformation helpers
     # ------------------------------------------------------------------
     def _frame_to_grid(self, frame: Frame) -> List[List[Tuple[int, int, int]]]:
+        """Convert frame pixels to grid, preferring active layer if available."""
         width = self._pattern.metadata.width
         height = self._pattern.metadata.height
-        pixels = list(frame.pixels)
+        
+        # Try to get pixels from active layer first
+        pixels = None
+        frame_index = None
+        if hasattr(self, '_pattern') and self._pattern:
+            try:
+                frame_index = self._pattern.frames.index(frame)
+            except (ValueError, AttributeError):
+                # Fallback to current index if frame not in list
+                frame_index = getattr(self, '_current_frame_index', None)
+        
+        if frame_index is not None and hasattr(self, 'layer_manager') and self.layer_manager:
+            active_layer = 0
+            if hasattr(self, 'layer_panel') and self.layer_panel:
+                active_layer = self.layer_panel.get_active_layer_index()
+                if active_layer < 0:
+                    active_layer = 0
+            
+            # Use layer_manager to get specific layer pixels
+            layers = self.layer_manager.get_layers(frame_index)
+            if active_layer < len(layers):
+                pixels = list(layers[active_layer].pixels)
+        
+        # Fallback to composite pixels from frame
+        if pixels is None:
+            pixels = list(frame.pixels)
+            
         grid = []
         idx = 0
         for _ in range(height):
@@ -10494,7 +10662,16 @@ class DesignToolsTab(QWidget):
             except (ValueError, AttributeError):
                 frame_index = getattr(self, '_current_frame_index', None)
         
-        inverted_pixels = [(255 - r, 255 - g, 255 - b) for r, g, b in frame.pixels]
+        # Get current pixels from layer or frame
+        current_pixels = frame.pixels
+        if frame_index is not None and hasattr(self, 'layer_manager') and self.layer_manager:
+            track = self.layer_manager.get_layer_track(active_layer if 'active_layer' in locals() else 0)
+            if track:
+                layer_frame = track.get_frame(frame_index)
+                if layer_frame:
+                    current_pixels = layer_frame.pixels
+        
+        inverted_pixels = [(255 - r, 255 - g, 255 - b) for r, g, b in current_pixels]
         
         # Update layer if using layer manager
         if frame_index is not None and hasattr(self, 'layer_manager') and self.layer_manager:
@@ -11329,6 +11506,16 @@ class DesignToolsTab(QWidget):
         if self._suspend_timeline_refresh:
             return
         self._refresh_timeline()
+        
+        # Update Active Layer label in header
+        if hasattr(self, "active_layer_label") and hasattr(self, "layer_panel"):
+            active_idx = self.layer_panel.get_active_layer_index()
+            tracks = self.layer_manager.get_layer_tracks()
+            if 0 <= active_idx < len(tracks):
+                track = tracks[active_idx]
+                self.active_layer_label.setText(f"Editing: {track.name}")
+            else:
+                self.active_layer_label.setText("Editing: None")
 
     def _select_frame_safely(self, index: int):
         if not self._pattern or not self._pattern.frames:
