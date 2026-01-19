@@ -377,8 +377,8 @@ class LayerTrack:
         """
         if frame_index not in self.frames:
             blank_pixels = [(0, 0, 0)] * (width * height)
-            # Initialize with fully opaque alpha (255) for all pixels
-            blank_alpha = [255] * (width * height)
+            # Initialize with fully transparent alpha (0) for all pixels
+            blank_alpha = [0] * (width * height)
             self.frames[frame_index] = LayerFrame(pixels=blank_pixels, alpha=blank_alpha)
         else:
             # Ensure existing frame has alpha channel
@@ -400,15 +400,21 @@ class LayerTrack:
     def get_effective_visibility(self, frame_index: int) -> bool:
         """Get effective visibility for a frame (frame override or layer default)."""
         frame = self.get_frame(frame_index)
-        if frame and frame.visible is not None:
-            return frame.visible
+        try:
+            if frame and frame.visible is not None:
+                return frame.visible
+        except AttributeError:
+            pass
         return self.visible
     
     def get_effective_opacity(self, frame_index: int) -> float:
         """Get effective opacity for a frame (frame override or layer default)."""
         frame = self.get_frame(frame_index)
-        if frame and frame.opacity is not None:
-            return max(0.0, min(1.0, frame.opacity))
+        try:
+            if frame and frame.opacity is not None:
+                return max(0.0, min(1.0, frame.opacity))
+        except AttributeError:
+            pass
         return self.opacity
     
     def copy(self) -> 'LayerTrack':
@@ -721,6 +727,29 @@ class LayerManager(QObject):
             # Emit signal to update UI
             self.layers_changed.emit(-1)
     
+    def is_layer_active(self, track: LayerTrack, frame_index: int) -> bool:
+        """
+        Check if a layer track is active at a given frame index.
+        
+        CRITICAL LAYER ISOLATION ENFORCEMENT:
+        - Each layer has its own local frame range (start_frame to end_frame)
+        - Layer 1: 0-11, Layer 2: 0-5 (NOT 12-17)
+        - Layers are transparent outside their frame range
+        
+        Args:
+            track: LayerTrack to check
+            frame_index: Global frame index to check
+            
+        Returns:
+            True if layer is active at this frame, False otherwise
+        """
+        # Check if frame is within layer's active window
+        if track.start_frame is not None and frame_index < track.start_frame:
+            return False
+        if track.end_frame is not None and frame_index > track.end_frame:
+            return False
+        return True
+    
     def add_layer_track(self, name: Optional[str] = None, insert_at: Optional[int] = None) -> int:
         """Add a new layer track (new API)."""
         width = self._state.width()
@@ -736,10 +765,10 @@ class LayerManager(QObject):
         # Initialize with blank frames for all existing frames
         if self._state.pattern():
             for idx in range(len(self._state.pattern().frames)):
-                # Initialize with fully opaque alpha
+                # Initialize with fully transparent alpha so proper composting happens
                 pixel_count = len(blank_pixels)
                 # Create a fresh alpha list per frame to avoid sharing state
-                blank_alpha = [255] * pixel_count
+                blank_alpha = [0] * pixel_count
                 layer_frame = LayerFrame(pixels=list(blank_pixels), alpha=blank_alpha)
                 new_track.set_frame(idx, layer_frame)
         
