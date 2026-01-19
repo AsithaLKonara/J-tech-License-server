@@ -8,6 +8,8 @@ animated GIFs, converting them to LED matrix frames.
 from __future__ import annotations
 
 import os
+import cv2  # Added for video support
+import numpy as np
 from typing import List, Tuple, Optional
 from PIL import Image
 from core.pattern import Frame
@@ -191,6 +193,91 @@ class ImageImporter:
             raise Exception(f"Failed to import GIF: {e}")
     
     @staticmethod
+    def import_video(
+        filepath: str,
+        target_width: int,
+        target_height: int,
+        resize_mode: str = "fit",
+        max_frames: int = 1000
+    ) -> List[List[RGB]]:
+        """
+        Import a video file and extract frames.
+        
+        Args:
+            filepath: Path to video file
+            target_width: Target matrix width
+            target_height: Target matrix height
+            resize_mode: "fit", "stretch", or "crop"
+            max_frames: Hard limit on frames to prevent memory exhaustion
+        """
+        try:
+            frames: List[List[RGB]] = []
+            cap = cv2.VideoCapture(filepath)
+            
+            if not cap.isOpened():
+                raise Exception("Could not open video file")
+            
+            frame_count = 0
+            while frame_count < max_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Convert BGR (OpenCV) to RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Convert to PIL Image for consistent resizing logic
+                img = Image.fromarray(frame_rgb)
+                
+                # Use existing resizing logic (re-implementing fits/stretch for PIL)
+                # (Re-using logic from import_image code-wise but locally for speed)
+                if resize_mode == "stretch":
+                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                elif resize_mode == "crop":
+                    # Center crop
+                    aspect = img.width / img.height
+                    target_aspect = target_width / target_height
+                    if aspect > target_aspect:
+                        new_width = int(img.height * target_aspect)
+                        left = (img.width - new_width) // 2
+                        img = img.crop((left, 0, left + new_width, img.height))
+                    else:
+                        new_height = int(img.width / target_aspect)
+                        top = (img.height - new_height) // 2
+                        img = img.crop((0, top, img.width, top + new_height))
+                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                else:  # fit
+                    aspect = img.width / img.height
+                    target_aspect = target_width / target_height
+                    if aspect > target_aspect:
+                        new_width = target_width
+                        new_height = int(target_width / aspect)
+                    else:
+                        new_height = target_height
+                        new_width = int(target_height * aspect)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    padded = Image.new("RGB", (target_width, target_height), (0, 0, 0))
+                    padded.paste(img, ((target_width - new_width) // 2, (target_height - new_height) // 2))
+                    img = padded
+                
+                # Convert to pixel list
+                pixels: List[RGB] = []
+                for y in range(target_height):
+                    for x in range(target_width):
+                        pixels.append(img.getpixel((x, y)))
+                
+                frames.append(pixels)
+                frame_count += 1
+            
+            cap.release()
+            return frames
+            
+        except Exception as e:
+            if 'cap' in locals():
+                cap.release()
+            raise Exception(f"Failed to import video: {e}")
+    
+    @staticmethod
     def is_gif(filepath: str) -> bool:
         """Check if file is a GIF."""
         try:
@@ -201,6 +288,6 @@ class ImageImporter:
     
     @staticmethod
     def get_supported_formats() -> List[str]:
-        """Get list of supported image formats."""
-        return ["PNG", "BMP", "JPEG", "JPG", "GIF"]
+        """Get list of supported image and video formats."""
+        return ["PNG", "BMP", "JPEG", "JPG", "GIF", "MP4", "AVI", "MOV", "MKV"]
 
