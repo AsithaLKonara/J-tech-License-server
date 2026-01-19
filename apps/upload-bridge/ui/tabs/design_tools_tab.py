@@ -530,10 +530,21 @@ class DesignToolsTab(QWidget):
         self.main_splitter.addWidget(self.toolbox_container)
         self.main_splitter.setStretchFactor(0, 3)
         self.main_splitter.setStretchFactor(1, 1)
-        root_layout.addWidget(self.main_splitter, 1)
 
+        # NEW: Vertical Splitter to make Timeline resizable
+        self.vertical_content_splitter = QSplitter(Qt.Vertical)
+        self.vertical_content_splitter.setChildrenCollapsible(False)
+        self.vertical_content_splitter.addWidget(self.main_splitter)
+        
         self.timeline_dock = self._create_timeline_dock()
-        root_layout.addWidget(self.timeline_dock)
+        self.vertical_content_splitter.addWidget(self.timeline_dock)
+        
+        # Set initial distribution (Main Content 70%, Timeline 30%)
+        self.vertical_content_splitter.setStretchFactor(0, 7)
+        self.vertical_content_splitter.setStretchFactor(1, 3)
+        self.vertical_content_splitter.setSizes([700, 300]) # 2x height for timeline base
+        
+        root_layout.addWidget(self.vertical_content_splitter, 1)
 
         self._set_canvas_zoom(100)
         self._update_status_labels()
@@ -691,6 +702,21 @@ class DesignToolsTab(QWidget):
         self._apply_button_icon(rotate_btn, "refresh", tooltip="Rotate 90 degrees clockwise", icon_only=True)
         rotate_btn.setMinimumSize(24, 24)
         quick_actions_layout.addWidget(rotate_btn)
+
+        quick_actions_layout.addSpacing(10)
+        
+        # UNDO/REDO (Moved from Canvas Panel to Header)
+        self.canvas_undo_btn = QPushButton()
+        self.canvas_undo_btn.clicked.connect(self._on_undo)
+        self._apply_button_icon(self.canvas_undo_btn, "undo", tooltip="Undo (Ctrl+Z)", icon_only=True)
+        self.canvas_undo_btn.setMinimumSize(24, 24)
+        quick_actions_layout.addWidget(self.canvas_undo_btn)
+
+        self.canvas_redo_btn = QPushButton()
+        self.canvas_redo_btn.clicked.connect(self._on_redo)
+        self._apply_button_icon(self.canvas_redo_btn, "redo", tooltip="Redo (Ctrl+Y)", icon_only=True)
+        self.canvas_redo_btn.setMinimumSize(24, 24)
+        quick_actions_layout.addWidget(self.canvas_redo_btn)
         
         quick_actions_widget = QWidget()
         quick_actions_widget.setLayout(quick_actions_layout)
@@ -782,22 +808,6 @@ class DesignToolsTab(QWidget):
         title_row.addStretch(1)
         layout.addLayout(title_row)
 
-        hud_row = QHBoxLayout()
-        hud_row.setContentsMargins(0, 0, 0, 0)
-        hud_row.setSpacing(6)
-
-        self.canvas_undo_btn = QToolButton()
-        self.canvas_undo_btn.clicked.connect(self._on_undo)
-        self._apply_button_icon(self.canvas_undo_btn, "undo", tooltip="Undo (Ctrl+Z)", icon_only=True)
-        hud_row.addWidget(self.canvas_undo_btn)
-
-        self.canvas_redo_btn = QToolButton()
-        self.canvas_redo_btn.clicked.connect(self._on_redo)
-        self._apply_button_icon(self.canvas_redo_btn, "redo", tooltip="Redo (Ctrl+Y)", icon_only=True)
-        hud_row.addWidget(self.canvas_redo_btn)
-
-        layout.addLayout(hud_row)
-        
         # Broadcast mode warning banner (initially hidden)
         self._brush_broadcast_banner = self._create_broadcast_warning_banner()
         layout.addWidget(self._brush_broadcast_banner)
@@ -860,118 +870,123 @@ class DesignToolsTab(QWidget):
     def _create_timeline_dock(self) -> QWidget:
         dock = QFrame()
         dock.setObjectName("timelineDock")
+        dock.setMinimumHeight(240) # Increased height (approx 2x from standard)
         layout = QVBoxLayout(dock)
-        layout.setContentsMargins(0, 8, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(10)
 
-        self.timeline = TimelineWidget()
-        self.timeline.frameSelected.connect(self._on_frame_selected)
-        # Ensure EditContext is updated on frame change (Phase 1 Integration)
-        self.timeline.frameSelected.connect(lambda f: self._update_edit_context(frame_index=f))
+        # Timeline Toolbar (Visual Hierarchy)
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
         
-        self.timeline.framesSelected.connect(self._on_frames_selected)  # Multi-select
-        self.timeline.playheadDragged.connect(self._on_timeline_playhead_dragged)
-        self.timeline.contextMenuRequested.connect(self._on_timeline_context_menu)
-        self.timeline.overlayActivated.connect(self._on_timeline_overlay_activated)
-        self.timeline.overlayContextMenuRequested.connect(self._on_timeline_overlay_context_menu)
-        self.timeline.layerTrackSelected.connect(self._on_timeline_layer_selected)
-        
-        # Enable CapCut-style grid mode
-        self.timeline.enable_grid_mode(True)
-        
-        # Connect to managers for drag-and-drop
-        self.timeline.set_frame_manager(self.frame_manager)
-        self.timeline.set_layer_manager(self.layer_manager)
-        
-        # Connect layer visibility toggle
-        self.timeline.layerVisibilityToggled.connect(self._on_timeline_layer_visibility_toggled)
-        
-        # Wrap timeline in scroll area for horizontal scrolling
-        from PySide6.QtWidgets import QScrollArea
-        timeline_scroll = QScrollArea()
-        timeline_scroll.setWidget(self.timeline)
-        timeline_scroll.setWidgetResizable(True)
-        timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        timeline_scroll.setFrameShape(QScrollArea.Shape.NoFrame)  # Remove border
-        
-        layout.addWidget(timeline_scroll, 1)
-
-        # Simple timeline mode toggle
-        simple_mode_label = QLabel("Simple Mode:")
-        layout.addWidget(simple_mode_label)
-        
-        self.simple_timeline_checkbox = QCheckBox("Hide layers (simple animations)")
-        self.simple_timeline_checkbox.setToolTip("Hide layer tracks for simpler timeline view")
+        # 1. Simple Mode Switch (Compact)
+        simple_mode_layout = QHBoxLayout()
+        simple_mode_layout.setSpacing(6)
+        mode_icon = QLabel()
+        mode_icon.setPixmap(get_icon("layers", size=16).pixmap(16, 16))
+        simple_mode_layout.addWidget(mode_icon)
+        self.simple_timeline_checkbox = QCheckBox("Simple Mode")
+        self.simple_timeline_checkbox.setToolTip("Hide layer tracks for a streamlined view")
         self.simple_timeline_checkbox.toggled.connect(self._on_simple_timeline_toggled)
-        layout.addWidget(self.simple_timeline_checkbox)
+        simple_mode_layout.addWidget(self.simple_timeline_checkbox)
+        toolbar.addLayout(simple_mode_layout)
+        
+        toolbar.addSpacing(20)
+        toolbar.addWidget(self._create_separator(vertical=True))
+        toolbar.addSpacing(20)
 
-        controls = QHBoxLayout()
-        controls.setContentsMargins(0, 0, 0, 0)
-        controls.setSpacing(12)
-
+        # 2. Frame Operations (Compact buttons)
         frame_ops = QHBoxLayout()
-        frame_ops.setSpacing(6)
-        self.add_frame_btn = QPushButton("Add")
-        self._apply_button_icon(self.add_frame_btn, "add", tooltip="Add new frame (Ctrl+Shift+A)")
+        frame_ops.setSpacing(4)
+        
+        ops_label = QLabel("Frames:")
+        ops_label.setStyleSheet("color: #AAAAAA; font-weight: bold; font-size: 10px; text-transform: uppercase;")
+        frame_ops.addWidget(ops_label)
+
+        self.add_frame_btn = QToolButton()
+        self._apply_button_icon(self.add_frame_btn, "add", tooltip="Add Frame (Ctrl+Shift+A)")
         self.add_frame_btn.clicked.connect(self._on_add_frame)
         frame_ops.addWidget(self.add_frame_btn)
 
-        self.bulk_add_frame_btn = QPushButton("Bulk Add")
-        self._apply_button_icon(self.bulk_add_frame_btn, "add", tooltip="Add multiple frames at once")
+        self.bulk_add_frame_btn = QToolButton()
+        self._apply_button_icon(self.bulk_add_frame_btn, "add", tooltip="Bulk Add Frames")
         self.bulk_add_frame_btn.clicked.connect(self._on_bulk_add_frames)
         frame_ops.addWidget(self.bulk_add_frame_btn)
 
-        self.duplicate_frame_btn = QPushButton("Duplicate")
-        self._apply_button_icon(self.duplicate_frame_btn, "duplicate", tooltip="Duplicate selected frame")
+        self.duplicate_frame_btn = QToolButton()
+        self._apply_button_icon(self.duplicate_frame_btn, "duplicate", tooltip="Duplicate Selected")
         self.duplicate_frame_btn.clicked.connect(self._on_duplicate_frame)
         frame_ops.addWidget(self.duplicate_frame_btn)
 
-        self.delete_frame_btn = QPushButton("Delete")
-        self._apply_button_icon(self.delete_frame_btn, "delete", tooltip="Delete selected frame (Del)")
+        self.delete_frame_btn = QToolButton()
+        self._apply_button_icon(self.delete_frame_btn, "delete", tooltip="Delete Frame (Del)")
         self.delete_frame_btn.clicked.connect(self._on_delete_frame)
         frame_ops.addWidget(self.delete_frame_btn)
 
-        self.bulk_delete_frame_btn = QPushButton("Bulk Delete")
-        self._apply_button_icon(self.bulk_delete_frame_btn, "delete", tooltip="Delete frame range")
-        self.bulk_delete_frame_btn.clicked.connect(self._on_bulk_delete_frames)
-        frame_ops.addWidget(self.bulk_delete_frame_btn)
-        controls.addLayout(frame_ops)
+        toolbar.addLayout(frame_ops)
+        
+        toolbar.addStretch(1)
 
-        controls.addStretch(1)
-
+        # 3. Playback Controls (Center Focused)
         playback_ops = QHBoxLayout()
-        playback_ops.setSpacing(6)
+        playback_ops.setSpacing(2)
+        
         self.playback_prev_btn = QToolButton()
-        self._apply_button_icon(self.playback_prev_btn, "step-back", tooltip="Step to previous frame", icon_only=True)
+        self._apply_button_icon(self.playback_prev_btn, "step-back", tooltip="Prev Frame", icon_only=True)
+        self.playback_prev_btn.setFixedSize(30, 30)
         self.playback_prev_btn.clicked.connect(lambda: self._step_frame(-1, wrap=self._loop_enabled()))
         playback_ops.addWidget(self.playback_prev_btn)
 
         self.playback_play_btn = QToolButton()
-        self._apply_button_icon(self.playback_play_btn, "play", tooltip="Play timeline", icon_only=True)
-        self.playback_play_btn.clicked.connect(self._on_transport_play)
+        self._apply_button_icon(self.playback_play_btn, "play", tooltip="Play/Pause (Space)", icon_only=True)
+        self.playback_play_btn.setFixedSize(40, 40)
+        self.playback_play_btn.setIconSize(QSize(24, 24))
+        self.playback_play_btn.clicked.connect(self._on_playback_clicked)
         playback_ops.addWidget(self.playback_play_btn)
 
-        self.playback_pause_btn = QToolButton()
-        self._apply_button_icon(self.playback_pause_btn, "pause", tooltip="Pause playback", icon_only=True)
-        self.playback_pause_btn.clicked.connect(self._on_transport_pause)
-        playback_ops.addWidget(self.playback_pause_btn)
-
-        self.playback_stop_btn = QToolButton()
-        self._apply_button_icon(self.playback_stop_btn, "stop", tooltip="Stop playback", icon_only=True)
-        self.playback_stop_btn.clicked.connect(self._on_transport_stop)
-        playback_ops.addWidget(self.playback_stop_btn)
-
         self.playback_next_btn = QToolButton()
-        self._apply_button_icon(self.playback_next_btn, "step-forward", tooltip="Step to next frame", icon_only=True)
+        self._apply_button_icon(self.playback_next_btn, "step-forward", tooltip="Next Frame", icon_only=True)
+        self.playback_next_btn.setFixedSize(30, 30)
         self.playback_next_btn.clicked.connect(lambda: self._step_frame(1, wrap=self._loop_enabled()))
         playback_ops.addWidget(self.playback_next_btn)
-        controls.addLayout(playback_ops)
+        
+        toolbar.addLayout(playback_ops)
+        toolbar.addStretch(1)
 
-        controls.addStretch(1)
+        layout.addLayout(toolbar)
+
+        # Timeline Widget with Scroll Area
+        self.timeline = TimelineWidget()
+        self.timeline.frameSelected.connect(self._on_frame_selected)
+        self.timeline.frameSelected.connect(lambda f: self._update_edit_context(frame_index=f))
+        self.timeline.framesSelected.connect(self._on_frames_selected)
+        self.timeline.playheadDragged.connect(self._on_timeline_playhead_dragged)
+        self.timeline.contextMenuRequested.connect(self._on_timeline_context_menu)
+        self.timeline.layerTrackSelected.connect(self._on_timeline_layer_selected)
+        self.timeline.enable_grid_mode(True)
+        self.timeline.set_frame_manager(self.frame_manager)
+        self.timeline.set_layer_manager(self.layer_manager)
+        self.timeline.layerVisibilityToggled.connect(self._on_timeline_layer_visibility_toggled)
+        
+        timeline_scroll = QScrollArea()
+        timeline_scroll.setWidget(self.timeline)
+        timeline_scroll.setWidgetResizable(True)
+        timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded) # Enabled vertical scroll for layer intensive timelines
+        timeline_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        timeline_scroll.setStyleSheet("background-color: #1A1A1A; border-radius: 4px;")
+        
+        layout.addWidget(timeline_scroll, 1)
+
+        # Footer Controls Layout
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(12)
 
         info_ops = QHBoxLayout()
         info_ops.setSpacing(8)
+        
+        # Frame duration control
         info_ops.addWidget(QLabel("Frame duration (ms):"))
         self.duration_spin = QSpinBox()
         self.duration_spin.setRange(1, 2000)
@@ -997,6 +1012,7 @@ class DesignToolsTab(QWidget):
 
         layout.addLayout(controls)
         self._on_timeline_zoom_changed(self.timeline_zoom_slider.value())
+        
         return dock
 
     def _on_toolbox_tab_changed(self, index: int) -> None:
@@ -1615,18 +1631,34 @@ class DesignToolsTab(QWidget):
         canvas_splitter = QSplitter(Qt.Horizontal)
         canvas_splitter.setChildrenCollapsible(False)
         
-        # Left side: Editable rectangular grid
+        # Initialize Canvas components
         self.canvas = MatrixDesignCanvas(width=12, height=6, pixel_size=28)
         self.canvas.pixel_updated.connect(self._on_canvas_pixel_updated)
         self.canvas.painting_finished.connect(self._commit_paint_operation)
-        # Eyedropper tool removed - color_picked signal no longer needed
         self.canvas.set_random_palette(self.DEFAULT_COLORS)
         self.canvas.set_gradient_brush(self._start_gradient_color, self._end_gradient_color, 32)
-        canvas_splitter.addWidget(self.canvas)
         
-        # Right side: Read-only circular preview
         self.circular_preview = CircularPreviewCanvas()
-        canvas_splitter.addWidget(self.circular_preview)
+
+        # Left side: Editable rectangular grid (Wrapped in scroll area for full responsiveness)
+        canvas_scroll = QScrollArea()
+        canvas_scroll.setWidget(self.canvas)
+        canvas_scroll.setWidgetResizable(True)
+        canvas_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        canvas_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        canvas_scroll.setFrameShape(QFrame.NoFrame)
+        canvas_scroll.setStyleSheet("background-color: #1A1A1A;")
+        canvas_splitter.addWidget(canvas_scroll)
+        
+        # Right side: Read-only circular preview (Wrapped in scroll area)
+        preview_scroll = QScrollArea()
+        preview_scroll.setWidget(self.circular_preview)
+        preview_scroll.setWidgetResizable(True)
+        preview_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        preview_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        preview_scroll.setFrameShape(QFrame.NoFrame)
+        preview_scroll.setStyleSheet("background-color: #1A1A1A;")
+        canvas_splitter.addWidget(preview_scroll)
         
         # Set stretch factors (left gets more space)
         canvas_splitter.setStretchFactor(0, 3)
@@ -1641,77 +1673,99 @@ class DesignToolsTab(QWidget):
         self._update_canvas_group_height()
         return group
 
-    def _create_view_controls_group(self) -> QGroupBox:
-        group = QGroupBox("View Controls")
-        layout = QVBoxLayout()
-        layout.setSpacing(6)
+    def _create_view_controls_group(self) -> QWidget:
+        container = QFrame()
+        container.setObjectName("viewControlsContainer")
+        container.setStyleSheet("""
+            QFrame#viewControlsContainer {
+                background-color: #2D2D2D;
+                border-top: 1px solid #3D3D3D;
+                border-bottom: 2px solid #1A1A1A;
+            }
+        """)
+        
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(12)
 
-        zoom_row = QHBoxLayout()
-        zoom_row.addWidget(QLabel("Canvas Zoom:"))
+        # 1. Zoom Section
+        zoom_layout = QHBoxLayout()
+        zoom_layout.setSpacing(8)
+        
+        zoom_label = QLabel("Canvas:")
+        zoom_label.setStyleSheet("color: #AAAAAA; font-weight: bold; font-size: 10px; text-transform: uppercase;")
+        zoom_layout.addWidget(zoom_label)
+        
         self.canvas_zoom_slider = QSlider(Qt.Horizontal)
         self.canvas_zoom_slider.setRange(25, 300)
         self.canvas_zoom_slider.setValue(100)
+        self.canvas_zoom_slider.setFixedWidth(100)
+        self.canvas_zoom_slider.setToolTip("Adjust canvas zoom level")
         self.canvas_zoom_slider.valueChanged.connect(self._on_canvas_zoom_changed)
-        zoom_row.addWidget(self.canvas_zoom_slider)
+        zoom_layout.addWidget(self.canvas_zoom_slider)
+        
         self.canvas_zoom_label = QLabel("100%")
-        zoom_row.addWidget(self.canvas_zoom_label)
-        reset_btn = QToolButton()
-        reset_btn.clicked.connect(lambda: self._set_canvas_zoom(100))
-        self._apply_button_icon(reset_btn, "target", tooltip="Reset canvas zoom", icon_only=True)
-        zoom_row.addWidget(reset_btn)
-        layout.addLayout(zoom_row)
+        self.canvas_zoom_label.setFixedWidth(40)
+        self.canvas_zoom_label.setAlignment(Qt.AlignCenter)
+        zoom_layout.addWidget(self.canvas_zoom_label)
+        
+        reset_zoom_btn = QToolButton()
+        self._apply_button_icon(reset_zoom_btn, "target", tooltip="Reset Zoom (100%)", icon_only=True)
+        reset_zoom_btn.setFixedSize(24, 24)
+        reset_zoom_btn.clicked.connect(lambda: self._set_canvas_zoom(100))
+        zoom_layout.addWidget(reset_zoom_btn)
+        layout.addLayout(zoom_layout)
 
-        # Onion skinning controls
-        onion_skin_group = QGroupBox("Onion Skinning")
-        onion_layout = QVBoxLayout()
-        
-        self.onion_skin_checkbox = QCheckBox("Enable Onion Skin")
-        self.onion_skin_checkbox.setChecked(False)
-        self.onion_skin_checkbox.toggled.connect(self._on_onion_skin_toggled)
-        onion_layout.addWidget(self.onion_skin_checkbox)
-        
-        onion_config_row = QHBoxLayout()
-        onion_config_row.addWidget(QLabel("Previous:"))
-        self.onion_skin_prev_count_spin = QSpinBox()
-        self.onion_skin_prev_count_spin.setRange(0, 5)
-        self.onion_skin_prev_count_spin.setValue(1)
-        self.onion_skin_prev_count_spin.setEnabled(False)
-        self.onion_skin_prev_count_spin.valueChanged.connect(self._on_onion_skin_settings_changed)
-        onion_config_row.addWidget(self.onion_skin_prev_count_spin)
-        
-        onion_config_row.addWidget(QLabel("Opacity:"))
-        self.onion_skin_prev_opacity_slider = QSlider(Qt.Horizontal)
-        self.onion_skin_prev_opacity_slider.setRange(0, 100)
-        self.onion_skin_prev_opacity_slider.setValue(50)
-        self.onion_skin_prev_opacity_slider.setEnabled(False)
-        self.onion_skin_prev_opacity_slider.valueChanged.connect(self._on_onion_skin_settings_changed)
-        onion_config_row.addWidget(self.onion_skin_prev_opacity_slider)
-        onion_layout.addLayout(onion_config_row)
-        
-        onion_config_row2 = QHBoxLayout()
-        onion_config_row2.addWidget(QLabel("Next:"))
-        self.onion_skin_next_count_spin = QSpinBox()
-        self.onion_skin_next_count_spin.setRange(0, 5)
-        self.onion_skin_next_count_spin.setValue(1)
-        self.onion_skin_next_count_spin.setEnabled(False)
-        self.onion_skin_next_count_spin.valueChanged.connect(self._on_onion_skin_settings_changed)
-        onion_config_row2.addWidget(self.onion_skin_next_count_spin)
-        
-        onion_config_row2.addWidget(QLabel("Opacity:"))
-        self.onion_skin_next_opacity_slider = QSlider(Qt.Horizontal)
-        self.onion_skin_next_opacity_slider.setRange(0, 100)
-        self.onion_skin_next_opacity_slider.setValue(30)
-        self.onion_skin_next_opacity_slider.setEnabled(False)
-        self.onion_skin_next_opacity_slider.valueChanged.connect(self._on_onion_skin_settings_changed)
-        onion_config_row2.addWidget(self.onion_skin_next_opacity_slider)
-        onion_layout.addLayout(onion_config_row2)
-        
-        onion_skin_group.setLayout(onion_layout)
-        layout.addWidget(onion_skin_group)
+        layout.addWidget(self._create_separator(vertical=True))
 
-        geometry_row = QHBoxLayout()
-        geometry_row.addWidget(QLabel("Geometry Overlay:"))
+        # 2. Onion Skin Section
+        onion_layout = QHBoxLayout()
+        onion_layout.setSpacing(8)
+        
+        onion_label = QLabel("Onion:")
+        onion_label.setStyleSheet("color: #AAAAAA; font-weight: bold; font-size: 10px; text-transform: uppercase;")
+        onion_layout.addWidget(onion_label)
+        
+        self.onion_skin_toggle = QToolButton()
+        self.onion_skin_toggle.setCheckable(True)
+        self._apply_button_icon(self.onion_skin_toggle, "onion", tooltip="Toggle Onion Skinning", icon_only=True)
+        self.onion_skin_toggle.setFixedSize(28, 28)
+        self.onion_skin_toggle.toggled.connect(self._on_onion_skin_toggled)
+        self.onion_skin_checkbox = self.onion_skin_toggle # Compatibility alias
+        onion_layout.addWidget(self.onion_skin_toggle)
+        
+        # Small inputs for onion counts if they fit, or just keep them synced
+        # For "tiny row", we'll hide the complex settings and use defaults or a menu later
+        # But we need the shadow attributes to exist
+        if not hasattr(self, 'onion_skin_prev_count_spin'):
+            self.onion_skin_prev_count_spin = QSpinBox() # Dummy/Hidden or small
+            self.onion_skin_prev_count_spin.setVisible(False)
+        if not hasattr(self, 'onion_skin_next_count_spin'):
+            self.onion_skin_next_count_spin = QSpinBox()
+            self.onion_skin_next_count_spin.setVisible(False)
+        if not hasattr(self, 'onion_skin_prev_opacity_slider'):
+             self.onion_skin_prev_opacity_slider = QSlider()
+             self.onion_skin_prev_opacity_slider.setVisible(False)
+        if not hasattr(self, 'onion_skin_next_opacity_slider'):
+             self.onion_skin_next_opacity_slider = QSlider()
+             self.onion_skin_next_opacity_slider.setVisible(False)
+             
+        layout.addLayout(onion_layout)
+
+        layout.addWidget(self._create_separator(vertical=True))
+
+        # 3. Geometry & Shape
+        config_layout = QHBoxLayout()
+        config_layout.setSpacing(10)
+        
+        # Geometry Overlay
+        geom_label = QLabel("View:")
+        geom_label.setStyleSheet("color: #AAAAAA; font-weight: bold; font-size: 10px; text-transform: uppercase;")
+        config_layout.addWidget(geom_label)
+        
         self.canvas_geometry_combo = QComboBox()
+        self.canvas_geometry_combo.setFixedWidth(120)
+        self.canvas_geometry_combo.setToolTip("Geometry Overlay Type")
         overlay_options = [
             ("Rectangular", GeometryOverlay.MATRIX.value),
             ("Radial Rings", GeometryOverlay.RING.value),
@@ -1720,10 +1774,12 @@ class DesignToolsTab(QWidget):
         for label, value in overlay_options:
             self.canvas_geometry_combo.addItem(label, value)
         self.canvas_geometry_combo.currentIndexChanged.connect(self._on_canvas_geometry_changed)
-        geometry_row.addWidget(self.canvas_geometry_combo)
+        config_layout.addWidget(self.canvas_geometry_combo)
 
-        geometry_row.addWidget(QLabel("Pixel Shape:"))
+        # Pixel Shape
         self.canvas_pixel_shape_combo = QComboBox()
+        self.canvas_pixel_shape_combo.setFixedWidth(100)
+        self.canvas_pixel_shape_combo.setToolTip("LED Pixel Shape")
         pixel_options = [
             ("Square", PixelShape.SQUARE.value),
             ("Round", PixelShape.ROUND.value),
@@ -1732,16 +1788,32 @@ class DesignToolsTab(QWidget):
         for label, value in pixel_options:
             self.canvas_pixel_shape_combo.addItem(label, value)
         self.canvas_pixel_shape_combo.currentIndexChanged.connect(self._on_canvas_pixel_shape_changed)
-        geometry_row.addWidget(self.canvas_pixel_shape_combo)
+        config_layout.addWidget(self.canvas_pixel_shape_combo)
+        layout.addLayout(config_layout)
 
-        self.detached_preview_btn = QPushButton("Detached Preview")
+        layout.addWidget(self._create_separator(vertical=True))
+
+        # 4. Detached Preview
+        self.detached_preview_btn = QToolButton()
+        self._apply_button_icon(self.detached_preview_btn, "external-link", tooltip="Launch Detached Preview Window", icon_only=True)
+        self.detached_preview_btn.setFixedSize(28, 28)
         self.detached_preview_btn.clicked.connect(self._open_detached_preview)
-        geometry_row.addWidget(self.detached_preview_btn)
-        geometry_row.addStretch()
-        layout.addLayout(geometry_row)
+        layout.addWidget(self.detached_preview_btn)
 
-        group.setLayout(layout)
-        return group
+        layout.addStretch()
+        return container
+
+    def _create_separator(self, vertical: bool = True) -> QFrame:
+        line = QFrame()
+        if vertical:
+            line.setFrameShape(QFrame.VLine)
+            line.setFixedWidth(1)
+        else:
+            line.setFrameShape(QFrame.HLine)
+            line.setFixedHeight(1)
+        line.setFrameShadow(QFrame.Plain)
+        line.setStyleSheet("background-color: #3D3D3D;")
+        return line
 
     def _create_brushes_tab(self) -> QWidget:
         tab = QWidget()
@@ -7284,7 +7356,8 @@ class DesignToolsTab(QWidget):
                 f"background-color: rgb{self._end_gradient_color}; border: 1px solid {border_color}; color: {ui['text_primary']};"
             )
 
-        self.timeline_zoom_label.setStyleSheet(f"color: {ui['text_secondary']};")
+        if hasattr(self, "timeline_zoom_label"):
+            self.timeline_zoom_label.setStyleSheet(f"color: {ui['text_secondary']};")
 
         # Theme combo removed - only dark theme available
 
@@ -7631,7 +7704,7 @@ class DesignToolsTab(QWidget):
             self._update_transport_controls()
             
             # Sync playback FPS from metadata
-            if hasattr(pattern_copy.metadata, 'fps') and pattern_copy.metadata.fps > 0:
+            if hasattr(pattern_copy.metadata, 'fps') and pattern_copy.metadata.fps is not None and pattern_copy.metadata.fps > 0:
                 self._set_playback_fps(int(pattern_copy.metadata.fps))
             elif pattern_copy.average_fps > 0:
                 self._set_playback_fps(int(pattern_copy.average_fps))
@@ -9008,6 +9081,13 @@ class DesignToolsTab(QWidget):
             self._update_transport_controls()
             self.playback_state_changed.emit(False)
 
+    def _on_playback_clicked(self):
+        """Handle play/pause button click."""
+        if self._playback_timer.isActive():
+            self._on_transport_pause()
+        else:
+            self._on_transport_play()
+
     def _on_playback_tick(self):
         if not self._pattern or not self._pattern.frames:
             self._on_transport_stop()
@@ -9094,22 +9174,41 @@ class DesignToolsTab(QWidget):
         playing = self._playback_timer.isActive()
         loop_enabled = self._loop_enabled()
 
-        self.playback_play_btn.setEnabled(has_frames and not playing)
-        self.playback_pause_btn.setEnabled(has_frames and playing)
-        self.playback_stop_btn.setEnabled(has_frames and playing)
-        self.playback_prev_btn.setEnabled(has_frames and (loop_enabled or self._current_frame_index > 0))
+        # Update Play/Pause Toggle Button
+        if hasattr(self, "playback_play_btn"):
+            self.playback_play_btn.setEnabled(has_frames)
+            icon_name = "pause" if playing else "play"
+            tooltip = "Pause (Space)" if playing else "Play (Space)"
+            self._apply_button_icon(self.playback_play_btn, icon_name, tooltip=tooltip, icon_only=True)
+            
+        # Update extra transport buttons if they exist
+        if hasattr(self, "playback_pause_btn"):
+            self.playback_pause_btn.setEnabled(has_frames and playing)
+        if hasattr(self, "playback_stop_btn"):
+            self.playback_stop_btn.setEnabled(has_frames and playing)
+
+        # Update Prev/Next Buttons
+        if hasattr(self, "playback_prev_btn"):
+            self.playback_prev_btn.setEnabled(has_frames and (loop_enabled or self._current_frame_index > 0))
+            
         if has_frames and self._pattern:
             at_end = self._current_frame_index >= len(self._pattern.frames) - 1
         else:
             at_end = True
-        self.playback_next_btn.setEnabled(has_frames and (loop_enabled or not at_end))
+            
+        if hasattr(self, "playback_next_btn"):
+            self.playback_next_btn.setEnabled(has_frames and (loop_enabled or not at_end))
+            
+        # Update Header/Global status
         if hasattr(self, "header_loop_toggle"):
             self.header_loop_toggle.setEnabled(has_frames)
         if hasattr(self, "header_fps_spin"):
             self.header_fps_spin.setEnabled(has_frames)
+            
         if hasattr(self, "playback_repeat_label"):
             loop_text = "Loop: ∞" if loop_enabled else "Loop: once"
             self.playback_repeat_label.setText(f"{loop_text} • {self._frame_duration_ms} ms/frame")
+            
         self._update_status_labels()
 
     def _on_remove_action(self):
@@ -9663,6 +9762,20 @@ class DesignToolsTab(QWidget):
             "action_types": [getattr(a, 'action_type', 'unknown') for a in actions]
         })
         
+        # Get active layer (Moved to top for usage in index calculation)
+        tracks = self.layer_manager.get_layer_tracks()
+        active_idx = 0
+        if hasattr(self, 'layer_panel') and self.layer_panel:
+            active_idx = self.layer_panel.get_active_layer_index()
+            # Validate index
+            if active_idx < 0 or active_idx >= len(tracks):
+                 active_idx = 0
+        
+        if not tracks:
+             QMessageBox.warning(self, "No Layers", "No layers exist. Please create at least one layer.")
+             return
+        active_track = tracks[active_idx]
+        
         if not self._pattern:
             self._log_frame_generation("ERROR - No Pattern", 0)
             QMessageBox.warning(self, "No Pattern", "No pattern loaded.")
@@ -9736,7 +9849,19 @@ class DesignToolsTab(QWidget):
         if source_frame_idx >= len(self._pattern.frames):
             source_frame_idx = 0
         
-        source_frame = self._pattern.frames[source_frame_idx]
+        # USE ACTIVE LAYER FRAME AS SOURCE
+        # This ensures we animate what's on the layer, not the global composite
+        source_frame = active_track.get_frame(source_frame_idx)
+        if not source_frame:
+             # Fallback: Create from global if layer frame missing (should rare)
+             # or create blank if layer is empty
+             source_frame = active_track.get_or_create_frame(source_frame_idx, self._pattern.metadata.width, self._pattern.metadata.height)
+             # If strictly empty, try copying from global (legacy behavior backup)
+             if not active_track.frames:
+                 if source_frame_idx < len(self._pattern.frames):
+                     # Copy pixels from global pattern frame to init layer
+                     global_frame = self._pattern.frames[source_frame_idx]
+                     source_frame.pixels = list(global_frame.pixels)
         
         # Validate source frame
         expected_pixel_count = self._pattern.metadata.width * self._pattern.metadata.height
@@ -9788,16 +9913,28 @@ class DesignToolsTab(QWidget):
         #   - Second new frame should use frame_index=4 (not 1)
         #   - etc.
         # This prevents duplicates when the first generated frame (i=0) would be identical to source
-        starting_frame_index = initial_frame_count
+        # Determine starting index for this specific layer
+        # If the layer has frames, we start AFTER the last frame (append)
+        # If it's a new/empty layer, we start at 0
+        layer_start_index = 0
+        if active_track.end_frame is not None:
+             layer_start_index = active_track.end_frame + 1
+        
+        starting_frame_index = layer_start_index
+
+        # ... (rotation bias logic removed) ...
+        
+        # [Adjusted loop logic for `active_track.set_frame` below takes care of the rest]
         
         # For rotation actions, ensure we start from a rotation step that avoids immediate duplicates
         # If starting_frame_index % 4 == 0 and source is frame 0, the first generated frame would
         # be a 0° rotation (duplicate). Skip to next rotation step to avoid this.
-        has_rotate = any(getattr(a, 'action_type', '').lower() == 'rotate' for a in actions)
-        if has_rotate and initial_frame_count > 0 and starting_frame_index % 4 == 0:
-            # Offset by 1 to avoid starting with 0° rotation when appending
-            # This ensures the first generated frame is unique (90° instead of 0°)
-            starting_frame_index += 1
+        # Rotation bias removed to ensure animation starts with source frame (0 deg)
+        # has_rotate = any(getattr(a, 'action_type', '').lower() == 'rotate' for a in actions)
+        # if has_rotate and initial_frame_count > 0 and starting_frame_index % 4 == 0:
+        #     # Offset by 1 to avoid starting with 0° rotation when appending
+        #     # This ensures the first generated frame is unique (90° instead of 0°)
+        #     starting_frame_index += 1
         
         for i in range(frame_count):
             if frame_count > 50:
@@ -9809,7 +9946,9 @@ class DesignToolsTab(QWidget):
             # Start with ORIGINAL source frame pixels for each frame (progressive transformation)
             # This ensures each frame shows progressive movement from the original, not cumulative
             frame_pixels = [tuple(pixel) for pixel in original_pixels]
-            temp_frame = Frame(pixels=frame_pixels, duration_ms=source_frame.duration_ms)
+            # Fallback for duration if source_frame is a LayerFrame (which might lack duration_ms)
+            duration = getattr(source_frame, 'duration_ms', 100)
+            temp_frame = Frame(pixels=frame_pixels, duration_ms=duration)
             
             # Calculate gap for this frame from all actions
             frame_gap = 0
@@ -9834,7 +9973,7 @@ class DesignToolsTab(QWidget):
                 # Convert DesignAction to LayerAction for LMS-style step calculation
                 layer_action = LayerAction(
                     type=design_action.action_type.lower(),
-                    start_frame=starting_frame_index - 1 if initial_frame_count > 0 else starting_frame_index,  # Bias step to avoid static first frame
+                    start_frame=starting_frame_index,  # Start at step 0 to include original frame
                     end_frame=None,  # No end frame - continues for all generated frames
                     params=design_action.params or {},
                     finalized=False,
@@ -9915,14 +10054,19 @@ class DesignToolsTab(QWidget):
         duplicate_count = 0
         
         # Check if actions are cyclic (Scroll/Rotate) to enable smart trimming
+        # Check if actions are cyclic (Scroll/Rotate) to enable smart trimming
         is_cyclic = any(a.action_type.lower() in ['scroll', 'rotate'] for a in actions)
-        source_frame = self._pattern.frames[source_frame_idx] if self._pattern.frames else None
+        
+        # Consistent source frame retrieval from ACTIVE LAYER
+        source_frame = active_track.get_frame(source_frame_idx)
+        if not source_frame and self._pattern.frames and source_frame_idx < len(self._pattern.frames):
+             source_frame = self._pattern.frames[source_frame_idx]
 
         for i, new_frame in enumerate(new_frames):
             # Disable standard duplicate filtering to allow blank canvas animation.
             # BUT: If Appending, Cyclic, and Frame == Source, drop it to prevent loop stutter (e.g. F12==F0).
             drop_cyclic_duplicate = False
-            if is_cyclic and initial_frame_count > 0 and source_frame:
+            if is_cyclic and initial_frame_count > 0 and source_frame and i > 0:
                  if self._frames_are_identical(new_frame, source_frame):
                      drop_cyclic_duplicate = True
                      self._log_frame_generation("CYCLIC_DUPLICATE_TRIMMED", len(unique_new_frames), {"index": i})
@@ -9952,74 +10096,73 @@ class DesignToolsTab(QWidget):
             )
             return
         
-        # Auto-append frames (automation should be automatic)
-        if not self._pattern.frames:
-            # If no frames exist, create new ones
-            self._pattern.frames = unique_new_frames
-            self._current_frame_index = 0
-            new_frame_start_idx = 0
-        else:
-            # Append to existing frames (only unique ones)
-            self._pattern.frames.extend(unique_new_frames)
-            self._current_frame_index = len(self._pattern.frames) - len(unique_new_frames)
-            new_frame_start_idx = len(self._pattern.frames) - len(unique_new_frames)
+        # CRITICAL FIX: Layer-local frame generation (NOT global append)
+        # Layer 1: frames 0-11, Layer 2: frames 0-5 (NOT 12-17)
+        # Each layer maintains its own frame range independently
         
-        # Copy layer structure from source frame to all new frames
-        # This preserves layer content and animations in the generated frames
-        try:
-            tracks = self.layer_manager.get_layer_tracks()
-            
-            # Sort actions by priority once (for consistency)
-            sorted_actions = sorted(actions, key=lambda x: ACTION_PRIORITY.get(x.action_type.lower(), 100))
-            
-            # Get active layer index
-            active_idx = 0
-            if hasattr(self, 'layer_panel') and self.layer_panel:
-                active_idx = self.layer_panel.get_active_layer_index()
-                if active_idx < 0:
-                    active_idx = 0
+        # Get active layer
 
-            for i, new_frame in enumerate(unique_new_frames):
-                new_frame_idx = new_frame_start_idx + i
-                # Step correlates to index i. If appending (initial > 0), bias by 1 to skip static Step 0.
-                current_step = i + 1 if initial_frame_count > 0 else i
-                
-                # For each track, apply TRANSFORMATION ONLY if it is the active layer
-                for track_idx, track in enumerate(tracks):
-                    source_layer_frame = track.get_frame(source_frame_idx)
-                    if source_layer_frame:
-                        # Start with source pixels
-                        layer_pixels = [tuple(p) for p in source_layer_frame.pixels]
-                        
-                        # Apply actions ONLY to the active layer
-                        if track_idx == active_idx:
-                            # PROOF: Log transformation targeting specific layer
-                            if i == 0:  # Log only once per generation batch
-                                import logging
-                                logging.getLogger("root").info(f"[LAYER_ANIM] Transforming Layer {track_idx} ('{track.name}') while preserving others.")
-                            
-                            for action in sorted_actions:
-                                transformed = self._transform_pixels(layer_pixels, action, width, height, current_step)
-                                if transformed:
-                                    layer_pixels = transformed
-                        else:
-                            # PROOF: Log preservation of other layers
-                            if i == 0:  # Log only once per generation batch
-                                import logging
-                                logging.getLogger("root").info(f"[LAYER_ANIM] KEEPALIVE: Preserving Layer {track_idx} ('{track.name}') state.")
-                        
-                        # Save transformed (or copied) frame to track
-                        new_layer_frame = source_layer_frame.copy()
-                        new_layer_frame.pixels = layer_pixels
-                        track.set_frame(new_frame_idx, new_layer_frame)
+        width = self._pattern.metadata.width
+        height = self._pattern.metadata.height
+        
+        # Create frames in the ACTIVE LAYER ONLY (layer-local indexing)
+        # Start from frame 0 (NOT from global frame count)
+        for frame_idx, new_frame in enumerate(unique_new_frames):
+            # Apply transformations to this layer's frame
+            # Create new frame object for the layer (CRITICAL: Must be LayerFrame, not Frame)
+            from domain.layers import LayerFrame
+            layer_frame = LayerFrame(
+                 pixels=list(new_frame.pixels)
+            )
+            # Ensure alpha channel is handled (copy from source or default to opaque)
+            if hasattr(new_frame, 'alpha'):
+                layer_frame.alpha = list(new_frame.alpha)
+            elif active_track.get_frame(0):
+                 # Try to inherit alpha from layer's first frame if available
+                 layer_frame.alpha = list(active_track.get_frame(0).alpha)
+            else:
+                 # Default to opaque if no history
+                 layer_frame.alpha = [255] * (width * height)
             
-            # NOTE: Do NOT sync_frame_from_layers() here - composite is derived via render_frame()
-            # Only sync when explicitly needed (export, preview generation)
-            # Frames will be rendered on-demand using render_frame()
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Failed to preserve layers in generated frames: {e}")
-            # NOTE: Do NOT sync_frame_from_layers() here - composite is derived via render_frame()
+            # Store in layer track at insertion point (starting_frame_index + i)
+            # This ensures we APPEND to the timeline if frames exist, rather than overwriting from 0
+            abs_frame_idx = starting_frame_index + frame_idx
+            active_track.set_frame(abs_frame_idx, layer_frame)
+        
+        # Update layer's frame boundaries (Expand range, don't reset)
+        # If adding to existing layer, preserve old start
+        if active_track.start_frame is None:
+            active_track.start_frame = starting_frame_index
+        else:
+            active_track.start_frame = min(active_track.start_frame, starting_frame_index)
+
+        # Set end frame to the last added frame
+        last_added_frame = starting_frame_index + len(unique_new_frames) - 1
+        if active_track.end_frame is None:
+            active_track.end_frame = last_added_frame
+        else:
+            active_track.end_frame = max(active_track.end_frame, last_added_frame)
+        
+        # Update global pattern frame count to accommodate all layers
+        # Global frame count = max(all layer end_frames) + 1
+        max_frame_needed = 0
+        for track in tracks:
+            if track.end_frame is not None:
+                max_frame_needed = max(max_frame_needed, track.end_frame)
+        
+        # Ensure global pattern has enough frames for all layers
+        required_global_frames = max_frame_needed + 1
+        current_global_frames = len(self._pattern.frames)
+        
+        if required_global_frames > current_global_frames:
+            # Add blank global frames (these are just placeholders for timeline)
+            # Actual pixels come from layer rendering
+            for _ in range(required_global_frames - current_global_frames):
+                blank_frame = Frame(
+                    pixels=[(0, 0, 0)] * (width * height),
+                    duration_ms=100
+                )
+                self._pattern.frames.append(blank_frame)
         
         # Update UI
         final_frame_count = len(self._pattern.frames)
@@ -10028,7 +10171,10 @@ class DesignToolsTab(QWidget):
             "unique_frames_added": len(unique_new_frames),
             "duplicates_filtered": duplicate_count,
             "initial_frames": initial_frame_count,
-            "final_frames": final_frame_count
+            "final_frames": final_frame_count,
+            "layer_name": active_track.name,
+            "layer_frame_range": f"0-{active_track.end_frame}",
+            "layer_local": True  # Mark as layer-local generation
         })
         
         self.history_manager.set_frame_count(len(self._pattern.frames))
@@ -10040,7 +10186,16 @@ class DesignToolsTab(QWidget):
         self._maybe_autosync_preview()
         self.pattern_modified.emit()
         
-        # Removed dialog - frame generation is now automatic and silent
+        # Show confirmation with layer-local info
+        QMessageBox.information(
+            self,
+            "Layer Animation Applied",
+            f"Applied animation to layer '{active_track.name}'\n"
+            f"Layer frames: 0-{active_track.end_frame} ({len(unique_new_frames)} frames)\n"
+            f"Global timeline: {final_frame_count} frames\n\n"
+            f"✓ Frame isolation: Each layer has its own frame range"
+        )
+
 
     def _generate_layer_frames_with_actions(self, layer_index: int, actions: List[DesignAction]):
         """
@@ -11818,6 +11973,7 @@ class DesignToolsTab(QWidget):
         self.duration_spin.blockSignals(False)
         self.duration_spin.blockSignals(False)
         self.timeline.set_playhead(index)
+        self.timeline.ensure_marker_visible(index)
         self.history_manager.set_current_frame(index)
         
         # Update layer panel to show layers for current frame
@@ -12436,8 +12592,10 @@ class DesignToolsTab(QWidget):
 
     def _on_timeline_zoom_changed(self, value: int):
         zoom = max(25, min(value, 400))
-        self.timeline.set_zoom(zoom / 100.0)
-        self.timeline_zoom_label.setText(f"{zoom}%")
+        if hasattr(self, "timeline"):
+            self.timeline.set_zoom(zoom / 100.0)
+        if hasattr(self, "timeline_zoom_label"):
+            self.timeline_zoom_label.setText(f"{zoom}%")
 
     def _on_timeline_context_menu(self, index: int):
         menu = QMenu(self)
