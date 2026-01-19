@@ -82,6 +82,7 @@ class EnhancedFrameManager(FrameManager):
         for idx in sorted_indices:
             if len(pattern.frames) > 1:
                 del pattern.frames[idx]
+                self.frame_deleted.emit(idx)
         
         # Update current index
         if self._current_index >= len(pattern.frames):
@@ -109,6 +110,7 @@ class EnhancedFrameManager(FrameManager):
             insert_at = idx + 1 + offset
             pattern.frames.insert(insert_at, frame_copy)
             new_indices.append(insert_at)
+            self.frame_duplicated.emit(idx, insert_at)
             offset += 1
         
         # Update selection to new frames
