@@ -189,6 +189,41 @@ class TimelineWidget(QWidget):
             self._playhead_index = index
             self.update()
 
+    def ensure_marker_visible(self, index: int) -> None:
+        """Scroll the parent scroll area to make the specified frame visible."""
+        if not self._frames or index < 0 or index >= len(self._frames):
+            return
+            
+        # Get frame X position
+        if self._grid_mode and self._frame_positions:
+            grid_start_x = self._layer_strip_width
+            if index < len(self._frame_positions):
+                frame_x = grid_start_x + self._frame_positions[index]
+                frame_width = self._frame_width_at(index)
+            else:
+                return
+        else:
+            grid_start_x = self.LANE_PADDING
+            frame_width = self._frame_width()
+            frame_x = grid_start_x + index * frame_width
+        
+        # Find parent scroll area
+        from PySide6.QtWidgets import QScrollArea
+        parent = self.parent()
+        while parent and not isinstance(parent, QScrollArea):
+            parent = parent.parent()
+            
+        if parent:
+            scroll_bar = parent.horizontalScrollBar()
+            viewport_width = parent.viewport().width()
+            current_scroll = scroll_bar.value()
+            
+            # Check if frame is outside viewport (with 50px padding)
+            if frame_x < current_scroll + 50:
+                scroll_bar.setValue(max(0, int(frame_x - 50)))
+            elif frame_x + frame_width > current_scroll + viewport_width - 50:
+                scroll_bar.setValue(int(frame_x + frame_width - viewport_width + 50))
+
     def set_zoom(self, zoom: float) -> None:
         self._zoom = max(0.25, min(zoom, 4.0))
         self._update_geometry()
