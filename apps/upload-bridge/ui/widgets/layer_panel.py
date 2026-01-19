@@ -920,6 +920,12 @@ class LayerPanelWidget(QWidget):
         """
         Apply animation to the active layer.
         
+        CRITICAL LAYER ISOLATION RULE:
+        - Each layer has its own local frame range starting at 0
+        - Animation duration sets the layer's end_frame
+        - Layers do NOT append to a global timeline
+        - Layer 1: frames 0-11, Layer 2: frames 0-5 (NOT 12-17)
+        
         Note: Each layer can have one animation. Applying a new animation
         replaces any existing animation for that layer.
         """
@@ -936,28 +942,53 @@ class LayerPanelWidget(QWidget):
         try:
             from domain.layer_animation import create_scroll_animation, create_fade_animation, create_pulse_animation
             
+            # Get pattern metadata for duration calculation
+            pattern = self.layer_manager._state.pattern()
+            if not pattern:
+                QMessageBox.warning(self, "Error", "No pattern loaded.")
+                return
+            
+            width = pattern.metadata.width
+            height = pattern.metadata.height
+            animation_duration = None  # Will be calculated based on type
+            
             if animation_type == "Scroll":
                 direction = self.animation_direction_combo.currentText().lower()
+                
+                # Calculate scroll duration: time to scroll entire width/height once at given speed
+                # Distance = width or height, Speed = pixels per frame
+                # Duration (frames) = distance / speed
+                if direction in ["left", "right"]:
+                    distance = width
+                else:  # up, down
+                    distance = height
+                
+                # Speed controls pixels per frame (speed=1.0 means 1 pixel/frame)
+                # Duration = distance / speed
+                animation_duration = max(1, int(distance / speed))
+                
                 animation = create_scroll_animation(
                     direction=direction,
                     speed=speed,
                     start_frame=0,
-                    end_frame=None  # All frames
+                    end_frame=animation_duration - 1  # Set explicit end frame
                 )
             elif animation_type == "Fade":
+                animation_duration = int(10 / speed)  # Base 10 frames, adjusted by speed
                 animation = create_fade_animation(
                     fade_in=True,
-                    duration_frames=10,
+                    duration_frames=animation_duration,
                     start_frame=0
                 )
                 animation.speed = speed
             elif animation_type == "Pulse":
+                animation_duration = int(20 / speed)  # Base 20 frames, adjusted by speed
                 animation = create_pulse_animation(
                     min_opacity=0.5,
                     max_opacity=1.0,
-                    period_frames=20,
+                    period_frames=animation_duration,
                     start_frame=0,
-                    end_frame=None
+                    end_frame=animation_duration - 1
                 )
                 animation.speed = speed
             else:
@@ -966,6 +997,17 @@ class LayerPanelWidget(QWidget):
             # Apply animation to active layer
             self.layer_manager.set_layer_animation(self._active_layer_index, animation)
             
+            # CRITICAL: Set layer's frame range to match animation duration
+            # This ensures Layer 1 frames 0-11, Layer 2 frames 0-5 (NOT 12-17)
+            tracks = self.layer_manager.get_layer_tracks()
+            if self._active_layer_index < len(tracks):
+                active_track = tracks[self._active_layer_index]
+                active_track.start_frame = 0  # Always start at 0 (layer-local)
+                active_track.end_frame = animation_duration - 1  # End at animation duration
+                
+                # Emit signal to update timeline/UI
+                self.layer_manager.layers_changed.emit(-1)
+            
             # Update UI
             self._update_animation_controls()
             self._refresh_layer_list()
@@ -973,13 +1015,14 @@ class LayerPanelWidget(QWidget):
             QMessageBox.information(
                 self,
                 "Animation Applied",
-                f"{animation_type} animation applied to layer."
+                f"{animation_type} animation applied to layer (Duration: {animation_duration} frames, Local range: 0-{animation_duration-1})."
             )
         except Exception as e:
+            import traceback
             QMessageBox.warning(
                 self,
                 "Error",
-                f"Failed to apply animation: {str(e)}"
+                f"Failed to apply animation: {str(e)}\n\n{traceback.format_exc()}"
             )
     
     def _on_remove_animation(self):
