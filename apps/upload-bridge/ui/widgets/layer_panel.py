@@ -148,6 +148,26 @@ class LayerPanelWidget(QWidget):
         opacity_layout.addWidget(self.layer_opacity_label)
         props_layout.addLayout(opacity_layout)
         
+        # Blend Mode
+        blend_layout = QHBoxLayout()
+        blend_layout.addWidget(QLabel("Blend Mode:"))
+        self.blend_mode_combo = QComboBox()
+        self.blend_mode_combo.addItems([
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Add",
+            "Subtract",
+            "Difference",
+            "Color Dodge",
+            "Color Burn"
+        ])
+        self.blend_mode_combo.setToolTip("Blend mode for layer compositing (Photoshop-style)")
+        self.blend_mode_combo.currentTextChanged.connect(self._on_blend_mode_changed)
+        blend_layout.addWidget(self.blend_mode_combo)
+        props_layout.addLayout(blend_layout)
+        
         # Layer Timing (CapCut-like: start/end frames)
         timing_group = QGroupBox("Layer Timing")
         timing_layout = QVBoxLayout()
@@ -297,8 +317,9 @@ class LayerPanelWidget(QWidget):
             item_text = f"{layer.name}"
             
             # Check for animation
+            # Get animation using the stable layer ID (not index)
             animation_manager = self.layer_manager.get_animation_manager()
-            animation = animation_manager.get_animation(idx)
+            animation = animation_manager.get_animation(getattr(layer, 'id', idx))
             if animation and animation.animation_type != AnimationType.NONE:
                 anim_type = animation.animation_type.value.capitalize()
                 if anim_type == "Scroll":
@@ -420,12 +441,28 @@ class LayerPanelWidget(QWidget):
                 # Set end frame (None = end of pattern, so show -1 in UI)
                 end_val = track.end_frame if track.end_frame is not None else -1
                 self.end_frame_spin.setValue(end_val)
+                
+                # Set blend mode
+                mode_text_map = {
+                    "normal": "Normal",
+                    "multiply": "Multiply",
+                    "screen": "Screen",
+                    "overlay": "Overlay",
+                    "add": "Add",
+                    "subtract": "Subtract",
+                    "difference": "Difference",
+                    "color_dodge": "Color Dodge",
+                    "color_burn": "Color Burn"
+                }
+                blend_text = mode_text_map.get(track.blend_mode, "Normal")
+                self.blend_mode_combo.setCurrentText(blend_text)
             
             # Enable controls
             self.layer_name_edit.setEnabled(True)
             self.layer_visible_checkbox.setEnabled(True)
             self.layer_locked_checkbox.setEnabled(True)
             self.layer_opacity_slider.setEnabled(True)
+            self.blend_mode_combo.setEnabled(True)
             self.start_frame_spin.setEnabled(True)
             self.end_frame_spin.setEnabled(True)
             self.delete_layer_btn.setEnabled(len(layers) > 1)
@@ -445,6 +482,7 @@ class LayerPanelWidget(QWidget):
             self.layer_name_edit.setEnabled(False)
             self.layer_visible_checkbox.setEnabled(False)
             self.layer_opacity_slider.setEnabled(False)
+            self.blend_mode_combo.setEnabled(False)
             self.start_frame_spin.setEnabled(False)
             self.end_frame_spin.setEnabled(False)
             self.delete_layer_btn.setEnabled(False)
@@ -469,6 +507,13 @@ class LayerPanelWidget(QWidget):
         if current_item:
             layer_index = current_item.data(Qt.UserRole)
             self._active_layer_index = layer_index
+            
+            # If solo mode is enabled, we need to update visibility
+            if self._solo_mode:
+                # Turn off solo temporarily to restore, then re-enable for new active layer
+                self._on_solo_mode_changed(False)
+                self._on_solo_mode_changed(True)
+                
             self._update_properties()
             self.active_layer_changed.emit(layer_index)
 
@@ -508,19 +553,33 @@ class LayerPanelWidget(QWidget):
             self._refresh_layer_list()
 
     def _on_duplicate_layer(self):
-        """Duplicate the selected layer."""
-        layers = self.layer_manager.get_layers(self._current_frame_index)
-        if self._active_layer_index < len(layers):
-            source_layer = layers[self._active_layer_index]
-            new_index = self.layer_manager.add_layer(
-                self._current_frame_index,
-                name=f"{source_layer.name} Copy"
+        """Duplicate the selected layer track across all frames."""
+        tracks = self.layer_manager.get_layer_tracks()
+        if self._active_layer_index < len(tracks):
+            source_track = tracks[self._active_layer_index]
+            new_index = self.layer_manager.add_layer_track(
+                name=f"{source_track.name} Copy"
             )
-            # Copy pixels
-            new_layer = layers[new_index]
-            new_layer.pixels = list(source_layer.pixels)
-            new_layer.opacity = source_layer.opacity
-            new_layer.visible = source_layer.visible
+            # Create deep copy of the track's data
+            new_track = self.layer_manager.get_layer_track(new_index)
+            if new_track:
+                # Copy properties
+                new_track.visible = source_track.visible
+                new_track.opacity = source_track.opacity
+                new_track.locked = source_track.locked
+                new_track.automation = [deepcopy(a) for a in source_track.automation]
+                
+                # Copy all frames
+                for f_idx, f_data in source_track.frames.items():
+                    new_track.frames[f_idx] = f_data.copy()
+                
+                # Copy animation if exists
+                anim_manager = self.layer_manager.get_animation_manager()
+                source_anim = anim_manager.get_animation(source_track.id)
+                if source_anim:
+                    from copy import deepcopy
+                    anim_manager.set_animation(new_track.id, deepcopy(source_anim))
+            
             self._refresh_layer_list()
             self.set_active_layer(new_index)
     
@@ -658,6 +717,31 @@ class LayerPanelWidget(QWidget):
             track = tracks[self._active_layer_index]
             # Convert UI value (-1 = end of pattern) to track value (None = end of pattern)
             track.end_frame = None if value == -1 else value
+            self.layer_manager.layers_changed.emit(-1)
+    
+    def _on_blend_mode_changed(self, mode_text: str):
+        """Handle blend mode change."""
+        if self._updating:
+            return
+        
+        # Convert UI text to blend mode value
+        mode_map = {
+            "Normal": "normal",
+            "Multiply": "multiply",
+            "Screen": "screen",
+            "Overlay": "overlay",
+            "Add": "add",
+            "Subtract": "subtract",
+            "Difference": "difference",
+            "Color Dodge": "color_dodge",
+            "Color Burn": "color_burn"
+        }
+        
+        blend_mode = mode_map.get(mode_text, "normal")
+        tracks = self.layer_manager.get_layer_tracks()
+        if self._active_layer_index < len(tracks):
+            track = tracks[self._active_layer_index]
+            track.blend_mode = blend_mode
             self.layer_manager.layers_changed.emit(-1)
 
     def _on_move_up(self):
@@ -850,6 +934,8 @@ class LayerPanelWidget(QWidget):
         speed = self.animation_speed_slider.value() / 10.0
         
         try:
+            from domain.layer_animation import create_scroll_animation, create_fade_animation, create_pulse_animation
+            
             if animation_type == "Scroll":
                 direction = self.animation_direction_combo.currentText().lower()
                 animation = create_scroll_animation(
@@ -902,11 +988,14 @@ class LayerPanelWidget(QWidget):
             return
         
         try:
-            animation_manager = self.layer_manager.get_animation_manager()
-            animation_manager.remove_animation(self._active_layer_index)
-            
-            # Emit signal to update UI
-            self.layer_manager.layers_changed.emit(-1)
+            # Resolve stable ID from active layer index
+            layers = self.layer_manager.get_layers(self._current_frame_index)
+            if self._active_layer_index < len(layers):
+                active_layer = layers[self._active_layer_index]
+                self.layer_manager.remove_layer_animation(self._active_layer_index)
+                
+                # Emit signal to update UI
+                self.layer_manager.layers_changed.emit(-1)
             
             # Update UI
             self._update_animation_controls()
@@ -932,14 +1021,18 @@ class LayerPanelWidget(QWidget):
         self._updating = True
         
         try:
-            animation_manager = self.layer_manager.get_animation_manager()
-            animation = animation_manager.get_animation(self._active_layer_index)
+            # Resolve stable ID from active layer index
+            tracks = self.layer_manager.get_layer_tracks()
+            if self._active_layer_index < len(tracks):
+                active_track = tracks[self._active_layer_index]
+                animation_manager = self.layer_manager.get_animation_manager()
+                animation = animation_manager.get_animation(active_track.id)
+            else:
+                animation = None
             
             if animation and animation.animation_type != AnimationType.NONE:
                 # Layer has animation
                 anim_type_name = animation.animation_type.value.capitalize()
-                if anim_type_name == "Scroll":
-                    anim_type_name = "Scroll"
                 
                 # Set animation type in combo
                 index = self.animation_type_combo.findText(anim_type_name)
@@ -949,50 +1042,41 @@ class LayerPanelWidget(QWidget):
                 # Set speed
                 speed_value = int(animation.speed * 10)
                 self.animation_speed_slider.setValue(speed_value)
+                self.animation_speed_label.setText(f"{animation.speed:.1f}x")
+                self.remove_animation_btn.setEnabled(True)
                 
                 # Set direction if scroll
                 if animation.animation_type == AnimationType.SCROLL:
-                    # Try to determine direction from keyframes
+                    self.direction_widget.setVisible(True)
+                    # Try to infer direction from keyframes
                     if animation.keyframes:
                         first_kf = animation.keyframes[0]
                         last_kf = animation.keyframes[-1] if len(animation.keyframes) > 1 else first_kf
-                        
+                        direction = "Right"
                         if hasattr(first_kf, 'offset_x') and hasattr(last_kf, 'offset_x'):
-                            if last_kf.offset_x > first_kf.offset_x:
-                                direction = "Right"
-                            elif last_kf.offset_x < first_kf.offset_x:
-                                direction = "Left"
-                            else:
-                                direction = "Right"  # Default
+                            if last_kf.offset_x > first_kf.offset_x: direction = "Right"
+                            elif last_kf.offset_x < first_kf.offset_x: direction = "Left"
                         elif hasattr(first_kf, 'offset_y') and hasattr(last_kf, 'offset_y'):
-                            if last_kf.offset_y > first_kf.offset_y:
-                                direction = "Down"
-                            elif last_kf.offset_y < first_kf.offset_y:
-                                direction = "Up"
-                            else:
-                                direction = "Down"  # Default
-                        else:
-                            direction = "Right"  # Default
+                            if last_kf.offset_y > first_kf.offset_y: direction = "Down"
+                            elif last_kf.offset_y < first_kf.offset_y: direction = "Up"
                         
-                        index = self.animation_direction_combo.findText(direction)
-                        if index >= 0:
-                            self.animation_direction_combo.setCurrentIndex(index)
-                    
-                    self.direction_widget.setVisible(True)
-                
-                # Enable remove button
-                self.remove_animation_btn.setEnabled(True)
+                        idx = self.animation_direction_combo.findText(direction)
+                        if idx >= 0:
+                            self.animation_direction_combo.setCurrentIndex(idx)
+                else:
+                    self.direction_widget.setVisible(False)
             else:
-                # No animation
-                self.animation_type_combo.setCurrentIndex(0)  # "None"
-                self.animation_speed_slider.setValue(10)  # 1.0x
+                # NO ANIMATION - Reset controls
+                self.animation_type_combo.setCurrentIndex(0)
+                self.animation_speed_slider.setValue(10)
+                self.animation_speed_label.setText("1.0x")
                 self.direction_widget.setVisible(False)
                 self.remove_animation_btn.setEnabled(False)
-        except Exception:
-            # If error, reset to defaults
+        except Exception as e:
+            import logging
+            logging.error(f"Error updating animation controls: {e}")
             self.animation_type_combo.setCurrentIndex(0)
             self.animation_speed_slider.setValue(10)
-            self.direction_layout.setVisible(False)
             self.remove_animation_btn.setEnabled(False)
         finally:
             self._updating = False
