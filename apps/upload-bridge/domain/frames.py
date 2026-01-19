@@ -17,6 +17,12 @@ class FrameManager(QObject):
     frames_changed = Signal()
     frame_index_changed = Signal(int)
     frame_duration_changed = Signal(int, int)  # index, duration
+    
+    # New signals for timeline remapping
+    frame_inserted = Signal(int) # index
+    frame_deleted = Signal(int) # index
+    frame_duplicated = Signal(int, int) # src, dest
+    frame_moved = Signal(int, int) # src, dest
 
     def __init__(self, state: PatternState):
         super().__init__()
@@ -56,6 +62,7 @@ class FrameManager(QObject):
         insert_at = self._current_index + 1
         pattern.frames.insert(insert_at, frame)
         self._current_index = insert_at
+        self.frame_inserted.emit(insert_at)
         self.frames_changed.emit()
         self.frame_index_changed.emit(self._current_index)
         return insert_at
@@ -67,6 +74,7 @@ class FrameManager(QObject):
         insert_at = index + 1
         pattern.frames.insert(insert_at, frame_copy)
         self._current_index = insert_at
+        self.frame_duplicated.emit(index, insert_at)
         self.frames_changed.emit()
         self.frame_index_changed.emit(self._current_index)
         return insert_at
@@ -79,6 +87,7 @@ class FrameManager(QObject):
         del pattern.frames[index]
         if self._current_index >= len(pattern.frames):
             self._current_index = len(pattern.frames) - 1
+        self.frame_deleted.emit(index)
         self.frames_changed.emit()
         self.frame_index_changed.emit(self._current_index)
 
@@ -91,6 +100,7 @@ class FrameManager(QObject):
         frame = pattern.frames.pop(src)
         pattern.frames.insert(dest, frame)
         self._current_index = dest
+        self.frame_moved.emit(src, dest)
         self.frames_changed.emit()
         self.frame_index_changed.emit(dest)
 
@@ -140,6 +150,7 @@ class FrameManager(QObject):
             idx = self._normalise_index(idx)
             if 0 <= idx < len(pattern.frames):
                 del pattern.frames[idx]
+                self.frame_deleted.emit(idx)
         
         # Adjust current index
         if self._current_index >= len(pattern.frames):
