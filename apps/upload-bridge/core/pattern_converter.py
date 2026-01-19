@@ -129,6 +129,9 @@ def hardware_to_design_order(pattern: Pattern, wiring_mode: str = "Serpentine",
         # Strip - no conversion needed
         return pattern
     
+    if getattr(pattern.metadata, 'already_unwrapped', False):
+        return pattern
+        
     # Build reverse mapping: design_index -> hardware_index
     hardware_to_design_map = _build_hardware_to_design_map(
         width, height, wiring_mode, data_in_corner
@@ -285,4 +288,3 @@ def _build_hardware_to_design_map(width: int, height: int, wiring_mode: str,
         mapping.append(design_idx)
     
     return mapping
-
