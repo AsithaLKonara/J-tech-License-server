@@ -32,9 +32,10 @@ class HistoryCommand:
 class FrameStateCommand(HistoryCommand):
     """Command for frame state changes (pixel painting, etc.)."""
     
-    def __init__(self, frame_index: int, old_pixels: List[RGB], new_pixels: List[RGB], description: str = "Edit frame"):
+    def __init__(self, frame_index: int, old_pixels: List[RGB], new_pixels: List[RGB], description: str = "Edit frame", layer_index: int = 0):
         super().__init__(description)
         self.frame_index = frame_index
+        self.layer_index = layer_index
         self.old_pixels = deepcopy(old_pixels)
         self.new_pixels = deepcopy(new_pixels)
     
@@ -45,6 +46,11 @@ class FrameStateCommand(HistoryCommand):
     def undo(self) -> List[RGB]:
         """Return the old state."""
         return deepcopy(self.old_pixels)
+
+    @property
+    def target_layer(self) -> int:
+        """The index of the layer this command targets."""
+        return self.layer_index
 
 
 class HistoryManager:
