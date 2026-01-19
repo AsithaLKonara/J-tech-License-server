@@ -34,12 +34,13 @@ def apply_effect_to_frames(
     frame_indices: Iterable[int],
     intensity: float,
     progress_callback: Optional[Callable[[int, int], None]] = None,
+    layer_manager: Optional['LayerManager'] = None,
+    layer_index: int = 0
 ) -> None:
     """Apply the procedural effect to the provided frames.
 
-    The implementation purposefully produces visually pleasing (yet lightweight)
-    overlays so we can honour legacy effect names without depending on SWF
-    parsing.  The behaviour is deterministic for a given effect identifier.
+    If layer_manager is provided, the effect is applied to the specific layer.
+    Otherwise, it's applied to the composite frame pixels.
     
     Args:
         pattern: Pattern to apply effect to
@@ -47,6 +48,8 @@ def apply_effect_to_frames(
         frame_indices: Frames to apply effect to
         intensity: Effect intensity (0.0-1.0)
         progress_callback: Optional callback(completed, total) for progress updates
+        layer_manager: Optional LayerManager for multi-layer support
+        layer_index: Targeted layer index (default 0)
     """
 
     frames = list(frame_indices)
@@ -68,16 +71,34 @@ def apply_effect_to_frames(
         if not (0 <= frame_index < len(pattern.frames)):
             skipped_count += 1
             import logging
-            logging.warning(f"Effect application: Skipping invalid frame index {frame_index} (pattern has {len(pattern.frames)} frames)")
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Effect application: Skipping invalid frame index {frame_index}")
             continue
-        frame = pattern.frames[frame_index]
-        pixels = list(frame.pixels)
-        if len(pixels) != width * height:
-            pixels = _pad_or_trim_pixels(pixels, width * height)
+            
+        # Determine which pixels to modify (Layer vs Frame)
+        if layer_manager:
+            layers = layer_manager.get_layers(frame_index)
+            if layer_index < len(layers):
+                source_pixels = list(layers[layer_index].pixels)
+            else:
+                source_pixels = list(pattern.frames[frame_index].pixels)
+        else:
+            source_pixels = list(pattern.frames[frame_index].pixels)
+
+        if len(source_pixels) != width * height:
+            source_pixels = _pad_or_trim_pixels(source_pixels, width * height)
 
         offset = step * speed
-        transformed = _apply_style_to_pixels(pixels, width, height, palette, style, offset, intensity, rng)
-        frame.pixels = transformed
+        transformed = _apply_style_to_pixels(source_pixels, width, height, palette, style, offset, intensity, rng)
+        
+        # Apply back to source
+        if layer_manager:
+            layer_manager.replace_pixels(frame_index, transformed, layer_index)
+            # Sync composite frame pixels
+            layer_manager.sync_frame_from_layers(frame_index)
+        else:
+            pattern.frames[frame_index].pixels = transformed
+            
         processed_count += 1
         
         # Call progress callback and check if canceled
