@@ -49,7 +49,7 @@ class LicenseManager:
             server_url: License server URL for online validation (defaults to environment variable or localhost)
         """
         if server_url is None:
-            server_url = os.environ.get('LICENSE_SERVER_URL', 'http://localhost:8000')
+            server_url = os.environ.get('LICENSE_SERVER_URL', 'https://j-tech-license-server.up.railway.app')
         self.server_url = server_url
         self.ENCRYPTED_LICENSE_DIR = Path.home() / ".upload_bridge" / "license"
         self.cache_file = self.ENCRYPTED_LICENSE_DIR / "license_cache.json"
