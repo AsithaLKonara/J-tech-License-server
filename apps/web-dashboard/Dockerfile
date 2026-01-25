@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     procps \
     iproute2 \
+    python3 \
     && docker-php-ext-install pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -51,12 +52,16 @@ COPY docker/nginx.conf /etc/nginx/sites-available/default
 RUN mkdir -p /var/log/nginx && chown www-data:www-data /var/log/nginx
 
 # Create PHP-FPM pool configuration
-RUN mkdir -p /var/run/php /run/php && \
+RUN mkdir -p /var/run/php /run/php && chmod 777 /run/php && \
+    rm -f /usr/local/etc/php-fpm.d/zz-docker.conf && \
     { \
         echo '[www]'; \
         echo 'user = www-data'; \
         echo 'group = www-data'; \
-        echo 'listen = 127.0.0.1:9000'; \
+        echo 'listen = /run/php/php-fpm.sock'; \
+        echo 'listen.owner = www-data'; \
+        echo 'listen.group = www-data'; \
+        echo 'listen.mode = 0666'; \
         echo 'pm = dynamic'; \
         echo 'pm.max_children = 5'; \
         echo 'pm.start_servers = 2'; \
@@ -66,11 +71,16 @@ RUN mkdir -p /var/run/php /run/php && \
     } > /usr/local/etc/php-fpm.d/www.conf
 
 # Expose port (Railway will set PORT env var)
-EXPOSE 80
-ENV PORT=80
+EXPOSE 8080
+ENV PORT=8080
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Start script
 COPY docker/start.sh /usr/local/bin/start.sh
+RUN sed -i 's/\r$//' /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
 CMD ["/usr/local/bin/start.sh"]
