@@ -59,7 +59,7 @@ jobs:
           python scripts/sign_installer.py --installer dist/installer.* --key "$SIGNING_KEY"
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: installer-${{ matrix.os }}
           path: apps/upload-bridge/dist/*installer*
