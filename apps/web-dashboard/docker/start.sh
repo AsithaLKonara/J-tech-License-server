@@ -37,20 +37,17 @@ else
 fi
 
 echo "🌱 Seeding Database..."
-if [ ! -z "$ADMIN_EMAIL" ]; then
-    echo "|-- Creating admin: $ADMIN_EMAIL"
-fi
-php artisan db:seed --class=AdminUserSeeder --force --no-interaction || echo "⚠️ Seeding Admin failed"
-php artisan db:seed --force --no-interaction || echo "⚠️ General Seeding failed"
+php artisan db:seed --force --no-interaction || echo "⚠️ Seeding failed"
 
 echo "🧹 Formatting Storage & Permissions..."
 mkdir -p /app/storage/framework/{sessions,views,cache} /app/storage/logs /app/bootstrap/cache
 chmod -R 777 /app/storage /app/bootstrap/cache /app/database
 
-echo "✨ Clearing Cache..."
+echo "✨ Clearing Cache & Optimizing..."
 php artisan config:clear
 php artisan cache:clear
 php artisan view:clear
+composer dump-autoload --optimize
 
 # ==============================================================================
 # 3. START SERVICES
