@@ -272,7 +272,7 @@ private_keys/
 # The web-dashboard is managed in a separate repository
 # (J-tech-License-server.git) and should not be tracked
 # in this main repository - UNCOMMENT BELOW IF NEEDED
-apps/web-dashboard/
+# apps/web-dashboard/
 tests/
 dist/
 build/
