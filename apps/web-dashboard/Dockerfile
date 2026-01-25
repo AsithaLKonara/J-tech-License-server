@@ -52,31 +52,29 @@ COPY docker/nginx.conf /etc/nginx/sites-available/default
 RUN mkdir -p /var/log/nginx && chown www-data:www-data /var/log/nginx
 
 # Create PHP-FPM pool configuration
-RUN mkdir -p /var/run/php /run/php && chmod 777 /run/php && \
-    rm -f /usr/local/etc/php-fpm.d/zz-docker.conf && \
+RUN rm -f /usr/local/etc/php-fpm.d/*.conf && \
     { \
         echo '[www]'; \
         echo 'user = www-data'; \
         echo 'group = www-data'; \
-        echo 'listen = /run/php/php-fpm.sock'; \
-        echo 'listen.owner = www-data'; \
-        echo 'listen.group = www-data'; \
-        echo 'listen.mode = 0666'; \
+        echo 'listen = 0.0.0.0:9000'; \
         echo 'pm = dynamic'; \
         echo 'pm.max_children = 5'; \
         echo 'pm.start_servers = 2'; \
         echo 'pm.min_spare_servers = 1'; \
         echo 'pm.max_spare_servers = 3'; \
         echo 'pm.max_requests = 500'; \
+        echo 'catch_workers_output = yes'; \
+        echo 'clear_env = no'; \
+        echo 'php_admin_flag[log_errors] = on'; \
     } > /usr/local/etc/php-fpm.d/www.conf
 
-# Expose port (Railway will set PORT env var)
+# Expose port (Railway will set PORT env var automatically)
 EXPOSE 8080
-ENV PORT=8080
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -f http://127.0.0.1:${PORT:-8080}/health || exit 1
 
 # Start script
 COPY docker/start.sh /usr/local/bin/start.sh

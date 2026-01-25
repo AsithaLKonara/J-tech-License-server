@@ -21,19 +21,36 @@ if [ ! -f .env ]; then
 fi
 chmod 666 .env
 
-echo "🔑 Generating Key..."
-php artisan key:generate --force --no-interaction
+if [ -z "$APP_KEY" ]; then
+    echo "🔑 No APP_KEY in environment, generating one..."
+    php artisan key:generate --force --no-interaction
+else
+    echo "✅ Using APP_KEY from environment"
+fi
 
 echo "🗄️ Running Migrations..."
-php artisan migrate --force --no-interaction || true
+# Run migrations and capture output
+if php artisan migrate --force --no-interaction; then
+    echo "✅ Migrations complete"
+else
+    echo "⚠️ Migrations failed or already up to date"
+fi
 
 echo "🌱 Seeding Database..."
-php artisan db:seed --class=AdminUserSeeder --force --no-interaction || true
-php artisan db:seed --force --no-interaction || true
+if [ ! -z "$ADMIN_EMAIL" ]; then
+    echo "|-- Creating admin: $ADMIN_EMAIL"
+fi
+php artisan db:seed --class=AdminUserSeeder --force --no-interaction || echo "⚠️ Seeding Admin failed"
+php artisan db:seed --force --no-interaction || echo "⚠️ General Seeding failed"
 
-echo "🧹 Clearing Cache..."
+echo "🧹 Formatting Storage & Permissions..."
+mkdir -p /app/storage/framework/{sessions,views,cache} /app/storage/logs /app/bootstrap/cache
+chmod -R 777 /app/storage /app/bootstrap/cache /app/database
+
+echo "✨ Clearing Cache..."
 php artisan config:clear
 php artisan cache:clear
+php artisan view:clear
 
 # ==============================================================================
 # 3. START SERVICES
