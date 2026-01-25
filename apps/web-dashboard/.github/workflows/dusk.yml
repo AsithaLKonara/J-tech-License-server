@@ -1,0 +1,71 @@
+name: Dusk Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  dusk-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, bcmath, pdo, pdo_sqlite
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: |
+          cd web-dashboard
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Chrome Driver
+        run: |
+          cd web-dashboard
+          php artisan dusk:chrome-driver
+
+      - name: Start Chrome Driver
+        run: |
+          cd web-dashboard
+          php artisan dusk:chrome-driver --detach
+
+      - name: Setup Environment
+        run: |
+          cd web-dashboard
+          cp .env.dusk.local .env
+          php artisan key:generate
+          touch database/database.sqlite
+
+      - name: Run Migrations
+        run: |
+          cd web-dashboard
+          php artisan migrate --force
+
+      - name: Run Dusk Tests
+        run: |
+          cd web-dashboard
+          php artisan dusk
+        env:
+          APP_URL: http://localhost:8000
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: screenshots
+          path: web-dashboard/tests/Browser/screenshots
+          retention-days: 5
+
+      - name: Upload Console Logs
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: console
+          path: web-dashboard/tests/Browser/console
+          retention-days: 5
