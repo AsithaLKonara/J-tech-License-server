@@ -80,7 +80,7 @@ jobs:
           python scripts/capture_hardware_output.py --chip ${{ matrix.chip }} --port /dev/ttyUSB0 --output hardware_output.log
       
       - name: Upload results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: hil-results-${{ matrix.chip }}
