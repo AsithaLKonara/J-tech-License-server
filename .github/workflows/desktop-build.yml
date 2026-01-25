@@ -47,7 +47,7 @@ jobs:
         cd apps/upload-bridge
         python build_test_exe.py
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: UploadBridge-Windows
         path: apps/upload-bridge/dist/UploadBridge.exe

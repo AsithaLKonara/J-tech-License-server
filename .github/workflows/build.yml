@@ -52,7 +52,7 @@ jobs:
             python -m pytest tests/integration/test_${{ matrix.chip }}_build.py -v
       
       - name: Upload firmware artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: firmware-${{ matrix.chip }}
