@@ -50,8 +50,8 @@ class AuthManager:
                 server_url = env_url
                 logger.info(f"AuthManager: Using production server URL from environment: {server_url}")
             else:
-                server_url = 'http://localhost:8000'
-                logger.warning("AuthManager: LICENSE_SERVER_URL not set. Defaulting to LOCAL DEBUG MODE (localhost:8000).")
+                server_url = 'https://j-tech-license-server.up.railway.app'
+                logger.warning("AuthManager: LICENSE_SERVER_URL not set. Defaulting to PRODUCTION MODE.")
         
         self.server_url = server_url.rstrip('/')
         self.session_token = None
