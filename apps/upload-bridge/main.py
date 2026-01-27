@@ -273,7 +273,35 @@ def run_app():
             ensure_authenticated_or_exit(None, auth_manager, config)
             splash.show()
             splash.raise_()
-        
+
+        # Step 3: Run First-Run Setup Wizard if needed
+        if not config.get("setup_completed", False):
+            logger.info("First-run detected, showing setup wizard")
+            from ui.dialogs.setup_wizard_dialog import SetupWizardDialog
+            
+            splash.hide()
+            wizard = SetupWizardDialog(None)
+            if wizard.exec() == QDialog.Accepted:
+                config.set("setup_completed", True)
+                # Persist config
+                try:
+                    app_root = Path(__file__).resolve().parent
+                    config_dir = app_root / "config"
+                    config_dir.mkdir(exist_ok=True)
+                    yaml_path = config_dir / "app_config.yaml"
+                    
+                    # Update or create app_config.yaml
+                    current_config = config.get_all()
+                    import yaml
+                    with open(yaml_path, 'w', encoding='utf-8') as f:
+                        yaml.dump(current_config, f, default_flow_style=False)
+                    logger.info("Setup completion persisted to config")
+                except Exception as e:
+                    logger.error(f"Failed to persist setup status: {e}")
+            
+            splash.show()
+            splash.raise_()
+
         # Step 2: Verify license
         splash.show_message("Verifying license status...", 65)
         # Don't force online - allows grace period for offline operation
