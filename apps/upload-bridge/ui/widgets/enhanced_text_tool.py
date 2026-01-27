@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QColorDialog,
+    QFontComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtGui import QColor, QFont, QImage, QPixmap, qRgb
 
 from domain.text.bitmap_font import BitmapFont
 from domain.text.text_renderer import TextRenderer, TextRenderOptions, TextScrollOptions
@@ -57,6 +59,9 @@ class EnhancedTextToolWidget(QWidget):
         self._font_designer_callback: Optional[Callable[[], None]] = None
 
         self._text = ""
+        self._font_type = "bitmap"  # "bitmap" or "system"
+        self._system_font_name = "Arial"
+        self._system_font_size = 12
         self._alignment = "center"
         self._spacing = 0
         self._multi_line = True
@@ -138,8 +143,9 @@ class EnhancedTextToolWidget(QWidget):
             spacing=self._spacing,
             line_spacing=1,
             multiline=self._multi_line,
-            font_size=font_size,
-            bitmap_font=self._active_bitmap_font,
+            font_size=self._system_font_size if self._font_type == "system" else font_size,
+            font_name=self._system_font_name if self._font_type == "system" else None,
+            bitmap_font=None if self._font_type == "system" else self._active_bitmap_font,
             outline=self._outline_enabled,
             outline_color=self._outline_color if self._outline_enabled else None,
             outline_thickness=1,
@@ -156,9 +162,18 @@ class EnhancedTextToolWidget(QWidget):
         direction = fallback_direction
         if self.scroll_preview_checkbox.isChecked():
             direction = self.scroll_direction_combo.currentText().lower()
+        elif hasattr(self, "anim_type_combo"):
+             # Use the global setting if preview is off
+             text = self.anim_type_combo.currentText()
+             if "Scrolling" in text:
+                 direction = text.split()[-1].lower()
+        
         step = max(1, self.scroll_speed_slider.value() // 2)
         padding = 4
         return TextScrollOptions(direction=direction, step=step, padding=padding)
+
+    def get_animation_type(self) -> str:
+        return self.anim_type_combo.currentText()
 
     # ------------------------------------------------------------------
     # UI setup
@@ -170,6 +185,7 @@ class EnhancedTextToolWidget(QWidget):
 
         root.addWidget(self._build_text_group())
         root.addWidget(self._build_font_group())
+        root.addWidget(self._build_animation_settings_group())
         root.addWidget(self._build_layout_group())
         root.addWidget(self._build_spacing_group())
         root.addWidget(self._build_effects_group())
@@ -193,20 +209,108 @@ class EnhancedTextToolWidget(QWidget):
 
     def _build_font_group(self) -> QGroupBox:
         group = QGroupBox("Font")
-        layout = QHBoxLayout(group)
+        layout = QVBoxLayout(group)
+        
+        # Font Type Toggle
+        type_row = QHBoxLayout()
+        self.font_type_group = QButtonGroup(self)
+        self.bitmap_radio = QRadioButton("Bitmap Font")
+        self.system_radio = QRadioButton("System Font")
+        self.bitmap_radio.setChecked(True)
+        self.font_type_group.addButton(self.bitmap_radio, 0)
+        self.font_type_group.addButton(self.system_radio, 1)
+        type_row.addWidget(self.bitmap_radio)
+        type_row.addWidget(self.system_radio)
+        type_row.addStretch()
+        layout.addLayout(type_row)
+        
+        # Bitmap Font Section
+        self.bitmap_section = QWidget()
+        bitmap_layout = QHBoxLayout(self.bitmap_section)
+        bitmap_layout.setContentsMargins(0, 0, 0, 0)
         self.font_combo = QComboBox()
         self.font_combo.currentIndexChanged.connect(self._on_font_changed)
-        layout.addWidget(QLabel("Bitmap font:"))
-        layout.addWidget(self.font_combo, 1)
+        bitmap_layout.addWidget(QLabel("Preset:"))
+        bitmap_layout.addWidget(self.font_combo, 1)
 
         refresh_btn = QPushButton("Refresh")
         refresh_btn.setToolTip("Refresh custom bitmap font list")
         refresh_btn.clicked.connect(self.refresh_font_list)
-        layout.addWidget(refresh_btn)
+        bitmap_layout.addWidget(refresh_btn)
 
         designer_btn = QPushButton("Font Designer…")
         designer_btn.clicked.connect(self._on_font_designer_requested)
-        layout.addWidget(designer_btn)
+        bitmap_layout.addWidget(designer_btn)
+        layout.addWidget(self.bitmap_section)
+        
+        # System Font Section
+        self.system_section = QWidget()
+        system_layout = QVBoxLayout(self.system_section)
+        system_layout.setContentsMargins(0, 0, 0, 0)
+        
+        font_name_row = QHBoxLayout()
+        self.system_font_combo = QFontComboBox()
+        self.system_font_combo.currentFontChanged.connect(self._on_system_font_changed)
+        font_name_row.addWidget(QLabel("Family:"))
+        font_name_row.addWidget(self.system_font_combo, 1)
+        system_layout.addLayout(font_name_row)
+        
+        font_size_row = QHBoxLayout()
+        self.system_size_spin = QSlider(Qt.Horizontal)
+        self.system_size_spin.setRange(4, 64)
+        self.system_size_spin.setValue(12)
+        self.system_size_spin.valueChanged.connect(self._on_system_font_changed)
+        self.system_size_label = QLabel("12 px")
+        font_size_row.addWidget(QLabel("Size:"))
+        font_size_row.addWidget(self.system_size_spin, 1)
+        font_size_row.addWidget(self.system_size_label)
+        system_layout.addLayout(font_size_row)
+        
+        layout.addWidget(self.system_section)
+        self.system_section.setVisible(False)
+        
+        # Connect toggles
+        self.bitmap_radio.toggled.connect(self._on_font_type_toggled)
+        self.system_radio.toggled.connect(self._on_font_type_toggled)
+        
+        return group
+
+    def _build_animation_settings_group(self) -> QGroupBox:
+        group = QGroupBox("Animation Settings")
+        layout = QVBoxLayout(group)
+        
+        type_row = QHBoxLayout()
+        type_row.addWidget(QLabel("Type:"))
+        self.anim_type_combo = QComboBox()
+        self.anim_type_combo.addItems([
+            "Typed (Character by Character)", 
+            "Scrolling Left", 
+            "Scrolling Right", 
+            "Scrolling Up", 
+            "Scrolling Down"
+        ])
+        type_row.addWidget(self.anim_type_combo, 1)
+        layout.addLayout(type_row)
+        
+        # Frames per character (for typing)
+        self.typing_speed_row = QHBoxLayout()
+        self.typing_speed_row.addWidget(QLabel("Frames/Char:"))
+        self.frames_per_char_spin = QSlider(Qt.Horizontal)
+        self.frames_per_char_spin.setRange(1, 10)
+        self.frames_per_char_spin.setValue(2)
+        self.frames_per_char_label = QLabel("2")
+        self.frames_per_char_spin.valueChanged.connect(lambda v: self.frames_per_char_label.setText(str(v)))
+        self.typing_speed_row.addWidget(self.frames_per_char_spin, 1)
+        self.typing_speed_row.addWidget(self.frames_per_char_label)
+        layout.addLayout(self.typing_speed_row)
+        
+        def on_type_changed(text):
+            is_typing = "Typed" in text
+            self.typing_speed_row.setEnabled(is_typing)
+            
+        self.anim_type_combo.currentTextChanged.connect(on_type_changed)
+        on_type_changed(self.anim_type_combo.currentText())
+        
         return group
 
     def _build_layout_group(self) -> QGroupBox:
@@ -358,6 +462,24 @@ class EnhancedTextToolWidget(QWidget):
             except FileNotFoundError:
                 self._active_bitmap_font = None
         self.font_changed.emit(self.font_combo.currentText())
+        self._schedule_preview()
+
+    def _on_system_font_changed(self) -> None:
+        self._system_font_name = self.system_font_combo.currentFont().family()
+        self._system_font_size = self.system_size_spin.value()
+        self.system_size_label.setText(f"{self._system_font_size} px")
+        self.font_changed.emit(self._system_font_name)
+        self._schedule_preview()
+
+    def _on_font_type_toggled(self) -> None:
+        if self.bitmap_radio.isChecked():
+            self._font_type = "bitmap"
+            self.bitmap_section.setVisible(True)
+            self.system_section.setVisible(False)
+        else:
+            self._font_type = "system"
+            self.bitmap_section.setVisible(False)
+            self.system_section.setVisible(True)
         self._schedule_preview()
 
     def _on_font_designer_requested(self) -> None:
