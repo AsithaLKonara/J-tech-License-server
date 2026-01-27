@@ -31,6 +31,7 @@ class TextRenderOptions:
     multiline: bool = True
     uppercase: bool = False
     font_size: int = 8
+    font_name: Optional[str] = None  # Added for system fonts
     bitmap_font: Optional[BitmapFont] = None
     outline: bool = False
     outline_color: Optional[RGB] = (255, 255, 255)
@@ -88,32 +89,38 @@ class TextRenderer:
         glyph_provider = self._glyph_provider_for_options(options)
         char_width, char_height = self._char_dimensions(options, glyph_provider)
         lines = self._prepare_lines(text, options)
-        content_height = self._compute_content_height(len(lines), char_height, options.line_spacing)
-        start_y = self._align_vertical(height, content_height)
+        
+        # Branch for System Font (PIL) rendering
+        if options.font_name:
+            drawn_points = self._render_via_pil(text, lines, options)
+        else:
+            # Traditional Bitmap rendering
+            drawn_points = []
+            content_height = self._compute_content_height(len(lines), char_height, options.line_spacing)
+            start_y = self._align_vertical(height, content_height)
+            offset_x, offset_y = offset
+            
+            for line_idx, line in enumerate(lines):
+                line_width = self._compute_line_width(line, char_width, options.spacing)
+                cursor_x = self._align_horizontal(width, line_width, options.alignment) - offset_x
+                cursor_y = start_y + line_idx * (char_height + options.line_spacing) - offset_y
 
-        drawn_points: List[Tuple[int, int]] = []
-        offset_x, offset_y = offset
-        for line_idx, line in enumerate(lines):
-            line_width = self._compute_line_width(line, char_width, options.spacing)
-            cursor_x = self._align_horizontal(width, line_width, options.alignment) - offset_x
-            cursor_y = start_y + line_idx * (char_height + options.line_spacing) - offset_y
-
-            for char in line:
-                glyph = glyph_provider.glyph(char)
-                drawn_points.extend(
-                    self._stamp_glyph(
-                        glyph,
-                        cursor_x,
-                        cursor_y,
-                        char_width,
-                        char_height,
-                        width,
-                        height,
-                        pixels,
-                        record_only=True,
+                for char in line:
+                    glyph = glyph_provider.glyph(char)
+                    drawn_points.extend(
+                        self._stamp_glyph(
+                            glyph,
+                            cursor_x,
+                            cursor_y,
+                            char_width,
+                            char_height,
+                            width,
+                            height,
+                            pixels,
+                            record_only=True,
+                        )
                     )
-                )
-                cursor_x += char_width + options.spacing
+                    cursor_x += char_width + options.spacing
 
         if not drawn_points:
             return pixels
@@ -379,14 +386,84 @@ class TextRenderer:
     ) -> List[RGB]:
         ox, oy = offset
         cropped: List[RGB] = []
+        source_height = len(pixels) // source_width
         for row in range(target_height):
             src_y = row + oy
-            src_y = max(0, min(src_y, (len(pixels) // source_width) - 1))
-            for col in range(target_width):
-                src_x = col + ox
-                src_x = max(0, min(src_x, source_width - 1))
-                idx = src_y * source_width + src_x
-                cropped.append(pixels[idx])
+            # Corrected cropping bounds check
+            if 0 <= src_y < source_height:
+                for col in range(target_width):
+                    src_x = col + ox
+                    if 0 <= src_x < source_width:
+                        idx = src_y * source_width + src_x
+                        cropped.append(pixels[idx])
+                    else:
+                        cropped.append((0, 0, 0)) # Default background
+            else:
+                for _ in range(target_width):
+                    cropped.append((0, 0, 0))
         return cropped
+
+    def _render_via_pil(self, text: str, lines: List[str], options: TextRenderOptions) -> List[Tuple[int, int]]:
+        """Render text using PIL and return a list of lit pixel coordinates."""
+        from PIL import Image, ImageDraw, ImageFont
+        
+        # Try to load the font
+        try:
+            # Handle possible family name or path
+            font_name = options.font_name
+            if not font_name.lower().endswith(('.ttf', '.otf')):
+                # Try common locations or just let PIL find it by name
+                font = ImageFont.truetype(font_name, options.font_size)
+            else:
+                font = ImageFont.truetype(font_name, options.font_size)
+        except Exception:
+            try:
+                # Fallback to load by family name if path failed
+                font = ImageFont.truetype("arial.ttf", options.font_size)
+            except Exception:
+                font = ImageFont.load_default()
+
+        # Measure text to center it
+        # We render to a temporary high-res image and then extract points
+        # For simplicity, we create an image larger than the target and center it
+        temp_img = Image.new('L', (options.width * 2, options.height * 2), 0)
+        draw = ImageDraw.Draw(temp_img)
+        
+        # Calculate total height
+        total_height = 0
+        line_heights = []
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            h = bbox[3] - bbox[1]
+            line_heights.append(h)
+            total_height += h + options.line_spacing
+        
+        start_y = (temp_img.height - total_height) // 2
+        
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
+            
+            if options.alignment == "left":
+                x = (temp_img.width - options.width) // 2
+            elif options.alignment == "right":
+                x = (temp_img.width + options.width) // 2 - line_width
+            else: # center
+                x = (temp_img.width - line_width) // 2
+                
+            draw.text((x, start_y), line, font=font, fill=255)
+            start_y += line_heights[i] + options.line_spacing
+            
+        # Extract points that fall within the central window
+        points = []
+        win_x = (temp_img.width - options.width) // 2
+        win_y = (temp_img.height - options.height) // 2
+        
+        for y in range(options.height):
+            for x in range(options.width):
+                if temp_img.getpixel((win_x + x, win_y + y)) > 128:
+                    points.append((x, y))
+                    
+        return points
 
 
