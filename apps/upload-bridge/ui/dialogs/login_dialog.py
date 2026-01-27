@@ -82,7 +82,7 @@ class LoginDialog(QDialog):
     def __init__(self, parent=None, auth_manager: Optional[AuthManager] = None, config: dict = None):
         super().__init__(parent)
         self.config = config or {}
-        self.server_url = self.config.get("auth_server_url") or os.environ.get("LICENSE_SERVER_URL") or os.environ.get("AUTH_SERVER_URL") or "http://localhost:8000"
+        self.server_url = self.config.get("auth_server_url") or os.environ.get("LICENSE_SERVER_URL") or os.environ.get("AUTH_SERVER_URL") or "https://j-tech-license-server.up.railway.app"
         self.auth_manager = auth_manager or AuthManager(server_url=self.server_url)
         self.auth_worker = None
         self.oauth_worker = None # New attribute for OAuth worker
@@ -325,7 +325,7 @@ class LoginDialog(QDialog):
     
     def on_create_account(self):
         """Open account creation page"""
-        signup_url = f"{self.server_url}/signup"
+        signup_url = f"{self.server_url}/register"
         webbrowser.open(signup_url)
 
     def on_oauth_flow_complete(self, result: OAuthResult):
@@ -404,7 +404,7 @@ def ensure_authenticated_or_exit(parent=None, auth_manager: Optional[AuthManager
     if config is None:
         config = get_config()
 
-    server_url = config.get("auth_server_url", "http://localhost:8000")
+    server_url = config.get("auth_server_url", "https://j-tech-license-server.up.railway.app")
 
     if auth_manager is None:
         auth_manager = AuthManager(server_url=server_url)

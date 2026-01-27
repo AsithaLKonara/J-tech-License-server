@@ -39,7 +39,7 @@ class LicenseActivationDialog(QDialog):
                  license_manager: Optional[LicenseManager] = None, config: dict = None):
         super().__init__(parent)
         self.config = config or {}
-        self.server_url = self.config.get("auth_server_url") or os.environ.get("LICENSE_SERVER_URL") or os.environ.get("AUTH_SERVER_URL") or "http://localhost:8000"
+        self.server_url = self.config.get("auth_server_url") or os.environ.get("LICENSE_SERVER_URL") or os.environ.get("AUTH_SERVER_URL") or "https://j-tech-license-server.up.railway.app"
         self.auth_manager = auth_manager or AuthManager(server_url=self.server_url)
         self.license_manager = license_manager or LicenseManager(server_url=self.server_url)
         self.auth_worker = None
