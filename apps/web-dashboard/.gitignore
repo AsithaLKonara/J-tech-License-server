@@ -1,0 +1,217 @@
+# ============================================================
+# PHP DEPENDENCIES & CACHE (LARGE)
+# ============================================================
+vendor/
+composer.phar
+phpunit.result.cache
+.php-cs-fixer.cache
+
+# ============================================================
+# NODE.JS DEPENDENCIES & ARTIFACTS (LARGE)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+*.tsbuildinfo
+.yarn/install-state.gz
+.pnp.*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================================
+# LARAVEL SPECIFIC
+# ============================================================
+/bootstrap/cache/
+/storage/logs/*.log
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/cache/*
+.env
+.env.backup
+.env.local
+.env.*.local
+.env.production.local
+
+# ============================================================
+# DATABASE & DATA FILES
+# ============================================================
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+*.accdb
+database.sqlite
+database.sqlite3
+
+# ============================================================
+# BUILD & DISTRIBUTION OUTPUTS (LARGE FILES)
+# ============================================================
+dist/
+build/
+*.tar.gz
+*.zip
+*.pkg
+*.dmg
+*.deb
+*.rpm
+
+# ============================================================
+# IDE & EDITOR
+# ============================================================
+.vscode/
+.vscode-insiders/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.netbeans/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+Tags
+.vim/
+*.iml
+*.iws
+*.ipr
+
+# ============================================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================================
+.env
+.env.local
+.env.*.local
+.env.backup
+
+# ============================================================
+# LOGS & DEBUG FILES
+# ============================================================
+*.log
+logs/
+storage/logs/
+*.logs
+debug.log
+.netrc
+
+# ============================================================
+# TESTING & COVERAGE
+# ============================================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.nox/
+.benchmarks/
+*.xml
+test-results/
+junit.xml
+testdox.html
+
+# ============================================================
+# TEMPORARY & CACHE FILES
+# ============================================================
+*.tmp
+*.temp
+.cache/
+*.cache
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+
+# ============================================================
+# OS SPECIFIC
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
+Thumbs.db
+Thumbs.db:encryptable
+$RECYCLE.BIN/
+*.lnk
+.directory
+
+# ============================================================
+# SECURITY & SENSITIVE DATA
+# ============================================================
+*.pem
+*.key
+*.pub
+*.p12
+*.p8
+*.pfx
+secrets/
+.secrets/
+.env.*.secret
+config/secrets/
+config/credentials/
+private_keys/
+
+# ============================================================
+# VITE BUILD FILES
+# ============================================================
+.vite
+.vite-manifest.json
+
+# ============================================================
+# DOCKER & VIRTUALIZATION
+# ============================================================
+.docker/
+docker/volumes/
+docker-compose.override.yml
+.dockerignore
+
+# ============================================================
+# RAILWAY SPECIFIC (DEPLOYMENT)
+# ============================================================
+.railwayignore
+.railway/
+.env.railway
+
+# ============================================================
+# IDE SPECIFIC DIRECTORIES
+# ============================================================
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.idea/
+.netbeans/
+*.ctags
+tags
+
+# ============================================================
+# ARTIFACTS FROM BUILD TOOLS
+# ============================================================
+.gradle/
+build/
+*.o
+*.a
+*.obj
+*.elf
+.sass-cache/
+.jekyll-cache/
+.bundle/
+
+# ============================================================
+# MISC
+# ============================================================
+.DS_Store
+.envoy.php
+dusk.env
+public/storage
