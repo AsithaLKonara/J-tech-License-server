@@ -51,9 +51,9 @@ def configure_environment(logger: logging.Logger) -> None:
     candidates = []
     if meipass:
         candidates += [
-            os.path.join(meipass, "PySide6", "plugins"),
-            os.path.join(meipass, "PySide6", "Qt", "plugins"),
-            os.path.join(meipass, "qt6_plugins"),
+            Path(meipass) / "PySide6" / "plugins",
+            Path(meipass) / "PySide6" / "Qt" / "plugins",
+            Path(meipass) / "qt6_plugins",
         ]
 
     base_dir = Path(__file__).parent
@@ -202,17 +202,38 @@ def run_app():
     configure_environment(logger)
     hide_windows_console()
 
+    app = setup_qt_app()
+    
+    # Show Splash Screen
+    from ui.widgets.splash_screen import PremiumSplashScreen
+    
+    # Try to find icon for splash
+    base_dir = Path(__file__).parent
+    candidate_icons = [
+        base_dir / "LEDMatrixStudio_icon.ico",
+        base_dir / "resources/icons/LEDMatrixStudio_icon.ico",
+        base_dir / "assets/icons/LEDMatrixStudio_icon.ico",
+    ]
+    icon_path = next((p for p in candidate_icons if p.exists()), None)
+    
+    splash = PremiumSplashScreen(str(icon_path) if icon_path else None)
+    splash.show()
+    splash.show_message("Starting Upload Bridge...", 5)
+
     # Run early health checks
+    splash.show_message("Running health checks...", 15)
     run_health_checks(logger)
 
     try:
         from core.config import get_config
         from core.logging import setup_logging, get_logger, LogLevel
 
+        splash.show_message("Loading configuration...", 25)
         config = get_config()
         log_level_str = config.get("log_level", "INFO").upper()
         log_level = LogLevel.__members__.get(log_level_str, LogLevel.INFO)
 
+        splash.show_message("Setting up logging...", 35)
         setup_logging(
             level=log_level,
             log_to_file=config.get("log_to_file", True),
@@ -229,32 +250,32 @@ def run_app():
                 "environment": getattr(config, "environment", None),
             },
         )
-
     except Exception as e:
         logger.warning("Failed to initialize enterprise logging: %s", e)
 
     setup_exception_hook(logger)
 
-    app = setup_qt_app()
-
     # Authentication / License verification - MANDATORY
-    # User must login and have ACTIVE license before app opens
     try:
         from core.auth_manager import AuthManager
         from core.license_manager import LicenseManager
         from ui.dialogs.login_dialog import ensure_authenticated_or_exit
         from PySide6.QtWidgets import QMessageBox, QDialog
 
-        auth_manager = AuthManager(server_url=config.get("auth_server_url", "http://localhost:8000"))
-        license_manager = LicenseManager(server_url=config.get("auth_server_url", "http://localhost:8000"))
+        auth_manager = AuthManager(server_url=config.get("auth_server_url", "https://j-tech-license-server.up.railway.app"))
+        license_manager = LicenseManager(server_url=config.get("auth_server_url", "https://j-tech-license-server.up.railway.app"))
         
         # Step 1: Check if user is authenticated
+        splash.show_message("Checking authentication...", 50)
         if not auth_manager.has_valid_token():
             logger.info("No valid authentication token found - showing login dialog")
+            splash.hide() # Hide splash for login
             ensure_authenticated_or_exit(None, auth_manager, config)
+            splash.show()
+            splash.raise_()
         
-        # Step 2: Verify license is ACTIVE (respects grace period for offline use)
-        logger.info("Verifying license status...")
+        # Step 2: Verify license
+        splash.show_message("Verifying license status...", 65)
         # Don't force online - allows grace period for offline operation
         is_valid, message, license_info = license_manager.validate_license(force_online=False)
         
@@ -269,6 +290,7 @@ def run_app():
             from PySide6.QtWidgets import QApplication
             
             logger.info("Showing license activation dialog...")
+            splash.hide()
             activation_dialog = LicenseActivationDialog(
                 None,
                 auth_manager=auth_manager,
@@ -287,6 +309,7 @@ def run_app():
             # If dialog was cancelled, closed, or activation failed
             if result != QDialog.Accepted:
                 logger.warning("License activation dialog was cancelled or closed without successful activation")
+                splash.finish(None)
                 QMessageBox.warning(
                     None,
                     "License Required",
@@ -294,9 +317,11 @@ def run_app():
                 )
                 sys.exit(1)
             
-            # Dialog was accepted, which means license was successfully activated and validated as ACTIVE
-            # Re-check license one final time to ensure it's ACTIVE before continuing
+            # Dialog was accepted
+            splash.show()
+            splash.raise_()
             logger.info("License activation dialog accepted - performing final license verification...")
+            splash.show_message("Synchronizing license...", 85)
             is_valid_final, message_final, license_info_final = license_manager.validate_license(force_online=True)
             license_status_final = license_info_final.get('status', '').upper() if license_info_final else ''
             
@@ -318,11 +343,15 @@ def run_app():
 
     except ImportError as e:
         logger.critical("Failed to import required modules: %s", e, exc_info=True)
-        QMessageBox.critical(
-            None,
-            "Fatal Error",
-            f"Failed to load license system:\n\n{e}\n\nApplication cannot start."
-        )
+        try:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                None,
+                "Fatal Error",
+                f"Failed to load license system:\n\n{e}\n\nApplication cannot start."
+            )
+        except Exception:
+            print(f"CRITICAL ERROR: Failed to load license system: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         logger.critical("License verification failed: %s", e, exc_info=True)
@@ -341,8 +370,15 @@ def run_app():
     try:
         from ui.factory import create_editor_controller
 
+        splash.show_message("Initializing user interface...", 90)
         controller = create_editor_controller()
+        
+        splash.show_message("Ready", 100)
+        import time
+        time.sleep(0.5) # Short pause to show the 100% state
+        
         controller.show()
+        splash.finish(controller)
 
         # Open file from command line if provided
         if len(sys.argv) > 1 and hasattr(controller, "load_file"):
@@ -360,7 +396,8 @@ def run_app():
     except Exception as e:
         logger.critical("Failed to create EditorController: %s", e, exc_info=True)
         from PySide6.QtWidgets import QMessageBox
-
+        if 'splash' in locals():
+            splash.finish(None)
         QMessageBox.critical(None, "Upload Bridge - Fatal Error", f"Failed to start application:\n{e}")
         sys.exit(1)
 
