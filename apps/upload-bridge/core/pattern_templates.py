@@ -11,10 +11,74 @@ from typing import List, Tuple, Optional, Dict, Any
 from enum import Enum
 import math
 import random
+from PIL import Image, ImageDraw, ImageFont
 
 from core.pattern import Pattern, Frame, PatternMetadata
 
 RGB = Tuple[int, int, int]
+
+# Simple 5x7 Font Bitmaps (Column-major)
+BASIC_FONT = {
+    ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+    '!': [0x00, 0x00, 0x5F, 0x00, 0x00],
+    '"': [0x00, 0x07, 0x00, 0x07, 0x00],
+    '#': [0x14, 0x7F, 0x14, 0x7F, 0x14],
+    '$': [0x24, 0x2A, 0x7F, 0x2A, 0x12],
+    '%': [0x23, 0x13, 0x08, 0x64, 0x62],
+    '&': [0x36, 0x49, 0x55, 0x22, 0x50],
+    '\'': [0x00, 0x05, 0x03, 0x00, 0x00],
+    '(': [0x00, 0x1C, 0x22, 0x41, 0x00],
+    ')': [0x00, 0x41, 0x22, 0x1C, 0x00],
+    '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
+    '+': [0x08, 0x08, 0x3E, 0x08, 0x08],
+    ',': [0x00, 0x50, 0x30, 0x00, 0x00],
+    '-': [0x08, 0x08, 0x08, 0x08, 0x08],
+    '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+    '/': [0x20, 0x10, 0x08, 0x04, 0x02],
+    '0': [0x3E, 0x51, 0x49, 0x45, 0x3E],
+    '1': [0x00, 0x42, 0x7F, 0x40, 0x00],
+    '2': [0x42, 0x61, 0x51, 0x49, 0x46],
+    '3': [0x21, 0x41, 0x45, 0x4B, 0x31],
+    '4': [0x18, 0x14, 0x12, 0x7F, 0x10],
+    '5': [0x27, 0x45, 0x45, 0x45, 0x39],
+    '6': [0x3C, 0x4A, 0x49, 0x49, 0x30],
+    '7': [0x01, 0x71, 0x09, 0x05, 0x03],
+    '8': [0x36, 0x49, 0x49, 0x49, 0x36],
+    '9': [0x06, 0x49, 0x49, 0x29, 0x1E],
+    ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+    ';': [0x00, 0x56, 0x36, 0x00, 0x00],
+    '<': [0x08, 0x14, 0x22, 0x41, 0x00],
+    '=': [0x14, 0x14, 0x14, 0x14, 0x14],
+    '>': [0x00, 0x41, 0x22, 0x14, 0x08],
+    '?': [0x02, 0x01, 0x51, 0x09, 0x06],
+    '@': [0x32, 0x49, 0x79, 0x41, 0x3E],
+    'A': [0x7E, 0x11, 0x11, 0x11, 0x7E],
+    'B': [0x7F, 0x49, 0x49, 0x49, 0x36],
+    'C': [0x3E, 0x41, 0x41, 0x41, 0x22],
+    'D': [0x7F, 0x41, 0x41, 0x22, 0x1C],
+    'E': [0x7F, 0x49, 0x49, 0x49, 0x41],
+    'F': [0x7F, 0x09, 0x09, 0x09, 0x01],
+    'G': [0x3E, 0x41, 0x49, 0x49, 0x7A],
+    'H': [0x7F, 0x08, 0x08, 0x08, 0x7F],
+    'I': [0x00, 0x41, 0x7F, 0x41, 0x00],
+    'J': [0x20, 0x40, 0x41, 0x3F, 0x01],
+    'K': [0x7F, 0x08, 0x14, 0x22, 0x41],
+    'L': [0x7F, 0x40, 0x40, 0x40, 0x40],
+    'M': [0x7F, 0x02, 0x0C, 0x02, 0x7F],
+    'N': [0x7F, 0x04, 0x08, 0x10, 0x7F],
+    'O': [0x3E, 0x41, 0x41, 0x41, 0x3E],
+    'P': [0x7F, 0x09, 0x09, 0x09, 0x06],
+    'Q': [0x3E, 0x41, 0x51, 0x21, 0x5E],
+    'R': [0x7F, 0x09, 0x19, 0x29, 0x46],
+    'S': [0x46, 0x49, 0x49, 0x49, 0x31],
+    'T': [0x01, 0x01, 0x7F, 0x01, 0x01],
+    'U': [0x3F, 0x40, 0x40, 0x40, 0x3F],
+    'V': [0x1F, 0x20, 0x40, 0x20, 0x1F],
+    'W': [0x3F, 0x40, 0x38, 0x40, 0x3F],
+    'X': [0x63, 0x14, 0x08, 0x14, 0x63],
+    'Y': [0x07, 0x08, 0x70, 0x08, 0x07],
+    'Z': [0x61, 0x51, 0x49, 0x45, 0x43],
+}
 
 
 class TemplateCategory(Enum):
@@ -49,12 +113,14 @@ class TemplateLibrary:
         self.templates.append(PatternTemplate(
             name="Scrolling Text",
             category=TemplateCategory.TEXT,
-            description="Text that scrolls across the matrix",
+            description="Text scrolling across the matrix",
             parameters={
-                "text": "Hello",
+                "text": "HELLO",
                 "speed": 1,
-                "color": (255, 255, 255),
-                "direction": "left"
+                "color": (255, 0, 0),
+                "direction": "left",
+                "font_size": 10,
+                "font_name": "arial.ttf"
             },
             generator=self._generate_scrolling_text
         ))
@@ -117,7 +183,10 @@ class TemplateLibrary:
             description="Digital clock display",
             parameters={
                 "format": "12h",
-                "color": (0, 255, 0)
+                "color": (0, 255, 0),
+                "frames": 60,
+                "font_size": 10,
+                "font_name": "arial.ttf"
             },
             generator=self._generate_clock
         ))
@@ -129,7 +198,9 @@ class TemplateLibrary:
             description="Weather information display",
             parameters={
                 "temperature": 72,
-                "condition": "sunny"
+                "condition": "sunny",
+                "frames": 60,
+                "font_size": 10
             },
             generator=self._generate_weather
         ))
@@ -356,37 +427,100 @@ class TemplateLibrary:
         
         return template.generator(**params)
     
+    def _get_font(self, font_name: Optional[str] = None, size: int = 10) -> ImageFont.FreeTypeFont:
+        """Load a font or fallback to default."""
+        try:
+            if font_name:
+                return ImageFont.truetype(font_name, size)
+            # Try common system fonts if no name provided
+            common_fonts = ["arial.ttf", "segoeui.ttf", "DejaVuSans.ttf", "Verdana.ttf"]
+            for f in common_fonts:
+                try:
+                    return ImageFont.truetype(f, size)
+                except OSError:
+                    continue
+            return ImageFont.load_default()
+        except Exception:
+            return ImageFont.load_default()
+
     def _generate_scrolling_text(self, text: str, speed: int, color: RGB, direction: str, width: int, height: int, **kwargs) -> Pattern:
-        """Generate scrolling text pattern."""
+        """Generate scrolling text pattern using system fonts."""
         frames: List[Frame] = []
-        char_width = 5
-        text_width = len(text) * char_width
-        total_frames = text_width + width
         
-        for frame_idx in range(total_frames):
+        # Load Font
+        font_size = kwargs.get('font_size', max(8, height - 2))
+        font_name = kwargs.get('font_name', None)
+        font = self._get_font(font_name, font_size)
+        
+        # Calculate dimensions using PIL
+        dummy_img = Image.new('RGB', (1, 1))
+        draw = ImageDraw.Draw(dummy_img)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Ensure we have enough space to scroll
+        total_scroll_width = text_width + width
+        
+        # Create image with full text
+        # Make height large enough to center text
+        # width = exact text width
+        full_text_img = Image.new('RGB', (text_width + 10, height), color=(0, 0, 0))
+        draw = ImageDraw.Draw(full_text_img)
+        
+        # Vertical centering
+        text_y = (height - text_height) // 2 
+        # Fine tune y-offset for some fonts that render high
+        text_y = max(0, text_y - 1) 
+        
+        draw.text((0, text_y), text, font=font, fill=color)
+        
+        # Generate frames
+        # We scroll the "viewport" across the text image
+        
+        # Create a blank buffer for off-screen areas
+        buffer_pixels = [(0, 0, 0)] * (width * height)
+        
+        step = max(1, speed)
+        
+        for scroll_pos in range(0, total_scroll_width, step):
             pixels = [(0, 0, 0)] * (width * height)
             
-            # Calculate text position
-            if direction == "left":
-                offset = width - frame_idx
-            else:  # right
-                offset = frame_idx - text_width
+            # Current viewport X relative to text start:
+            # When scroll_pos = 0, text is just off-screen to the right (if dir=left)
+            # Standard marquee: text starts at width, moves to -text_width
             
-            # Simple text rendering (simplified)
-            for char_idx, char in enumerate(text):
-                char_x = offset + char_idx * char_width
-                if 0 <= char_x < width:
-                    # Draw simple character pattern
-                    for py in range(min(7, height)):
-                        for px in range(min(char_width, width - char_x)):
-                            if py < 7 and px < char_width:
-                                pixel_idx = py * width + (char_x + px)
-                                if 0 <= pixel_idx < len(pixels):
-                                    pixels[pixel_idx] = color
+            # Logic for "left" scroll:
+            # Text starts at x=width, moves left.
+            # text_x_on_screen = width - scroll_pos
             
-            frame = Frame(pixels=pixels, duration_ms=100)
-            frames.append(frame)
-        
+            text_x_start = width - scroll_pos if direction == "left" else scroll_pos - text_width
+            
+            # We copy pixels from full_text_img to the frame buffer
+            # Intersection of [0, width] and [text_x_start, text_x_start + text_width]
+            
+            # Optimization: iterate over screen pixels and sample image
+            # Or iterate over image pixels and place on screen?
+            # Iterating screen pixels is safer for bounds
+            
+            text_img_data = full_text_img.load()
+            
+            for y in range(height):
+                for x in range(width):
+                    # Map screen x to text image x
+                    img_x = x - text_x_start
+                    
+                    if 0 <= img_x < text_width:
+                         try:
+                            # Sample directly
+                            r, g, b = text_img_data[img_x, y]
+                            if r > 0 or g > 0 or b > 0:
+                                pixels[y * width + x] = (r, g, b)
+                         except IndexError:
+                             pass
+            
+            frames.append(Frame(pixels=pixels, duration_ms=100))
+            
         metadata = PatternMetadata(width=width, height=height)
         return Pattern(name=f"Scrolling: {text}", metadata=metadata, frames=frames)
     
@@ -525,59 +659,109 @@ class TemplateLibrary:
         return Pattern(name="Matrix Rain", metadata=metadata, frames=pattern_frames)
     
     def _generate_clock(self, format: str, color: RGB, width: int, height: int, **kwargs) -> Pattern:
-        """Generate clock pattern (simplified - shows static time)."""
-        from datetime import datetime
-        now = datetime.now()
+        """Generate clock pattern with animation using system fonts."""
+        from datetime import datetime, timedelta
+        pattern_frames: List[Frame] = []
         
-        if format == "12h":
-            time_str = now.strftime("%I:%M")
-        else:
-            time_str = now.strftime("%H:%M")
+        frames_count = kwargs.get('frames', 60)
+        font_size = kwargs.get('font_size', max(8, height - 2))
+        font_name = kwargs.get('font_name', None)
+        font = self._get_font(font_name, font_size)
         
-        pixels = [(0, 0, 0)] * (width * height)
+        start_time = datetime.now()
         
-        # Simple text rendering (simplified)
-        char_width = 5
-        text_width = len(time_str) * char_width
-        start_x = max(0, (width - text_width) // 2)
-        start_y = max(0, (height - 7) // 2)
-        
-        for char_idx, char in enumerate(time_str):
-            char_x = start_x + char_idx * char_width
-            if char_x + char_width <= width:
-                # Draw simple digit pattern
-                for py in range(min(7, height - start_y)):
-                    for px in range(min(char_width, width - char_x)):
-                        pixel_idx = (start_y + py) * width + (char_x + px)
-                        if 0 <= pixel_idx < len(pixels):
-                            pixels[pixel_idx] = color
-        
-        frame = Frame(pixels=pixels, duration_ms=1000)
+        for frame_idx in range(frames_count):
+            current_time = start_time + timedelta(seconds=frame_idx)
+            
+            if format == "12h":
+                time_str = current_time.strftime("%I:%M:%S")
+            else:
+                time_str = current_time.strftime("%H:%M:%S")
+            
+            # Create image for frame
+            img = Image.new('RGB', (width, height), color=(0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Center text
+            bbox = draw.textbbox((0, 0), time_str, font=font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            x = (width - text_w) // 2
+            y = (height - text_h) // 2
+            y = max(0, y - 1) # Fine tune
+            
+            draw.text((x, y), time_str, font=font, fill=color)
+            
+            # Convert to pixels
+            pixels = [(0, 0, 0)] * (width * height)
+            img_data = img.load()
+            for py in range(height):
+                for px in range(width):
+                    r, g, b = img_data[px, py]
+                    pixels[py * width + px] = (r, g, b)
+            
+            frame = Frame(pixels=pixels, duration_ms=500)
+            pattern_frames.append(frame)
+            
         metadata = PatternMetadata(width=width, height=height)
-        return Pattern(name=f"Clock: {time_str}", metadata=metadata, frames=[frame])
+        return Pattern(name=f"Animated Clock", metadata=metadata, frames=pattern_frames)
     
     def _generate_weather(self, temperature: int, condition: str, width: int, height: int, **kwargs) -> Pattern:
-        """Generate weather display pattern."""
-        pixels = [(0, 0, 0)] * (width * height)
+        """Generate weather display pattern with animation using system fonts."""
+        pattern_frames: List[Frame] = []
+        frames_count = kwargs.get('frames', 60)
         
-        # Simple display (simplified)
-        temp_str = f"{temperature}°F"
-        condition_icon = "☀" if condition == "sunny" else "☁"
+        font_size = kwargs.get('font_size', max(8, height - 2))
+        font_name = kwargs.get('font_name', None)
+        font = self._get_font(font_name, font_size)
         
-        # Render temperature (simplified)
-        start_y = max(0, (height - 7) // 2)
-        for i, char in enumerate(temp_str[:5]):  # Limit to 5 chars
-            x = i * 5
-            if x + 5 <= width:
-                for py in range(min(7, height - start_y)):
-                    for px in range(min(5, width - x)):
-                        pixel_idx = (start_y + py) * width + (x + px)
-                        if 0 <= pixel_idx < len(pixels):
-                            pixels[pixel_idx] = (0, 255, 0)
-        
-        frame = Frame(pixels=pixels, duration_ms=1000)
+        for frame_idx in range(frames_count):
+            img = Image.new('RGB', (width, height), color=(0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Animate condition icon position
+            icon_x = width - 8 + int(math.sin(frame_idx * 0.2) * 2)
+            icon_y = (height - 6) // 2
+            
+            # Draw temperature text on left
+            temp_str = f"{temperature}"
+            draw.text((2, (height - font_size) // 2 - 1), temp_str, font=font, fill=(255, 255, 255))
+            
+            # Draw icon manually (no font for icons yet)
+            pixels = [(0, 0, 0)] * (width * height)
+            
+            # First, copy text from image
+            img_data = img.load()
+            for py in range(height):
+                for px in range(width):
+                    r, g, b = img_data[px, py]
+                    if r > 0 or g > 0 or b > 0:
+                        pixels[py * width + px] = (r, g, b)
+
+            # Then overlay icon
+            if condition == "sunny":
+                # Draw sun
+                sun_color = (255, 200, 0)
+                for dy in range(4):
+                    for dx in range(4):
+                        if (dx == 0 or dx == 3) and (dy == 0 or dy == 3): continue
+                        px, py = icon_x + dx, icon_y + dy
+                        if 0 <= px < width and 0 <= py < height:
+                            pixels[py * width + px] = sun_color
+            else:
+                # Draw cloud
+                cloud_color = (150, 150, 200)
+                for dy in range(3):
+                    for dx in range(5):
+                        px, py = icon_x + dx, icon_y + dy + 1
+                        if 0 <= px < width and 0 <= py < height:
+                            pixels[py * width + px] = cloud_color
+            
+            frame = Frame(pixels=pixels, duration_ms=100)
+            pattern_frames.append(frame)
+            
         metadata = PatternMetadata(width=width, height=height)
-        return Pattern(name=f"Weather: {temperature}°F", metadata=metadata, frames=[frame])
+        return Pattern(name=f"Weather: {temperature}°", metadata=metadata, frames=pattern_frames)
     
     def _generate_color_cycle(self, speed: float, frames: int, hue_start: float, saturation: float, brightness: float, width: int, height: int, **kwargs) -> Pattern:
         """Generate color cycle pattern."""
