@@ -40,9 +40,9 @@ def create_test_config():
             "auth0": {
                 "domain": "dev-test-123.us.auth0.com",
                 "client_id": "test-client-id-abc123",
-                "audience": "https://api.test.example.com"
+                "audience": "https://j-tech-license-server.up.railway.app"
             },
-            "auth_server_url": "https://j-tech-license-server.vercel.app",
+            "auth_server_url": "https://j-tech-license-server.up.railway.app",
             "token": {
                 "lifetime_hours": 24,
                 "refresh_threshold_hours": 1
@@ -153,14 +153,14 @@ This EXE includes test environment variables and configurations:
 
 - **Auth0 Domain**: dev-test-123.us.auth0.com
 - **Auth0 Client ID**: test-client-id-abc123
-- **License Server**: https://j-tech-license-server.vercel.app
+- **License Server**: https://j-tech-license-server.up.railway.app
 
 ## How to Use
 
 1. **Run the EXE**: Double-click `UploadBridge.exe`
 
 2. **Test Login Methods**:
-   - **Email/Password**: Uses Vercel license server at https://j-tech-license-server.vercel.app
+   - **Email/Password**: Uses Railway license server at https://j-tech-license-server.up.railway.app
    - **Social Login**: Requires Auth0 account (test values configured)
    - **Magic Link**: Requires Auth0 Passwordless API
    - **Offline License**: Use key `ULBP-9Q2Z-7K3M-4X1A`
@@ -175,7 +175,7 @@ This EXE includes test environment variables and configurations:
 ### Email/Password Login
 - Email: test@example.com
 - Password: testpassword123
-- (Uses Vercel license server - no local server needed)
+- (Uses Railway license server - no local server needed)
 
 ### Offline License Keys
 - `ULBP-9Q2Z-7K3M-4X1A` - Pattern + WiFi
@@ -197,7 +197,7 @@ This EXE includes test environment variables and configurations:
 - Try running from command line: `UploadBridge.exe`
 
 ### Login Not Working
-- Check internet connection (for Email/Password - uses Vercel server)
+- Check internet connection (for Email/Password - uses Railway server)
 - Check Auth0 configuration (for OAuth)
 - Use offline license keys as fallback
 

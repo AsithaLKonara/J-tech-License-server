@@ -30,31 +30,31 @@ def get_version_from_setup() -> str:
 
 def check_dependencies():
     """Check if required build tools are installed."""
-    print("🔍 Checking build dependencies...")
+    print("Checking build dependencies...")
     
     try:
         import PyInstaller
-        print(f"  ✓ PyInstaller {PyInstaller.__version__}")
+        print(f"  - PyInstaller {PyInstaller.__version__}")
     except ImportError:
-        print("  ❌ PyInstaller not found. Installing...")
+        print("  - PyInstaller not found. Installing...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-        print("  ✓ PyInstaller installed")
+        print("  - PyInstaller installed")
     
-    # Check for PyQt6
+    # Check for PySide6
     try:
-        import PyQt6
-        print("  ✓ PyQt6 found")
+        import PySide6
+        print("  - PySide6 found")
     except ImportError:
-        print("  ❌ PyQt6 not found. Please install requirements first:")
+        print("  - PySide6 not found. Please install requirements first:")
         print("     pip install -r requirements.txt")
         return False
     
     # Check for numpy
     try:
         import numpy
-        print("  ✓ NumPy found")
+        print("  - NumPy found")
     except ImportError:
-        print("  ❌ NumPy not found. Please install requirements first:")
+        print("  - NumPy not found. Please install requirements first:")
         print("     pip install -r requirements.txt")
         return False
     
@@ -62,7 +62,7 @@ def check_dependencies():
 
 def clean_build_directories():
     """Clean previous build artifacts."""
-    print("\n🧹 Cleaning build directories...")
+    print("\nCleaning build directories...")
     
     dirs_to_clean = ['build', 'dist', '__pycache__']
     for dir_name in dirs_to_clean:
@@ -70,16 +70,10 @@ def clean_build_directories():
         if dir_path.exists():
             print(f"  Removing {dir_path}...")
             shutil.rmtree(dir_path)
-    
-    # Clean .spec files (optional - keep if you want to preserve custom specs)
-    # spec_files = list(APP_DIR.glob("*.spec"))
-    # for spec_file in spec_files:
-    #     if spec_file.name != "UploadBridge.spec":  # Keep main spec
-    #         spec_file.unlink()
 
 def build_executable():
     """Build the executable using PyInstaller."""
-    print("\n🔨 Building executable...")
+    print("\nBuilding executable...")
     
     # Get version from setup.py
     version = get_version_from_setup()
@@ -88,7 +82,7 @@ def build_executable():
     spec_file = APP_DIR / "installer" / "windows" / "UploadBridge.spec"
     
     if not spec_file.exists():
-        print(f"  ❌ Spec file not found: {spec_file}")
+        print(f"  - Spec file not found: {spec_file}")
         print("  Creating default spec file...")
         create_default_spec(spec_file, version)
     
@@ -107,53 +101,54 @@ def build_executable():
     result = subprocess.run(cmd, cwd=APP_DIR)
     
     if result.returncode == 0:
-        print("  ✓ Build successful!")
+        print("  - Build successful!")
         exe_path = APP_DIR / "dist" / "UploadBridge.exe"
         if exe_path.exists():
             size_mb = exe_path.stat().st_size / (1024 * 1024)
-            print(f"  ✓ Executable created: {exe_path} ({size_mb:.1f} MB)")
+            print(f"  - Executable created: {exe_path} ({size_mb:.1f} MB)")
             
             # Embed version in executable metadata (Windows)
             if sys.platform == 'win32':
                 try:
                     embed_version_in_exe(exe_path, version)
-                    print(f"  ✓ Version {version} embedded in executable metadata")
+                    print(f"  - Version {version} embedded in executable metadata")
                 except Exception as e:
-                    print(f"  ⚠️  Could not embed version in metadata: {e}")
+                    print(f"  ! Could not embed version in metadata: {e}")
             
             # Record build hashes
             try:
                 from scripts.tools.add_build_hash import record_build_hash
                 dist_dir = APP_DIR / "dist"
                 if record_build_hash(dist_dir):
-                    print("  ✓ Build hashes recorded")
+                    print("  - Build hashes recorded")
             except Exception as e:
-                print(f"  ⚠️  Could not record build hashes: {e}")
+                print(f"  ! Could not record build hashes: {e}")
         return True
     else:
-        print("  ❌ Build failed!")
+        print("  - Build failed!")
         return False
 
 
 def update_spec_with_version(spec_file: Path, version: str):
     """Update spec file to include version information."""
-    if not spec_file.exists():
-        return
+    pass
+    # if not spec_file.exists():
+    #     return
     
-    content = spec_file.read_text(encoding='utf-8')
+    # content = spec_file.read_text(encoding='utf-8')
     
-    # Add version to EXE section if not present
-    if 'version=' not in content and 'exe = EXE' in content:
-        # Find the exe = EXE line and add version after name
-        version_info = f'''version='{version}',
-    '''
-        # Insert after name='UploadBridge',
-        content = re.sub(
-            r"(name=['\"]UploadBridge['\"],\s*\n)",
-            rf"\1    {version_info}",
-            content
-        )
-        spec_file.write_text(content, encoding='utf-8')
+    # # Add version to EXE section if not present
+    # if 'version=' not in content and 'exe = EXE' in content:
+    #     # Find the exe = EXE line and add version after name
+    #     version_info = f'''version='{version}',
+    # '''
+    #     # Insert after name='UploadBridge',
+    #     content = re.sub(
+    #         r"(name=['\"]UploadBridge['\"],\s*\n)",
+    #         rf"\1    {version_info}",
+    #         content
+    #     )
+    #     spec_file.write_text(content, encoding='utf-8')
 
 
 def embed_version_in_exe(exe_path: Path, version: str):
@@ -219,6 +214,8 @@ a = Analysis(
         (str(APP_DIR / 'parsers'), 'parsers'),
         (str(APP_DIR / 'uploaders'), 'uploaders'),
         (str(APP_DIR / 'domain'), 'domain'),
+        (str(APP_DIR / 'firmware/templates'), 'firmware/templates'),
+        (str(APP_DIR / 'resources'), 'resources'),
     ] + jsonschema_datas + pyside_datas + numpy_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -271,11 +268,11 @@ def main():
     
     # Build executable
     if not build_executable():
-        print("\n❌ Build failed!")
+        print("\n- Build failed!")
         return 1
     
     print("\n" + "=" * 60)
-    print("✅ BUILD COMPLETE!")
+    print("BUILD COMPLETE!")
     print("=" * 60)
     print(f"\nExecutable location: {APP_DIR / 'dist' / 'UploadBridge.exe'}")
     print("\nNext steps:")
