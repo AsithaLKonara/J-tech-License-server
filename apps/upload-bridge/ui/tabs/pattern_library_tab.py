@@ -366,6 +366,25 @@ class PatternLibraryTab(QWidget):
             if tags is None:
                 tags = []
             
+            # If no file path provided, save to managed library directory
+            if not file_path:
+                import uuid
+                library_dir = Path.home() / ".upload_bridge" / "patterns"
+                library_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Create a safe filename
+                safe_name = "".join(c for c in pattern.name if c.isalnum() or c in (' ', '-', '_')).strip()
+                if not safe_name:
+                    safe_name = "pattern"
+                    
+                # Use UUID to avoid collisions
+                filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.ledproj"
+                file_path = str(library_dir / filename)
+                
+                # Save pattern to this managed path
+                pattern.save_to_file(file_path)
+                logger.info(f"Saved generated pattern to library: {file_path}")
+            
             # Add to library
             pattern_id = self.library.add_pattern(
                 pattern,
@@ -432,6 +451,14 @@ class PatternLibraryTab(QWidget):
         
         # Load pattern
         try:
+            if not entry.file_path or not os.path.exists(entry.file_path):
+                 QMessageBox.warning(
+                    self,
+                    "File Not Found",
+                    f"The pattern file could not be found:\n{entry.file_path}"
+                )
+                 return
+
             pattern = load_pattern_from_file(entry.file_path)
             
             dialog = PatternMetadataDialog(self, pattern, entry.file_path, entry)
@@ -472,6 +499,14 @@ class PatternLibraryTab(QWidget):
         entry: PatternEntry = item.data(Qt.ItemDataRole.UserRole)
         
         try:
+            if not entry.file_path or not os.path.exists(entry.file_path):
+                 QMessageBox.warning(
+                    self,
+                    "File Not Found",
+                    f"The pattern file could not be found:\n{entry.file_path}"
+                )
+                 return
+
             # Load pattern
             pattern = load_pattern_from_file(entry.file_path)
             

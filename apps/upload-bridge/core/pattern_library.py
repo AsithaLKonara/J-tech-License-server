@@ -73,7 +73,7 @@ class PatternLibrary:
             CREATE TABLE IF NOT EXISTS patterns (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                file_path TEXT UNIQUE NOT NULL,
+                file_path TEXT,
                 led_count INTEGER,
                 frame_count INTEGER,
                 width INTEGER,
@@ -170,11 +170,14 @@ class PatternLibrary:
             logger.info(f"Added pattern to library: {pattern.name} ({pattern_id})")
             
         except sqlite3.IntegrityError as e:
-            # Pattern already exists, update it
-            logger.warning(f"Pattern already exists, updating: {file_path}")
-            pattern_id = self._get_pattern_id_by_path(file_path)
-            if pattern_id:
-                self.update_pattern(pattern_id, pattern, category, tags, description, author)
+            # Pattern already exists (likely by ID or other constraint), update it if it has a path
+            if file_path:
+                logger.warning(f"Pattern already exists, updating: {file_path}")
+                pattern_id = self._get_pattern_id_by_path(file_path)
+                if pattern_id:
+                    self.update_pattern(pattern_id, pattern, category, tags, description, author)
+                else:
+                    raise
             else:
                 raise
         
@@ -185,6 +188,9 @@ class PatternLibrary:
     
     def _get_pattern_id_by_path(self, file_path: str) -> Optional[str]:
         """Get pattern ID by file path"""
+        if not file_path:
+            return None
+            
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM patterns WHERE file_path = ?", (file_path,))
@@ -193,15 +199,23 @@ class PatternLibrary:
         return result[0] if result else None
     
     def update_pattern(self, pattern_id: str, pattern: Pattern = None,
-                      category: str = None, tags: List[str] = None,
-                      description: str = None, author: str = None):
-        """Update pattern metadata"""
+                      tags: List[str] = None, **kwargs):
+        """
+        Update pattern metadata
+        
+        Args:
+            pattern_id: ID of the pattern to update
+            pattern: Optional Pattern object to update stats from
+            tags: Optional list of tags to replace current ones
+            **kwargs: Column names and values to update (e.g., thumbnail_path, category)
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         updates = []
         params = []
         
+        # Stats from pattern object
         if pattern:
             updates.append("name = ?")
             params.append(pattern.name)
@@ -216,17 +230,11 @@ class PatternLibrary:
             updates.append("duration_ms = ?")
             params.append(pattern.duration_ms)
         
-        if category:
-            updates.append("category = ?")
-            params.append(category)
-        
-        if description is not None:
-            updates.append("description = ?")
-            params.append(description)
-        
-        if author is not None:
-            updates.append("author = ?")
-            params.append(author)
+        # Arbitrary column updates
+        for key, value in kwargs.items():
+            if value is not None:
+                updates.append(f"{key} = ?")
+                params.append(value)
         
         if updates:
             params.append(pattern_id)
@@ -242,6 +250,7 @@ class PatternLibrary:
         
         conn.commit()
         conn.close()
+        logger.info(f"Updated pattern metadata for: {pattern_id}")
     
     def remove_pattern(self, pattern_id: str):
         """Remove pattern from library"""
