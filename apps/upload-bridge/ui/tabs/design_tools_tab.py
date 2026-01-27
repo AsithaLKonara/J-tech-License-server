@@ -2893,150 +2893,27 @@ class DesignToolsTab(QWidget):
         self.enhanced_text_tool.set_font_designer_callback(self._open_font_designer)
         self.enhanced_text_tool.set_primary_color(self._current_color)
         self.enhanced_text_tool.generate_requested.connect(self._on_generate_text_animation)
-        self.enhanced_text_tool.text_changed.connect(self._on_enhanced_text_changed)
         layout.addWidget(self.enhanced_text_tool)
         
-        # Keep legacy text input for backward compatibility (hidden by default)
-        text_input_row = QHBoxLayout()
-        text_input_row.addWidget(QLabel("Text:"))
-        self.text_input = QLineEdit()
-        self.text_input.setPlaceholderText("Enter text to animate...")
-        self.text_input.textChanged.connect(self._on_text_input_changed)
-        self.text_input.setVisible(False)  # Hide legacy input
-        text_input_row.addWidget(self.text_input)
-        layout.addLayout(text_input_row)
-
-        # Animation type
-        anim_type_row = QHBoxLayout()
-        anim_type_row.addWidget(QLabel("Animation Type:"))
-        self.text_animation_type_combo = QComboBox()
-        self.text_animation_type_combo.addItems(["Typed (Character by Character)", "Scrolling Left", "Scrolling Right", "Scrolling Up", "Scrolling Down"])
-        anim_type_row.addWidget(self.text_animation_type_combo)
-        anim_type_row.addStretch()
-        layout.addLayout(anim_type_row)
-
-        # Font size (for simple bitmap font)
-        font_row = QHBoxLayout()
-        font_row.addWidget(QLabel("Font Size:"))
-        self.text_font_size_spin = QSpinBox()
-        self.text_font_size_spin.setRange(4, 16)
-        self.text_font_size_spin.setValue(8)
-        font_row.addWidget(self.text_font_size_spin)
-
-        font_row.addWidget(QLabel("Font:"))
-        self.text_font_combo = QComboBox()
-        self.text_font_combo.currentIndexChanged.connect(self._on_text_font_changed)
-        font_row.addWidget(self.text_font_combo, 1)
-
-        font_designer_btn = QPushButton("Font Designer…")
-        font_designer_btn.clicked.connect(self._open_font_designer)
-        font_row.addWidget(font_designer_btn)
-        layout.addLayout(font_row)
-        self._refresh_font_combo()
-
-        # Text color
-        color_row = QHBoxLayout()
-        color_row.addWidget(QLabel("Text Color:"))
-        self.text_color_btn = QPushButton("Select Color")
-        self.text_color_btn.clicked.connect(self._choose_text_color)
-        self.text_color_btn.setStyleSheet(f"background-color: rgb{self._current_color};")
-        color_row.addWidget(self.text_color_btn)
-        color_row.addStretch()
-        layout.addLayout(color_row)
-
-        # Speed/duration
-        speed_row = QHBoxLayout()
-        speed_row.addWidget(QLabel("Frames per Character:"))
-        self.text_frames_per_char_spin = QSpinBox()
-        self.text_frames_per_char_spin.setRange(1, 10)
-        self.text_frames_per_char_spin.setValue(2)
-        speed_row.addWidget(self.text_frames_per_char_spin)
-        speed_row.addStretch()
-        layout.addLayout(speed_row)
-
-        # Generate button
-        generate_row = QHBoxLayout()
-        self.generate_text_btn = QPushButton("Generate Text Frames")
-        self.generate_text_btn.clicked.connect(self._on_generate_text_animation)
-        self.generate_text_btn.setEnabled(False)
-        generate_row.addWidget(self.generate_text_btn)
-        generate_row.addStretch()
-        layout.addLayout(generate_row)
-
         group.setLayout(layout)
         return group
 
-    def _refresh_font_combo(self) -> None:
-        if not hasattr(self, "text_font_combo"):
-            return
-        current_name = self.text_font_combo.currentData()
-        self.text_font_combo.blockSignals(True)
-        self.text_font_combo.clear()
-        self.text_font_combo.addItem("Built-in 5×7", None)
-        for name in self.font_repo.list_fonts():
-            self.text_font_combo.addItem(name, name)
-        self.text_font_combo.blockSignals(False)
-        if current_name:
-            idx = self.text_font_combo.findData(current_name)
-            if idx >= 0:
-                self.text_font_combo.setCurrentIndex(idx)
-        self._on_text_font_changed(self.text_font_combo.currentIndex())
-
-    def _on_text_font_changed(self, index: int) -> None:
-        if not hasattr(self, "text_font_combo"):
-            return
-        font_name = self.text_font_combo.itemData(index)
-        if not font_name:
-            self._active_bitmap_font = None
-            self.text_font_size_spin.setEnabled(True)
-            return
-        try:
-            self._active_bitmap_font = self.font_repo.load_font(font_name)
-        except FileNotFoundError:
-            self._active_bitmap_font = None
-        self.text_font_size_spin.setEnabled(self._active_bitmap_font is None)
 
     def _open_font_designer(self) -> None:
+        from ui.dialogs.font_designer_dialog import FontDesignerDialog
         dialog = FontDesignerDialog(self.font_repo, self)
         dialog.exec()
-        self._refresh_font_combo()
+        if hasattr(self, "enhanced_text_tool"):
+            self.enhanced_text_tool.refresh_font_list()
 
-    def _current_font_metrics(self) -> Tuple[int, int]:
-        if self._active_bitmap_font:
-            return self._active_bitmap_font.width, self._active_bitmap_font.height
-        font_size = self.text_font_size_spin.value() if hasattr(self, "text_font_size_spin") else 8
-        char_width = max(3, font_size // 2 + 1)
-        char_height = max(5, font_size)
-        return char_width, char_height
 
-    def _on_text_input_changed(self, text: str):
-        """Enable/disable generate button based on text input."""
-        if hasattr(self, "generate_text_btn"):
-            self.generate_text_btn.setEnabled(bool(text.strip()))
-
-    def _choose_text_color(self):
-        """Open color picker for text color."""
-        color = QColorDialog.getColor(QColor(*self._current_color), self, "Select Text Color")
-        if color.isValid():
-            self._current_color = (color.red(), color.green(), color.blue())
-            self.text_color_btn.setStyleSheet(f"background-color: rgb{self._current_color};")
-            self._sync_channel_controls(self._current_color)
-            if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
-                self.enhanced_text_tool.set_primary_color(self._current_color)
-
-    def _on_enhanced_text_changed(self, text: str):
-        """Handle enhanced text tool text change - update legacy input for compatibility."""
-        if hasattr(self, "text_input"):
-            self.text_input.setText(text)
 
     def _on_generate_text_animation(self):
         """Generate animated text frames based on current settings."""
-        # Use enhanced text tool if available, otherwise fall back to legacy
-        if hasattr(self, "enhanced_text_tool") and self.enhanced_text_tool:
-            text = self.enhanced_text_tool.get_text().strip()
-        else:
-            text = self.text_input.text().strip() if hasattr(self, "text_input") else ""
-        
+        if not hasattr(self, "enhanced_text_tool") or not self.enhanced_text_tool:
+            return
+            
+        text = self.enhanced_text_tool.get_text().strip()
         if not text:
             QMessageBox.warning(self, "No Text", "Please enter text to animate.")
             return
@@ -3044,37 +2921,30 @@ class DesignToolsTab(QWidget):
         if not self._pattern:
             self._create_default_pattern()
 
-        anim_type = self.text_animation_type_combo.currentText() if hasattr(self, "text_animation_type_combo") else "Typed (Character by Character)"
-        frames_per_char = self.text_frames_per_char_spin.value() if hasattr(self, "text_frames_per_char_spin") else 2
-        font_size = self.text_font_size_spin.value() if hasattr(self, "text_font_size_spin") else 8
+        anim_type = self.enhanced_text_tool.get_animation_type()
+        frames_per_char = self.enhanced_text_tool.frames_per_char_spin.value()
         text_color = self._current_color
 
         frames = self._generate_text_frames(text, anim_type, frames_per_char, text_color)
         
         if frames:
-            # Auto-append frames (no dialog - automatic)
+            # Auto-append frames
             if not self._pattern.frames:
                 self._pattern.frames = frames
             else:
-                # Auto-append to existing frames
                 self._pattern.frames.extend(frames)
 
-            # NOTE: Do NOT sync_frame_from_layers() here - composite is derived via render_frame()
-            # Only sync when explicitly needed (export, preview generation)
-
-            # Update frame manager with new pattern state
+            # Update state
             self.frame_manager.set_pattern(self._pattern)
-            # Update layer manager so it knows about new frames
             if hasattr(self, 'layer_manager') and self.layer_manager:
                 self.layer_manager.set_pattern(self._pattern)
             self.history_manager.set_frame_count(len(self._pattern.frames))
-            self._current_frame_index = len(self._pattern.frames) - len(frames)  # Set to first new frame
+            self._current_frame_index = len(self._pattern.frames) - len(frames)
             self.frame_manager.select(self._current_frame_index)
             self._load_current_frame_into_canvas()
             self._refresh_timeline()
             self._update_status_labels()
             self.pattern_modified.emit()
-            # Removed success dialog - automatic operation
 
     def _build_text_render_options(
         self,
@@ -3093,7 +2963,7 @@ class DesignToolsTab(QWidget):
             spacing=0,
             line_spacing=1,
             multiline=True,
-            font_size=self._current_font_metrics()[1],
+            font_size=8,
         )
 
     def _build_text_scroll_options(self, direction: str) -> TextScrollOptions:
@@ -3143,92 +3013,6 @@ class DesignToolsTab(QWidget):
         for pixels in pixel_frames:
             frames.append(Frame(duration_ms=self._frame_duration_ms, pixels=list(pixels)))
         return frames
-
-    def _render_text_to_frame(self, text: str, width: int, height: int, font_size: int, color: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
-        """Render text to a frame using simple bitmap font."""
-        pixels = [(0, 0, 0)] * (width * height)
-        
-        if not text:
-            return pixels
-        
-        # Simple 8x8 bitmap font (basic ASCII)
-        char_width, char_height = self._current_font_metrics()
-        
-        # Center text horizontally
-        text_width = len(text) * char_width
-        start_x = max(0, (width - text_width) // 2)
-        start_y = max(0, (height - char_height) // 2)
-        
-        for char_idx, char in enumerate(text):
-            char_x = start_x + char_idx * char_width
-            if char_x + char_width > width:
-                break
-            
-            # Render simple character (5x7 pattern for each character)
-            char_pattern = self._get_char_pattern(char)
-            for py in range(min(char_height, height - start_y)):
-                for px in range(min(char_width, width - char_x)):
-                    if py < len(char_pattern) and px < len(char_pattern[py]):
-                        if char_pattern[py][px]:
-                            pixel_idx = (start_y + py) * width + (char_x + px)
-                            if 0 <= pixel_idx < len(pixels):
-                                pixels[pixel_idx] = color
-        
-        return pixels
-
-    def _render_scrolling_text(self, text: str, width: int, height: int, font_size: int, color: Tuple[int, int, int], offset: int, scroll_left: bool) -> List[Tuple[int, int, int]]:
-        """Render scrolling text horizontally."""
-        pixels = [(0, 0, 0)] * (width * height)
-        char_width, char_height = self._current_font_metrics()
-        start_y = max(0, (height - char_height) // 2)
-        
-        for char_idx, char in enumerate(text):
-            char_x = offset + char_idx * char_width
-            if scroll_left:
-                char_x = width - char_x - char_width
-            
-            if char_x + char_width < 0 or char_x >= width:
-                continue
-            
-            char_pattern = self._get_char_pattern(char)
-            for py in range(min(char_height, height - start_y)):
-                for px in range(char_width):
-                    screen_x = char_x + px
-                    if 0 <= screen_x < width:
-                        if py < len(char_pattern) and px < len(char_pattern[py]):
-                            if char_pattern[py][px]:
-                                pixel_idx = (start_y + py) * width + screen_x
-                                if 0 <= pixel_idx < len(pixels):
-                                    pixels[pixel_idx] = color
-        
-        return pixels
-
-    def _render_scrolling_text_vertical(self, text: str, width: int, height: int, font_size: int, color: Tuple[int, int, int], offset: int, scroll_down: bool) -> List[Tuple[int, int, int]]:
-        """Render scrolling text vertically."""
-        pixels = [(0, 0, 0)] * (width * height)
-        char_width, char_height = self._current_font_metrics()
-        start_x = max(0, (width - char_width) // 2)
-        
-        for char_idx, char in enumerate(text):
-            char_y = offset + char_idx * char_height
-            if scroll_down:
-                char_y = height - char_y - char_height
-            
-            if char_y + char_height < 0 or char_y >= height:
-                continue
-            
-            char_pattern = self._get_char_pattern(char)
-            for py in range(char_height):
-                screen_y = char_y + py
-                if 0 <= screen_y < height:
-                    for px in range(min(char_width, width - start_x)):
-                        if py < len(char_pattern) and px < len(char_pattern[py]):
-                            if char_pattern[py][px]:
-                                pixel_idx = screen_y * width + (start_x + px)
-                                if 0 <= pixel_idx < len(pixels):
-                                    pixels[pixel_idx] = color
-        
-        return pixels
 
     def _get_char_pattern(self, char: str) -> List[List[bool]]:
         """Get bitmap pattern for a character (5x7 grid). Extended ASCII support."""
