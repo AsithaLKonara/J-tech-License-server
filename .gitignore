@@ -1,290 +1,118 @@
-.vercel
+# Created by Antigravity
 
-# ============================================================
-# ENVIRONMENT & CONFIGURATION
-# ============================================================
-.env
-.env.local
-.env.*.local
-.env.backup
-apps/web-dashboard/.env
-apps/web-dashboard/.env.backup
-apps/upload-bridge/.env
-
-# ============================================================
-# IDE & EDITOR
-# ============================================================
-.vscode/
-.vscode-insiders/
-.idea/
-*.sublime-project
-*.sublime-workspace
-.netbeans/
-*.swp
-*.swo
-*~
-.project
-.pydevproject
-.settings/
-.DS_Store
-.AppleDouble
-.LSOverride
-Thumbs.db
-*.bak
-*.backup
-
-# ============================================================
-# BUILD & DISTRIBUTION OUTPUTS (LARGE FILES)
-# ============================================================
-dist/
-build/
-*.exe
-*.msi
-*.dmg
-*.pkg
-*.app
-*.deb
-*.rpm
-*.whl
-*.tar.gz
-*.zip
-apps/upload-bridge/dist/
-apps/upload-bridge/build/
-apps/upload-bridge/*.exe
-apps/upload-bridge/*.spec
-installer/dist/
-installer/build/
-
-# PyInstaller / PyOxidizer
-*.manifest
-*.spec
-build/
-dist/
-*.egg-info/
-*.egg
-
-# ============================================================
-# PYTHON DEPENDENCIES & CACHE (LARGE)
-# ============================================================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.pyc
-*.pyo
 *$py.class
+
+# C extensions
 *.so
-.Python
-.venv/
-.env/
-venv/
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script, but may be useful to ignore
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
 env/
+venv/
 ENV/
 env.bak/
 venv.bak/
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-*.cover
-.hypothesis/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
 .mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-*.egg-info/
-pip-log.txt
-pip-delete-this-directory.txt
-sitepackages/
-site-packages/
 
-# ============================================================
-# NODE.JS DEPENDENCIES & ARTIFACTS (LARGE)
-# ============================================================
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-.npm
-.eslintcache
-.node_repl_history
-*.tgz
-*.tsbuildinfo
-.yarn/install-state.gz
-.pnp.*
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# ============================================================
-# COMPOSER & PHP DEPENDENCIES (LARGE)
-# ============================================================
-vendor/
-apps/web-dashboard/vendor/
-composer.lock
-php/vendor/
-
-# ============================================================
-# LOGS & DEBUG FILES
-# ============================================================
-*.log
-logs/
-*.logs
-apps/web-dashboard/storage/logs/*.log
-apps/web-dashboard/storage/logs/
-apps/upload-bridge/logs/
-debug.log
-.netrc
-
-# ============================================================
-# DATABASE & DATA FILES
-# ============================================================
-*.sqlite
-*.sqlite3
-*.db
-*.mdb
-*.accdb
-apps/web-dashboard/database.sqlite
-apps/web-dashboard/database.sqlite3
-database/
-
-# ============================================================
-# TESTING & COVERAGE
-# ============================================================
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.hypothesis/
-.nox/
-.benchmarks/
-*.xml
-test-results/
-
-# ============================================================
-# TEMPORARY & CACHE FILES
-# ============================================================
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
-.cache/
-*.cache
-.DS_Store
-Thumbs.db
-.AppleDouble
-.LSOverride
-._*
-
-# ============================================================
-# DOCKER & VIRTUALIZATION
-# ============================================================
-.docker/
-docker/volumes/
-docker-compose.override.yml
-.dockerignore
-
-# ============================================================
-# ARTIFACTS FROM BUILD TOOLS
-# ============================================================
-.gradle/
-build/
-*.o
-*.a
-*.obj
-*.elf
-.sass-cache/
-.jekyll-cache/
-.bundle/
-
-# ============================================================
-# VERSION CONTROL & CI/CD
-# ============================================================
-.git/
-.gitignore
-.github/workflows/.env
-.gitlab-ci.yml.local
-.circleci/
-.travis.yml.local
-
-# ============================================================
-# IDE SPECIFIC DIRECTORIES
-# ============================================================
-.vscode/settings.json
-.vscode/launch.json
-.vscode/extensions.json
+# IDE files
+.vscode/
 .idea/
-*.iml
-*.iws
-*.ipr
-.netbeans/
-*.ctags
-tags
-.vim/
-.emacs.d/
-Session.vim
+.cursor/
 
-# ============================================================
-# OS SPECIFIC
-# ============================================================
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-desktop.ini
 Thumbs.db
-Thumbs.db:encryptable
-$RECYCLE.BIN/
-*.lnk
-.directory
 
-# ============================================================
-# SECURITY & SENSITIVE DATA
-# ============================================================
-*.pem
-*.key
-*.pub
-*.p12
-*.p8
-*.pfx
-secrets/
-.secrets/
-.env.*.secret
-config/secrets/
-config/credentials/
-private_keys/
-
-# ============================================================
-# PACKAGE MANAGER LOCK FILES (OPTIONAL - UNCOMMENT IF NEEDED)
-# ============================================================
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
-# composer.lock
-
-# ============================================================
-# WEB DASHBOARD - SEPARATE REPOSITORY
-# ============================================================
-# The web-dashboard is managed in a separate repository
-# (J-tech-License-server.git) and should not be tracked
-# in this main repository - UNCOMMENT BELOW IF NEEDED
-# apps/web-dashboard/
-tests/
-dist/
-build/
-web-dashboard/docs/
-web-dashboard/tests/
-apps/upload-bridge/dist/
-apps/upload-bridge/build/
-apps/upload-bridge/*.exe
-apps/upload-bridge/*.spec
-apps/upload-bridge/tests/
+# App specific
 apps/upload-bridge/logs/
-apps/upload-bridge/.venv/
-apps/upload-bridge/venv/
-apps/upload-bridge/env/
-apps/upload-bridge/ENV/
+apps/upload-bridge/backups/
+apps/upload-bridge/*.txt
+!apps/upload-bridge/requirements*.txt
+apps/upload-bridge/*.tmp
+apps/upload-bridge/*.bak
