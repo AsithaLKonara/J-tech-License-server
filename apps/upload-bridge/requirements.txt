@@ -52,6 +52,8 @@ certifi>=2023.0.0
 
 # System monitoring (for health checks)
 psutil>=5.9.0
+winshell>=0.6
+pywin32>=306
 
 # Development tools (optional)
 pytest>=7.0.0
