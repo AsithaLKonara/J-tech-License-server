@@ -127,6 +127,7 @@ from domain.effects import EffectDefinition, EffectLibrary, apply_effect_to_fram
 from domain.text.bitmap_font import BitmapFontRepository, BitmapFont  # noqa: E402
 from domain.text.glyph_provider import GlyphProvider  # noqa: E402
 from domain.text.text_renderer import TextRenderer, TextRenderOptions, TextScrollOptions  # noqa: E402
+from core.runtime import get_resource_path
 from ui.icons import get_icon
 from ui.widgets.effects_library_widget import EffectsLibraryWidget
 from ui.dialogs.detached_preview_dialog import DetachedPreviewDialog
@@ -463,11 +464,11 @@ class DesignToolsTab(QWidget):
         self.lms_preview_status_label: Optional[QLabel] = None
         self.lms_export_log: Optional[QPlainTextEdit] = None
         self.lms_builder_status_label: Optional[QLabel] = None
-        self.preset_repo = PresetRepository(self._default_preset_path())
-        self.effects_library = EffectLibrary(Path("Res/effects"))
+        self.preset_repo = PresetRepository(get_resource_path("Res/presets"))
+        self.effects_library = EffectLibrary(get_resource_path("Res/effects"))
         self.effects_widget: Optional[EffectsLibraryWidget] = None
         self._effects_info_default: str = ""
-        self.font_repo = BitmapFontRepository(Path("Res/fonts"))
+        self.font_repo = BitmapFontRepository(get_resource_path("Res/fonts"))
         self.text_renderer = TextRenderer()
         self._glyph_provider = GlyphProvider()
         self._active_bitmap_font: Optional[BitmapFont] = None
