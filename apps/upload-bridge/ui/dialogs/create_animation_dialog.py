@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QFontComboBox
 
 from core.pattern import Pattern
 from core.pattern_templates import TemplateLibrary, TemplateCategory
@@ -195,6 +196,19 @@ class CreateAnimationDialog(QDialog):
                 widget = QLineEdit(f"{param_value[0]},{param_value[1]},{param_value[2]}")
                 self._parameter_widgets[param_name] = widget
                 self.template_params_layout.addRow(f"{param_name.title()}:", widget)
+            
+            # Special handling for Font selection
+            elif param_name == "font_name":
+                from PySide6.QtWidgets import QFontComboBox
+                widget = QFontComboBox()
+                # If param_value (default font) is provided, try to select it
+                if param_value and isinstance(param_value, str):
+                    # Strip extension if present (e.g. arial.ttf -> arial)
+                    font_family = param_value.split('.')[0]
+                    font = QFont(font_family)
+                    widget.setCurrentFont(font)
+                self._parameter_widgets[param_name] = widget
+                self.template_params_layout.addRow(f"{param_name.title()}:", widget)
     
     def _create_animations_tab(self) -> QWidget:
         """Create common animations tab."""
@@ -283,7 +297,10 @@ class CreateAnimationDialog(QDialog):
                         if isinstance(widget, QSpinBox):
                             params[param_name] = widget.value()
                         elif isinstance(widget, QComboBox):
-                            params[param_name] = widget.currentText()
+                            if isinstance(widget, QFontComboBox):
+                                params[param_name] = widget.currentFont().family()
+                            else:
+                                params[param_name] = widget.currentText()
                         else:
                             # Handle QLineEdit and QDoubleSpinBox
                             from PySide6.QtWidgets import QLineEdit, QDoubleSpinBox
@@ -350,20 +367,20 @@ class CreateAnimationDialog(QDialog):
         frames = []
         
         if anim_type == "scrolling_text":
-            # Use template library for scrolling text
-            template = next((t for t in self.template_library.templates if t.name == "Scrolling Text"), None)
-            if template:
-                params = {"width": width, "height": height, "text": "HELLO", "frames": frames_count, "speed": speed}
-                return self.template_library.generate_pattern(template, params)
+            try:
+                params = {"text": "HELLO", "speed": speed}
+                return self.template_library.generate_pattern("Scrolling Text", width, height, **params)
+            except Exception as e:
+                pass # Fallback to black
         
         # For other animations, use template library if available
         template_map = {
             "bouncing_ball": "Bouncing Ball",
-            "fade": "Fade In/Out",
-            "rotate": "Rotate",
+            "fade": "Fade",
+            "rotate": "Spiral",
             "pulse": "Pulse",
-            "rain": "Rain",
-            "fire": "Fire",
+            "rain": "Rain Effect",
+            "fire": "Fire Effect",
         }
         
         template_name = template_map.get(anim_type)
