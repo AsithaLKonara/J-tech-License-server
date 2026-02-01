@@ -52,7 +52,7 @@ jobs:
           scripts\tools\validate_installer.ps1 -Installer .\dist\UploadBridge_Setup_3.0.0.exe
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: UploadBridge_Setup
           path: apps/upload-bridge/dist/UploadBridge_Setup_3.0.0.exe
