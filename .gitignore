@@ -79,7 +79,6 @@ celerybeat-schedule
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -116,3 +115,5 @@ apps/upload-bridge/*.txt
 !apps/upload-bridge/requirements*.txt
 apps/upload-bridge/*.tmp
 apps/upload-bridge/*.bak
+config.bat
+node_modules
